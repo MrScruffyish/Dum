@@ -1,0 +1,1492 @@
+# Dum monster definitions.
+#
+# name/plural: plural defaults to name + "s"
+# sprite:  rat bat humanoid caster skeleton spider beast big ghost blob
+# color/color2: body / eye (accent) color, hex RRGGBB
+# hp, dmg: dice.  ac: armor class (players roll d20 + bonus >= ac to hit).
+# speed: tiles per second.  sight: how far it notices players (tiles).
+# sleep: % chance to start asleep.  group: e.g. 2-4 spawns a pack.
+# spell + spellrate: ranged attack and how often (per second) it is used.
+# boss = yes: placed by quests only, never randomly.
+# Abilities: steals = yes (takes gold, then teleports away),
+#   regen = N (hit points per second), erratic = N (% of time flying about randomly),
+#   drainlight = yes (hits burn your light's fuel), explode = <spell> (when it dies),
+#   resist = fire, cold... (half damage), vulnerable = ... (double damage),
+#   poison = N (its hits poison you for N seconds), drain = str|dex|con|int|wis (its hits
+#   may drain that stat until restored), blink = yes (teleports around you while fighting),
+#   invisible = yes (a faint shimmer: you can only aim at it up close, or while detecting),
+#   summon = <monster id> or kin, summonrate = chance per second (calls 1-2 for help, at
+#   most 3 times; the summoned monster must be defined earlier in the file).
+#   breeds = yes: multiplies slowly, one copy every 'breedtime' seconds (default 30) while
+#   awake, never more than 6 close together or 20 of a kind on a level.
+# More sprites: snake worm eye imp elemental golem dragon
+
+[monster giant_rat]
+name = giant rat
+sprite = rat
+color = 7a5a40
+color2 = ff3030
+hp = 1d6
+ac = 10
+dmg = 1d3
+speed = 3.0
+attackcd = 1.0
+sight = 7
+size = 0.55
+sleep = 40
+xp = 1
+depth = 1
+rarity = 5
+group = 2-4
+doors = no
+drop = 5
+
+[monster cave_bat]
+name = cave bat
+sprite = bat
+color = 403040
+color2 = ffe040
+hp = 1d4
+ac = 13
+dmg = 1d2
+speed = 4.0
+attackcd = 0.8
+sight = 9
+size = 0.5
+sleep = 30
+xp = 1
+depth = 1
+rarity = 4
+group = 2-5
+doors = no
+drop = 0
+
+[monster kobold]
+name = kobold
+sprite = humanoid
+color = 788038
+color2 = ffff40
+hp = 2d6
+ac = 12
+dmg = 1d6
+speed = 2.2
+sight = 8
+size = 0.8
+xp = 3
+depth = 1
+rarity = 5
+group = 1-3
+drop = 25
+
+[monster zombie]
+name = rotting zombie
+sprite = humanoid
+color = 5a7050
+color2 = c0ff60
+hp = 4d8
+ac = 8
+dmg = 1d8
+speed = 1.1
+attackcd = 1.6
+sight = 6
+sleep = 70
+xp = 7
+depth = 2
+rarity = 3
+group = 1-3
+undead = yes
+drop = 15
+
+[monster goblin]
+name = goblin
+sprite = humanoid
+color = 4c9a3c
+color2 = ff2020
+hp = 2d8
+ac = 13
+dmg = 1d6
+speed = 2.5
+sight = 9
+size = 0.85
+xp = 5
+depth = 2
+rarity = 5
+group = 2-4
+drop = 30
+
+[monster goblin_shaman]
+name = goblin shaman
+sprite = caster
+color = 3c8a50
+color2 = ff8020
+hp = 2d6
+ac = 11
+dmg = 1d4
+speed = 2.0
+sight = 10
+size = 0.85
+xp = 9
+depth = 3
+rarity = 2
+spell = m_firebolt
+spellrate = 0.35
+drop = 40
+
+[monster wolf]
+name = grey wolf
+plural = grey wolves
+sprite = beast
+color = 707070
+color2 = ffd040
+hp = 3d6
+ac = 13
+dmg = 1d6
+speed = 4.0
+attackcd = 0.9
+sight = 10
+size = 0.75
+sleep = 40
+xp = 8
+depth = 3
+rarity = 3
+group = 2-4
+doors = no
+drop = 0
+
+[monster skeleton]
+name = skeleton warrior
+sprite = skeleton
+color = e0dcc8
+color2 = 40a0ff
+hp = 3d8
+ac = 13
+dmg = 1d8
+speed = 2.0
+sight = 8
+sleep = 60
+xp = 10
+depth = 3
+rarity = 3
+group = 1-3
+undead = yes
+drop = 30
+
+[monster giant_spider]
+name = giant spider
+sprite = spider
+color = 302828
+color2 = ff2020
+hp = 3d8
+ac = 14
+dmg = 1d8
+speed = 3.2
+sight = 8
+size = 0.8
+xp = 14
+depth = 4
+rarity = 3
+group = 1-2
+spell = m_web
+spellrate = 0.15
+doors = no
+drop = 10
+
+[monster orc]
+name = cave orc
+sprite = big
+color = 6a7a40
+color2 = ff4010
+hp = 4d8
+ac = 14
+dmg = 1d10
+speed = 2.3
+sight = 9
+xp = 15
+depth = 4
+rarity = 4
+group = 2-4
+drop = 35
+
+[monster ghoul]
+name = ghoul
+sprite = humanoid
+color = 8a9a80
+color2 = ff60ff
+hp = 5d8
+ac = 14
+dmg = 2d4
+speed = 2.6
+sight = 8
+sleep = 50
+xp = 22
+depth = 5
+rarity = 3
+group = 1-3
+undead = yes
+drop = 25
+
+[monster dark_mage]
+name = dark mage
+sprite = caster
+color = 402050
+color2 = c040ff
+hp = 4d6
+ac = 12
+dmg = 1d6
+speed = 2.1
+sight = 11
+xp = 25
+depth = 5
+rarity = 2
+spell = m_darkbolt
+spellrate = 0.4
+drop = 60
+
+[monster cave_troll]
+name = cave troll
+sprite = big
+color = 5a6a6a
+color2 = ffa020
+hp = 8d10
+ac = 15
+dmg = 2d8
+speed = 2.0
+attackcd = 1.5
+sight = 8
+size = 1.25
+sleep = 60
+xp = 50
+depth = 6
+rarity = 3
+drop = 50
+
+[monster wraith]
+name = wraith
+sprite = ghost
+color = 9090b0
+color2 = 40ffff
+hp = 6d8
+ac = 16
+dmg = 2d6
+speed = 2.8
+sight = 10
+sleep = 40
+xp = 60
+depth = 7
+rarity = 2
+undead = yes
+spell = m_frost
+spellrate = 0.2
+doors = no
+drop = 40
+
+[monster ooze]
+name = acidic ooze
+sprite = blob
+color = 60c030
+color2 = ffff80
+hp = 6d10
+ac = 9
+dmg = 2d6
+speed = 1.0
+sight = 5
+size = 0.9
+sleep = 80
+xp = 30
+depth = 4
+rarity = 2
+doors = no
+drop = 20
+
+# --- more monsters ------------------------------------------------------------
+
+[monster jackal]
+name = jackal
+sprite = beast
+color = a08050
+color2 = ffe040
+hp = 1d8
+ac = 12
+dmg = 1d3
+speed = 3.6
+attackcd = 0.9
+sight = 9
+size = 0.6
+sleep = 30
+xp = 1
+depth = 1
+rarity = 4
+group = 3-4
+doors = no
+drop = 0
+
+[monster white_worm]
+name = pale grub
+plural = pale grubs
+sprite = worm
+color = e8e8d8
+color2 = 202020
+hp = 1d6
+ac = 7
+dmg = 1d2
+speed = 0.8
+attackcd = 1.4
+sight = 4
+size = 0.5
+sleep = 20
+xp = 1
+depth = 1
+rarity = 3
+group = 2-3
+breeds = yes
+breedtime = 30
+resist = poison
+vulnerable = fire
+doors = no
+drop = 0
+
+[monster cutpurse]
+name = cutpurse
+sprite = humanoid
+color = 6a5a4a
+color2 = 202020
+hp = 2d8
+ac = 13
+dmg = 1d4
+speed = 3.0
+sight = 10
+size = 0.85
+sleep = 30
+xp = 6
+depth = 2
+rarity = 2
+steals = yes
+drop = 50
+
+[monster kobold_archer]
+name = kobold archer
+sprite = humanoid
+color = 8a9040
+color2 = ffff40
+hp = 2d6
+ac = 12
+dmg = 1d4
+speed = 2.0
+sight = 11
+size = 0.8
+xp = 5
+depth = 2
+rarity = 3
+group = 1-2
+spell = m_arrow
+spellrate = 0.4
+drop = 25
+
+[monster green_snake]
+name = green snake
+sprite = snake
+color = 40a040
+color2 = ffff00
+hp = 3d6
+ac = 16
+dmg = 1d4
+speed = 1.2
+sight = 6
+size = 0.6
+sleep = 60
+xp = 4
+depth = 2
+rarity = 3
+resist = poison
+doors = no
+drop = 0
+
+[monster floating_eye]
+name = staring orb
+sprite = eye
+color = d0c0b0
+color2 = 4080ff
+hp = 4d8
+ac = 7
+dmg = 1d2
+speed = 0.0
+sight = 9
+size = 0.7
+sleep = 10
+xp = 12
+depth = 3
+rarity = 2
+spell = m_gaze
+spellrate = 0.5
+doors = no
+drop = 10
+
+[monster imp]
+name = imp
+sprite = imp
+color = c03020
+color2 = ffff40
+hp = 3d6
+ac = 15
+dmg = 1d4
+speed = 4.0
+attackcd = 0.8
+sight = 10
+size = 0.55
+sleep = 30
+xp = 16
+depth = 4
+rarity = 2
+erratic = 30
+spell = m_firebolt
+spellrate = 0.25
+resist = fire
+vulnerable = cold, holy
+doors = no
+drop = 20
+
+[monster shadow]
+name = shadow
+sprite = ghost
+color = 302838
+color2 = ff2020
+hp = 4d8
+ac = 14
+dmg = 1d6
+speed = 2.6
+sight = 9
+sleep = 40
+xp = 20
+depth = 4
+rarity = 2
+undead = yes
+drainlight = yes
+doors = no
+drop = 15
+
+[monster hill_orc_archer]
+name = orc archer
+sprite = humanoid
+color = 5a6a30
+color2 = ff4010
+hp = 3d8
+ac = 13
+dmg = 1d6
+speed = 2.2
+sight = 12
+xp = 14
+depth = 5
+rarity = 3
+group = 1-3
+spell = m_arrow
+spellrate = 0.45
+drop = 30
+
+[monster ogre]
+name = ogre
+sprite = big
+color = 8a7a50
+color2 = ff8020
+hp = 8d8
+ac = 14
+dmg = 2d6
+speed = 2.1
+attackcd = 1.4
+sight = 8
+size = 1.3
+sleep = 50
+xp = 40
+depth = 6
+rarity = 3
+group = 1-2
+spell = m_rock
+spellrate = 0.1
+drop = 40
+
+[monster fire_elemental]
+name = fire elemental
+sprite = elemental
+color = ff7020
+color2 = ffff80
+hp = 7d8
+ac = 15
+dmg = 2d6
+speed = 2.6
+sight = 9
+size = 1.0
+sleep = 20
+xp = 45
+depth = 7
+rarity = 2
+resist = fire, poison
+vulnerable = cold
+explode = m_fireburst
+doors = no
+drop = 0
+
+[monster ice_elemental]
+name = frost elemental
+sprite = elemental
+color = 90d0ff
+color2 = ffffff
+hp = 8d8
+ac = 16
+dmg = 2d6
+speed = 2.2
+sight = 9
+size = 1.0
+sleep = 30
+xp = 50
+depth = 8
+rarity = 2
+resist = cold, poison
+vulnerable = fire
+explode = m_frostburst
+doors = no
+drop = 0
+
+[monster stone_golem]
+name = stone golem
+sprite = golem
+color = 8a8070
+color2 = 40ff40
+hp = 12d10
+ac = 19
+dmg = 2d8
+speed = 1.2
+attackcd = 1.6
+sight = 7
+size = 1.3
+sleep = 70
+xp = 60
+depth = 8
+rarity = 2
+resist = fire, cold, poison
+doors = no
+drop = 30
+
+[monster vampire_bat]
+name = vampire bat
+sprite = bat
+color = 401818
+color2 = ff2020
+hp = 4d8
+ac = 15
+dmg = 1d8
+speed = 4.2
+attackcd = 0.8
+sight = 10
+size = 0.6
+sleep = 30
+xp = 35
+depth = 8
+rarity = 2
+group = 2-3
+erratic = 40
+regen = 1.0
+undead = yes
+doors = no
+drop = 0
+
+[monster purple_worm]
+name = violet crawler
+sprite = worm
+color = a040c0
+color2 = ffff40
+hp = 4d8
+ac = 9
+dmg = 1d6
+speed = 1.0
+sight = 5
+size = 0.6
+sleep = 20
+xp = 8
+depth = 9
+rarity = 2
+group = 2-3
+breeds = yes
+breedtime = 40
+poison = 6
+resist = poison
+doors = no
+drop = 0
+
+[monster troll]
+name = hill troll
+sprite = big
+color = 4a7a5a
+color2 = ffd020
+hp = 10d10
+ac = 16
+dmg = 2d8
+speed = 2.3
+attackcd = 1.3
+sight = 8
+size = 1.3
+sleep = 50
+xp = 80
+depth = 9
+rarity = 3
+group = 1-3
+regen = 1.5
+vulnerable = fire
+drop = 40
+
+[monster minotaur]
+name = minotaur
+sprite = big
+color = 7a4a2a
+color2 = ff2020
+hp = 14d10
+ac = 17
+dmg = 3d6
+speed = 3.2
+attackcd = 1.2
+sight = 10
+size = 1.4
+sleep = 30
+xp = 140
+depth = 11
+rarity = 2
+drop = 50
+
+[monster frost_giant]
+name = frost giant
+sprite = big
+color = a0c8e8
+color2 = 2040ff
+hp = 16d10
+ac = 17
+dmg = 3d8
+speed = 2.2
+attackcd = 1.5
+sight = 10
+size = 1.6
+sleep = 50
+xp = 180
+depth = 12
+rarity = 2
+spell = m_frost
+spellrate = 0.2
+resist = cold
+vulnerable = fire
+drop = 60
+
+[monster basilisk]
+name = basilisk
+sprite = snake
+color = 6a8a3a
+color2 = ff4040
+hp = 14d10
+ac = 18
+dmg = 2d8
+speed = 2.0
+sight = 9
+size = 1.2
+sleep = 50
+xp = 200
+depth = 13
+rarity = 2
+spell = m_gaze
+spellrate = 0.35
+resist = poison
+doors = no
+drop = 40
+
+[monster young_dragon]
+name = young red dragon
+sprite = dragon
+color = b03020
+color2 = ffd020
+hp = 18d10
+ac = 18
+dmg = 2d10
+speed = 2.6
+attackcd = 1.3
+sight = 12
+size = 1.4
+sleep = 70
+xp = 300
+depth = 14
+rarity = 2
+spell = m_firebreath
+spellrate = 0.25
+resist = fire
+vulnerable = cold
+drop = 80
+
+[monster death_knight]
+name = death knight
+sprite = skeleton
+color = 5a5a6a
+color2 = ff2040
+hp = 18d10
+ac = 20
+dmg = 3d8
+tohit = 3
+speed = 2.4
+sight = 11
+size = 1.15
+sleep = 40
+xp = 320
+depth = 15
+rarity = 2
+undead = yes
+spell = m_darkbolt
+spellrate = 0.3
+resist = cold, poison
+vulnerable = holy
+drop = 70
+
+[monster flame_fiend]
+name = flame fiend
+sprite = imp
+color = ff4010
+color2 = ffff80
+hp = 20d10
+ac = 19
+dmg = 3d8
+speed = 2.8
+sight = 12
+size = 1.4
+sleep = 40
+xp = 400
+depth = 17
+rarity = 2
+spell = m_hellfire
+spellrate = 0.3
+resist = fire, poison
+vulnerable = cold, holy
+drop = 70
+
+[monster elder_dragon]
+name = ancient blue dragon
+sprite = dragon
+color = 3050b0
+color2 = c0ffff
+hp = 30d10
+ac = 21
+dmg = 3d10
+speed = 2.6
+attackcd = 1.2
+sight = 14
+size = 1.8
+sleep = 80
+xp = 700
+depth = 19
+rarity = 1
+spell = m_frost
+spellrate = 0.35
+resist = cold
+vulnerable = fire
+drop = 100
+
+# --- bosses (placed by quests) ----------------------------------------------
+
+[monster goblin_king]
+name = Grukk, the Goblin King
+sprite = big
+color = 3c9a2c
+color2 = ffd000
+hp = 12d10
+ac = 15
+dmg = 2d6
+tohit = 3
+speed = 2.4
+sight = 12
+size = 1.2
+sleep = 0
+xp = 120
+depth = 3
+rarity = 0
+boss = yes
+drop = 100
+
+[monster bone_lord]
+name = Vesk the Bone Lord
+sprite = skeleton
+color = fff0d0
+color2 = ff2040
+hp = 16d10
+ac = 17
+dmg = 2d8
+tohit = 4
+speed = 2.2
+sight = 12
+size = 1.35
+sleep = 0
+xp = 250
+depth = 6
+rarity = 0
+boss = yes
+undead = yes
+spell = m_frost
+spellrate = 0.25
+drop = 100
+
+[monster lich]
+name = Ysmeer the Pale
+sprite = caster
+color = c0c0e0
+color2 = 40ff80
+hp = 22d10
+ac = 18
+dmg = 3d6
+tohit = 5
+speed = 2.2
+sight = 14
+size = 1.3
+sleep = 0
+xp = 600
+depth = 9
+rarity = 0
+boss = yes
+undead = yes
+spell = m_deathbolt
+spellrate = 0.45
+drop = 100
+
+[monster wyrm_boss]
+name = Skarr the Wyrm
+sprite = dragon
+color = 8a2a10
+color2 = ffff40
+hp = 30d10
+ac = 19
+dmg = 3d8
+tohit = 5
+speed = 2.6
+sight = 14
+size = 1.7
+sleep = 0
+xp = 900
+depth = 12
+rarity = 0
+boss = yes
+spell = m_firebreath
+spellrate = 0.35
+resist = fire
+drop = 100
+
+[monster hollow_king]
+name = The Hollow King
+sprite = skeleton
+color = 3a3a4a
+color2 = 80ffff
+hp = 34d10
+ac = 22
+dmg = 3d10
+tohit = 6
+speed = 2.5
+sight = 14
+size = 1.5
+sleep = 0
+xp = 1400
+depth = 15
+rarity = 0
+boss = yes
+undead = yes
+spell = m_deathbolt
+spellrate = 0.4
+resist = cold, poison
+vulnerable = holy
+drop = 100
+
+[monster azhgal]
+name = Azhgal the Burning
+sprite = imp
+color = ff2000
+color2 = ffffa0
+hp = 45d10
+ac = 23
+dmg = 4d10
+tohit = 7
+speed = 2.8
+sight = 16
+size = 1.9
+sleep = 0
+xp = 3000
+depth = 20
+rarity = 0
+boss = yes
+spell = m_hellfire
+spellrate = 0.45
+resist = fire, poison
+vulnerable = cold
+explode = m_fireburst
+drop = 100
+
+# --- more monsters (poison, drain, blink, invisible, summoners) ----------------
+
+[monster cave_centipede]
+name = cave centipede
+sprite = spider
+color = a06030
+color2 = ffe040
+hp = 3d8
+ac = 12
+dmg = 1d6
+speed = 2.6
+sight = 7
+size = 0.8
+sleep = 40
+xp = 14
+depth = 4
+rarity = 3
+poison = 5
+
+[monster bog_lurker]
+name = bog lurker
+sprite = blob
+color = 4a6a30
+color2 = c0ff40
+hp = 6d8
+ac = 10
+dmg = 1d8
+speed = 1.2
+sight = 5
+size = 1.0
+sleep = 60
+xp = 20
+depth = 5
+rarity = 2
+poison = 8
+resist = poison
+vulnerable = fire
+drop = 10
+
+[monster gnoll]
+name = gnoll
+sprite = humanoid
+color = a08050
+color2 = ff4020
+hp = 5d8
+ac = 13
+dmg = 1d10
+speed = 2.4
+sight = 8
+size = 1.1
+sleep = 40
+xp = 18
+depth = 5
+rarity = 3
+group = 2-4
+summon = kin
+summonrate = 0.05
+drop = 30
+
+[monster blinking_hound]
+name = blinking hound
+sprite = beast
+color = 70a0e0
+color2 = ffffff
+hp = 4d8
+ac = 14
+dmg = 1d8
+speed = 3.0
+sight = 10
+size = 0.9
+sleep = 30
+xp = 24
+depth = 6
+rarity = 3
+group = 3-5
+blink = yes
+drop = 0
+
+[monster plague_zombie]
+name = plague zombie
+sprite = humanoid
+color = 6a8a50
+color2 = e0ff60
+hp = 8d8
+ac = 11
+dmg = 1d8
+speed = 1.6
+sight = 7
+size = 1.05
+sleep = 60
+xp = 26
+depth = 7
+rarity = 3
+group = 1-3
+undead = yes
+poison = 8
+resist = poison, cold
+vulnerable = holy, fire
+drop = 20
+
+[monster cave_lizardman]
+name = lizard warrior
+sprite = snake
+color = 3a8a5a
+color2 = ffd040
+hp = 7d8
+ac = 15
+dmg = 2d6
+speed = 2.4
+sight = 9
+size = 1.2
+sleep = 40
+xp = 30
+depth = 7
+rarity = 3
+group = 2-3
+resist = poison
+drop = 35
+
+[monster spectre]
+name = spectre
+sprite = ghost
+color = b0c0d0
+color2 = 8040ff
+hp = 8d8
+ac = 15
+dmg = 1d10
+speed = 2.4
+sight = 10
+size = 1.0
+sleep = 40
+xp = 45
+depth = 9
+rarity = 2
+undead = yes
+invisible = yes
+drain = wis
+resist = cold, poison
+vulnerable = holy
+drop = 40
+
+[monster gargoyle]
+name = gargoyle
+sprite = golem
+color = 6a6a70
+color2 = ff6020
+hp = 9d8
+ac = 19
+dmg = 2d6
+speed = 2.6
+sight = 9
+size = 1.1
+sleep = 80
+xp = 50
+depth = 10
+rarity = 2
+erratic = 15
+resist = poison, cold
+drop = 30
+
+[monster brood_mother]
+name = brood mother
+sprite = spider
+color = 3a2a3a
+color2 = ff2040
+hp = 14d8
+ac = 15
+dmg = 2d6
+speed = 2.0
+sight = 9
+size = 1.6
+sleep = 50
+xp = 90
+depth = 10
+rarity = 2
+poison = 8
+summon = giant_spider
+summonrate = 0.12
+spell = m_web
+spellrate = 0.2
+drop = 60
+
+[monster orc_warlord]
+name = orc warlord
+sprite = big
+color = 5a7a3a
+color2 = ff3030
+hp = 13d10
+ac = 17
+dmg = 2d8
+speed = 2.5
+sight = 10
+size = 1.35
+sleep = 30
+xp = 110
+depth = 11
+rarity = 2
+tohit = 3
+summon = orc
+summonrate = 0.1
+drop = 70
+
+[monster wight]
+name = barrow wight
+sprite = skeleton
+color = 8a9aa0
+color2 = 40ffa0
+hp = 12d10
+ac = 17
+dmg = 1d10
+speed = 2.3
+sight = 10
+size = 1.05
+sleep = 50
+xp = 120
+depth = 12
+rarity = 2
+undead = yes
+drain = con
+spell = m_darkbolt
+spellrate = 0.15
+resist = cold, poison
+vulnerable = holy
+drop = 50
+
+[monster dire_wolf]
+name = dire wolf
+sprite = beast
+color = 4a4a50
+color2 = ffd020
+hp = 8d10
+ac = 16
+dmg = 2d6
+speed = 3.4
+sight = 11
+size = 1.2
+sleep = 30
+xp = 70
+depth = 12
+rarity = 3
+group = 3-6
+drop = 0
+
+[monster iron_golem]
+name = iron golem
+sprite = golem
+color = 707884
+color2 = ff8040
+hp = 24d10
+ac = 23
+dmg = 3d8
+speed = 1.4
+sight = 8
+size = 1.5
+sleep = 80
+xp = 220
+depth = 14
+rarity = 2
+resist = fire, cold, poison
+spell = m_cinders
+spellrate = 0.1
+drop = 40
+
+[monster mind_eater]
+name = mind eater
+sprite = caster
+color = 8a5a9a
+color2 = ff40ff
+hp = 12d10
+ac = 16
+dmg = 1d8
+speed = 2.2
+sight = 11
+size = 1.1
+sleep = 40
+xp = 200
+depth = 14
+rarity = 2
+drain = int
+spell = m_mindblast
+spellrate = 0.3
+drop = 60
+
+[monster shadow_stalker]
+name = shadow stalker
+sprite = ghost
+color = 202028
+color2 = ff2020
+hp = 14d10
+ac = 18
+dmg = 2d8
+speed = 3.0
+sight = 12
+size = 1.15
+sleep = 30
+xp = 240
+depth = 15
+rarity = 2
+invisible = yes
+blink = yes
+resist = cold, poison
+vulnerable = holy
+drop = 50
+
+[monster salamander]
+name = salamander
+sprite = snake
+color = e04020
+color2 = ffff40
+hp = 15d10
+ac = 18
+dmg = 2d8
+speed = 2.6
+sight = 10
+size = 1.3
+sleep = 40
+xp = 250
+depth = 16
+rarity = 2
+spell = m_cinders
+spellrate = 0.3
+resist = fire
+vulnerable = cold
+drop = 40
+
+[monster bone_dragon]
+name = bone dragon
+sprite = dragon
+color = d8d0c0
+color2 = 40ff80
+hp = 26d10
+ac = 20
+dmg = 3d8
+speed = 2.4
+sight = 13
+size = 1.6
+sleep = 60
+xp = 450
+depth = 17
+rarity = 2
+undead = yes
+spell = m_icebreath
+spellrate = 0.3
+resist = cold, poison
+vulnerable = holy
+drop = 80
+
+[monster troll_shaman]
+name = troll shaman
+sprite = big
+color = 5a7a6a
+color2 = 40e0ff
+hp = 20d10
+ac = 18
+dmg = 2d10
+speed = 2.3
+sight = 11
+size = 1.35
+sleep = 40
+xp = 380
+depth = 18
+rarity = 2
+regen = 2
+summon = troll
+summonrate = 0.1
+spell = m_frost
+spellrate = 0.25
+vulnerable = fire
+drop = 70
+
+[monster fire_giant]
+name = fire giant
+sprite = big
+color = a04020
+color2 = ffc040
+hp = 26d10
+ac = 19
+dmg = 3d10
+speed = 2.2
+sight = 11
+size = 1.7
+sleep = 50
+xp = 500
+depth = 19
+rarity = 2
+spell = m_rock
+spellrate = 0.25
+resist = fire
+vulnerable = cold
+drop = 70
+
+[monster void_eye]
+name = void eye
+sprite = eye
+color = 101018
+color2 = c040ff
+hp = 20d10
+ac = 19
+dmg = 1d10
+speed = 0.8
+sight = 13
+size = 1.1
+sleep = 30
+xp = 550
+depth = 20
+rarity = 2
+drain = int
+spell = m_storm
+spellrate = 0.3
+doors = no
+drop = 60
+
+[monster storm_drake]
+name = storm drake
+sprite = dragon
+color = 5070c0
+color2 = ffffff
+hp = 28d10
+ac = 21
+dmg = 3d10
+speed = 3.0
+sight = 13
+size = 1.5
+sleep = 60
+xp = 650
+depth = 21
+rarity = 2
+spell = m_icebreath
+spellrate = 0.35
+resist = cold
+drop = 90
+
+[monster dread_knight]
+name = dread knight
+sprite = skeleton
+color = 2a1a2a
+color2 = ff4040
+hp = 30d10
+ac = 23
+dmg = 4d8
+speed = 2.6
+sight = 12
+size = 1.25
+sleep = 30
+xp = 750
+depth = 22
+rarity = 2
+tohit = 5
+undead = yes
+drain = str
+spell = m_deathbolt
+spellrate = 0.2
+resist = cold, poison
+vulnerable = holy
+drop = 90
+
+[monster venom_hydra]
+name = venom hydra
+sprite = snake
+color = 3a7a2a
+color2 = ff2020
+hp = 36d10
+ac = 21
+dmg = 3d8
+speed = 2.2
+sight = 12
+size = 1.9
+sleep = 50
+xp = 800
+depth = 23
+rarity = 2
+poison = 10
+regen = 3
+spell = m_venomcloud
+spellrate = 0.35
+resist = poison
+drop = 90
+
+[monster wraith_lord]
+name = wraith lord
+sprite = ghost
+color = 404858
+color2 = a0a0ff
+hp = 30d10
+ac = 22
+dmg = 3d8
+speed = 2.8
+sight = 13
+size = 1.4
+sleep = 30
+xp = 850
+depth = 24
+rarity = 2
+undead = yes
+invisible = yes
+drain = con
+summon = wraith
+summonrate = 0.08
+spell = m_darkbolt
+spellrate = 0.3
+resist = cold, poison
+vulnerable = holy
+drop = 90
+
+[monster elder_golem]
+name = rune golem
+sprite = golem
+color = 8a7a5a
+color2 = 40c0ff
+hp = 45d10
+ac = 25
+dmg = 4d10
+speed = 1.8
+sight = 10
+size = 1.8
+sleep = 80
+xp = 1000
+depth = 25
+rarity = 1
+resist = fire, cold, poison, arcane
+spell = m_storm
+spellrate = 0.15
+drop = 60
+
+[monster deep_mother]
+name = Ossyra, Mother of the Deep Webs
+sprite = spider
+color = 2a1020
+color2 = ff40a0
+hp = 55d10
+ac = 23
+dmg = 4d10
+speed = 2.4
+sight = 16
+size = 2.0
+sleep = 0
+xp = 4500
+depth = 25
+rarity = 0
+tohit = 8
+boss = yes
+poison = 12
+summon = brood_mother
+summonrate = 0.06
+spell = m_venomcloud
+spellrate = 0.4
+resist = poison
+drop = 100
+
+[monster unmade]
+name = Vhorl the Unmade
+sprite = elemental
+color = 301838
+color2 = ff60ff
+hp = 70d10
+ac = 25
+dmg = 5d10
+speed = 2.6
+sight = 18
+size = 2.1
+sleep = 0
+xp = 7000
+depth = 30
+rarity = 0
+tohit = 10
+boss = yes
+invisible = yes
+blink = yes
+drain = int
+spell = m_storm
+spellrate = 0.5
+resist = fire, cold, poison
+explode = m_frostburst
+drop = 100

@@ -1,0 +1,43 @@
+# A short sample campaign. Copy this file to make your own (or run: dum_tool newcampaign).
+# See docs/CAMPAIGNS.md for every key.
+
+[campaign sunken_crypt]
+name = The Sunken Crypt
+desc = Beneath the town lies a crypt where the dead no longer rest. Find out why.
+town = yes
+victory = Vesk the Bone Lord crumbles to dust, and the crypt falls silent at last.
+
+[level 1]
+map = crypt_gate
+intro = Cold air rises from the crypt gate. Something shuffles in the dark.
+goal = stairs
+goal_text = Find a way past the crypt gate and down the stairs.
+
+[level 2]
+map = random
+depth = 3
+monsters = zombie, skeleton, cave_bat, giant_rat, ghoul
+intro = Old tunnels, half flooded. The smell of the grave is everywhere.
+goal = find ancient_tome
+goal_text = Recover the Ancient Tome that tells of the Bone Lord.
+
+[level 3]
+map = random
+depth = 4
+monsters = skeleton, zombie, shadow, giant_spider
+intro = The tome speaks of a guardian below. You hear bones rattle.
+goal = clear
+goal_text = Destroy every undead thing on this level.
+
+[level 4]
+map = random
+depth = 5
+monsters = skeleton, ghoul, shadow, dark_mage
+intro = A dark mage has been raising the dead. The trail leads deeper.
+goal = kill dark_mage
+
+[level 5]
+map = crypt_heart
+intro = The heart of the crypt. A throne of bones waits in the dark.
+goal = kill bone_lord
+goal_text = Destroy Vesk the Bone Lord.

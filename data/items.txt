@@ -1,0 +1,1610 @@
+# Dum item definitions.
+#
+# kind:    weapon, armor, helm, ring, amulet, light, food, potion, scroll, fuel, gold, quest, wand, rod
+# Bonuses while worn (any wearable item): str dex con int wis (+N), tohit, todam, armor,
+#   light (extra radius), speed (+1 = 10% faster), stealth, search, slowdigest (% less
+#   hunger), regen (% faster healing), spellpower, resist = fire, cold, ...
+# Weapons: brand = fire | cold | holy | poison (damage element; cold slows, holy x2 vs undead).
+# Potions: heal, mana, gainstat = str|dex|con|int|wis (permanent +1), restore = yes (drained
+#   stats), curepoison = yes, spell = <id> (casts it, like a scroll). Food can also heal.
+#   Any healing cures poison.
+# artifact = yes: unique, only one exists per game (never sold in shops).
+# everburning = yes: a light that never runs out.
+# sprite:  floor picture (dagger sword mace axe staff bow armor robe torch lantern
+#          ration apple meat potion scroll flask gold amulet tome chalice wand rod)
+# Wands:   spell, charges = MIN-MAX (each use takes one). Rods: spell, recharge = seconds.
+#          Anyone can use them; the class 'device' skill lowers the failure chance
+#          (deeper items fail more often) and adds to their power.
+# Weapons: dice, tohit, cooldown (seconds), range (tiles), arc (auto-aim cone, degrees),
+#          finesse = uses DEX instead of STR, ranged = shoots arrows/stones.
+# depth/rarity control random generation (rarity 0 = never placed randomly,
+# higher = more common).
+
+[item gold]
+name = gold
+kind = gold
+sprite = gold
+color = ffd040
+stack = 100000
+
+# --- weapons ----------------------------------------------------------------
+
+[item dagger]
+name = Dagger
+kind = weapon
+sprite = dagger
+viewmodel = dagger
+dice = 1d4
+tohit = 1
+finesse = yes
+cooldown = 0.45
+arc = 60
+depth = 1
+rarity = 4
+value = 10
+
+[item short_sword]
+name = Short Sword
+kind = weapon
+sprite = sword
+viewmodel = sword
+dice = 1d6
+finesse = yes
+cooldown = 0.6
+depth = 1
+rarity = 4
+value = 25
+
+[item long_sword]
+name = Long Sword
+kind = weapon
+sprite = sword
+viewmodel = sword
+color = e0e8ff
+dice = 1d8
+cooldown = 0.8
+depth = 2
+rarity = 3
+value = 50
+
+[item mace]
+name = Mace
+kind = weapon
+sprite = mace
+viewmodel = mace
+dice = 1d8
+cooldown = 0.85
+depth = 1
+rarity = 3
+value = 30
+
+[item war_axe]
+name = War Axe
+kind = weapon
+sprite = axe
+viewmodel = axe
+dice = 1d10
+cooldown = 1.0
+arc = 90
+depth = 3
+rarity = 2
+value = 70
+
+[item great_sword]
+name = Great Sword
+kind = weapon
+sprite = sword
+viewmodel = sword
+color = ffffff
+dice = 2d6
+cooldown = 1.2
+arc = 100
+range = 1.9
+depth = 5
+rarity = 2
+value = 150
+
+[item quarterstaff]
+name = Quarterstaff
+kind = weapon
+sprite = staff
+viewmodel = staff
+dice = 1d6
+cooldown = 0.8
+spellpower = 1
+depth = 1
+rarity = 3
+value = 10
+
+[item wizard_staff]
+name = Wizard's Staff
+kind = weapon
+sprite = staff
+viewmodel = staff
+color = 80a0ff
+dice = 1d4
+cooldown = 0.9
+spellpower = 3
+depth = 3
+rarity = 2
+value = 120
+
+[item staff_of_fire]
+name = Staff of Embers
+kind = weapon
+sprite = staff
+viewmodel = staff
+color = ff6020
+dice = 1d6
+cooldown = 0.9
+spellpower = 5
+depth = 6
+rarity = 1
+value = 300
+
+[item sling]
+name = Sling
+kind = weapon
+sprite = bow
+viewmodel = bow
+color = a08060
+dice = 1d4
+ranged = yes
+finesse = yes
+range = 10
+cooldown = 0.8
+depth = 1
+rarity = 2
+value = 5
+
+[item short_bow]
+name = Short Bow
+kind = weapon
+sprite = bow
+viewmodel = bow
+dice = 1d6
+ranged = yes
+finesse = yes
+range = 14
+cooldown = 0.8
+depth = 1
+rarity = 3
+value = 40
+
+[item long_bow]
+name = Long Bow
+kind = weapon
+sprite = bow
+viewmodel = bow
+color = c09050
+dice = 1d8
+tohit = 1
+ranged = yes
+finesse = yes
+range = 18
+cooldown = 0.95
+depth = 4
+rarity = 2
+value = 120
+
+# --- armor ------------------------------------------------------------------
+
+[item robe]
+name = Robe
+kind = armor
+sprite = robe
+armor = 1
+depth = 1
+rarity = 2
+value = 5
+
+[item leather_armor]
+name = Leather Armor
+kind = armor
+sprite = armor
+color = 906030
+armor = 2
+depth = 1
+rarity = 3
+value = 20
+
+[item chain_mail]
+name = Chain Mail
+kind = armor
+sprite = armor
+color = b0b0c0
+armor = 5
+depth = 3
+rarity = 2
+value = 120
+
+[item plate_armor]
+name = Plate Armor
+kind = armor
+sprite = armor
+color = e0e0f0
+armor = 8
+depth = 6
+rarity = 1
+value = 500
+
+# --- light ------------------------------------------------------------------
+
+[item torch]
+name = Torch
+desc = Burns for about ten minutes. Use a torch while holding one to combine them.
+kind = light
+sprite = torch
+light = 4
+fuel = 600
+depth = 1
+rarity = 5
+stack = 1
+value = 1
+
+[item lantern]
+name = Lantern
+desc = A bright light. Refill it with flasks of oil.
+kind = light
+sprite = lantern
+light = 6
+fuel = 1500
+depth = 2
+rarity = 2
+value = 100
+
+[item flask_oil]
+name = Flask of Oil
+desc = Refills a lantern.
+kind = fuel
+sprite = flask
+fuel = 900
+depth = 1
+rarity = 3
+stack = 10
+value = 3
+
+# --- food -------------------------------------------------------------------
+
+[item ration]
+name = Ration of Food
+kind = food
+sprite = ration
+food = 400
+depth = 1
+rarity = 6
+stack = 10
+value = 3
+
+[item apple]
+name = Apple
+kind = food
+sprite = apple
+food = 150
+depth = 1
+rarity = 4
+stack = 10
+value = 1
+
+[item dried_meat]
+name = Strip of Dried Meat
+kind = food
+sprite = meat
+food = 250
+depth = 2
+rarity = 3
+stack = 10
+value = 2
+
+# --- potions ----------------------------------------------------------------
+
+[item potion_heal]
+name = Potion of Cure Light Wounds
+kind = potion
+sprite = potion
+color = ff3030
+heal = 20
+depth = 1
+rarity = 4
+stack = 10
+value = 20
+
+[item potion_greater_heal]
+name = Potion of Healing
+kind = potion
+sprite = potion
+color = ff80ff
+heal = 60
+depth = 5
+rarity = 2
+stack = 10
+value = 100
+
+[item potion_mana]
+name = Potion of Restore Mana
+kind = potion
+sprite = potion
+color = 3060ff
+mana = 15
+depth = 2
+rarity = 3
+stack = 10
+value = 40
+
+# --- scrolls ----------------------------------------------------------------
+
+[item scroll_light]
+name = Scroll of Light
+kind = scroll
+sprite = scroll
+spell = light
+depth = 1
+rarity = 3
+stack = 10
+value = 10
+
+[item scroll_detect]
+name = Scroll of Detect Monsters
+kind = scroll
+sprite = scroll
+color = ffc0ff
+spell = detect_monsters
+depth = 1
+rarity = 3
+stack = 10
+value = 15
+
+[item scroll_blink]
+name = Scroll of Phase Door
+kind = scroll
+sprite = scroll
+color = d0a0ff
+spell = blink
+depth = 2
+rarity = 2
+stack = 10
+value = 15
+
+[item scroll_mapping]
+name = Scroll of Magic Mapping
+kind = scroll
+sprite = scroll
+color = a0ffa0
+spell = magic_mapping
+depth = 3
+rarity = 2
+stack = 10
+value = 60
+
+[item scroll_recall]
+name = Scroll of Word of Recall
+desc = Read in the dungeon to return to town, or in town to go back to your deepest level.
+kind = scroll
+sprite = scroll
+color = c080ff
+spell = word_of_recall
+depth = 2
+rarity = 2
+stack = 10
+value = 150
+
+# --- more weapons -----------------------------------------------------------
+
+[item rapier]
+name = Rapier
+kind = weapon
+sprite = sword
+viewmodel = sword
+color = d0e0ff
+dice = 1d6
+tohit = 2
+finesse = yes
+cooldown = 0.5
+arc = 55
+depth = 3
+rarity = 2
+value = 80
+
+[item spear]
+name = Spear
+kind = weapon
+sprite = spear
+viewmodel = spear
+dice = 1d8
+range = 2.1
+arc = 45
+cooldown = 0.85
+depth = 1
+rarity = 3
+value = 25
+
+[item flail]
+name = Flail
+kind = weapon
+sprite = flail
+viewmodel = mace
+dice = 2d4
+cooldown = 0.9
+arc = 80
+depth = 2
+rarity = 3
+value = 45
+
+[item morning_star]
+name = Morning Star
+kind = weapon
+sprite = mace
+viewmodel = mace
+color = d0d0d0
+dice = 2d5
+cooldown = 1.0
+depth = 4
+rarity = 2
+value = 110
+
+[item battle_axe]
+name = Battle Axe
+kind = weapon
+sprite = axe
+viewmodel = axe
+color = e0e0e8
+dice = 2d6
+cooldown = 1.15
+arc = 100
+depth = 5
+rarity = 2
+value = 170
+
+[item halberd]
+name = Halberd
+kind = weapon
+sprite = spear
+viewmodel = spear
+color = e0e0e8
+dice = 1d12
+range = 2.2
+arc = 70
+cooldown = 1.2
+depth = 6
+rarity = 2
+value = 200
+
+[item light_crossbow]
+name = Light Crossbow
+kind = weapon
+sprite = bow
+viewmodel = bow
+color = 806040
+dice = 1d10
+ranged = yes
+finesse = yes
+range = 16
+cooldown = 1.3
+tohit = 1
+depth = 4
+rarity = 2
+value = 150
+
+[item elven_bow]
+name = Elven Bow
+kind = weapon
+sprite = bow
+viewmodel = bow
+color = e0d080
+dice = 1d8
+tohit = 3
+todam = 2
+ranged = yes
+finesse = yes
+range = 20
+cooldown = 0.8
+depth = 8
+rarity = 1
+value = 400
+
+# --- more armor, helms --------------------------------------------------------
+
+[item studded_leather]
+name = Studded Leather
+kind = armor
+sprite = armor
+color = 7a5030
+armor = 3
+depth = 2
+rarity = 3
+value = 45
+
+[item scale_mail]
+name = Scale Mail
+kind = armor
+sprite = armor
+color = a0a0a0
+armor = 6
+depth = 5
+rarity = 2
+value = 250
+
+[item elven_mail]
+name = Elven Chain
+kind = armor
+sprite = armor
+color = e0f0ff
+armor = 6
+dex = 1
+stealth = 1
+depth = 8
+rarity = 1
+value = 600
+
+[item leather_cap]
+name = Leather Cap
+kind = helm
+sprite = helm
+color = 805030
+armor = 1
+depth = 1
+rarity = 3
+value = 10
+
+[item iron_helm]
+name = Iron Helm
+kind = helm
+sprite = helm
+armor = 2
+depth = 3
+rarity = 2
+value = 60
+
+[item steel_helm]
+name = Steel Helm
+kind = helm
+sprite = helm
+color = d0d8e0
+armor = 3
+depth = 6
+rarity = 2
+value = 180
+
+# --- rings and amulets ---------------------------------------------------------
+
+[item ring_protection]
+name = Ring of Protection
+kind = ring
+sprite = ring
+color = 40a0ff
+armor = 3
+depth = 2
+rarity = 2
+value = 150
+
+[item ring_accuracy]
+name = Ring of Accuracy
+kind = ring
+sprite = ring
+color = 40ff80
+tohit = 3
+depth = 3
+rarity = 2
+value = 180
+
+[item ring_damage]
+name = Ring of Damage
+kind = ring
+sprite = ring
+color = ff4040
+todam = 3
+depth = 5
+rarity = 2
+value = 300
+
+[item ring_strength]
+name = Ring of Strength
+kind = ring
+sprite = ring
+color = ff8020
+str = 2
+depth = 6
+rarity = 1
+value = 450
+
+[item ring_dexterity]
+name = Ring of Dexterity
+kind = ring
+sprite = ring
+color = 80ff40
+dex = 2
+depth = 6
+rarity = 1
+value = 450
+
+[item ring_resist_fire]
+name = Ring of Resist Fire
+kind = ring
+sprite = ring
+color = ff6000
+resist = fire
+depth = 4
+rarity = 2
+value = 250
+
+[item ring_resist_cold]
+name = Ring of Resist Cold
+kind = ring
+sprite = ring
+color = a0e0ff
+resist = cold
+depth = 4
+rarity = 2
+value = 250
+
+[item ring_speed]
+name = Ring of Speed
+kind = ring
+sprite = ring
+color = ffffff
+speed = 2
+depth = 15
+rarity = 1
+value = 2500
+
+[item amulet_slow_digestion]
+name = Amulet of Slow Digestion
+kind = amulet
+sprite = amulet
+color = c0a060
+slowdigest = 50
+depth = 2
+rarity = 2
+value = 120
+
+[item amulet_wisdom]
+name = Amulet of Wisdom
+kind = amulet
+sprite = amulet
+color = 8080ff
+wis = 2
+depth = 5
+rarity = 1
+value = 400
+
+[item amulet_intellect]
+name = Amulet of Intellect
+kind = amulet
+sprite = amulet
+color = ff80ff
+int = 2
+depth = 5
+rarity = 1
+value = 400
+
+[item amulet_regeneration]
+name = Amulet of Regeneration
+kind = amulet
+sprite = amulet
+color = 40ff40
+regen = 100
+depth = 7
+rarity = 1
+value = 500
+
+[item amulet_stealth]
+name = Amulet of Shadows
+kind = amulet
+sprite = amulet
+color = 404060
+stealth = 3
+depth = 4
+rarity = 1
+value = 300
+
+# --- more consumables ---------------------------------------------------------
+
+[item potion_cure_serious]
+name = Potion of Cure Serious Wounds
+kind = potion
+sprite = potion
+color = ff6060
+heal = 40
+depth = 3
+rarity = 3
+stack = 10
+value = 50
+
+[item potion_strength]
+name = Potion of Strength
+kind = potion
+sprite = potion
+color = ff9020
+gainstat = str
+depth = 8
+rarity = 1
+stack = 10
+value = 800
+
+[item potion_toughness]
+name = Potion of Toughness
+kind = potion
+sprite = potion
+color = a06020
+gainstat = con
+depth = 8
+rarity = 1
+stack = 10
+value = 800
+
+[item potion_brilliance]
+name = Potion of Brilliance
+kind = potion
+sprite = potion
+color = 60ffff
+gainstat = int
+depth = 9
+rarity = 1
+stack = 10
+value = 800
+
+[item waybread]
+name = Trail Bread
+desc = Dense honey bread baked for long journeys. Filling, and it mends small wounds.
+kind = food
+sprite = ration
+color = f0e0a0
+food = 700
+heal = 10
+depth = 4
+rarity = 2
+stack = 10
+value = 20
+
+# --- artifacts (unique; rare finds and boss drops) ---------------------------
+
+[item art_phial]
+name = the Dawnstone
+desc = A crystal that holds captured morning light. It never goes out.
+kind = light
+sprite = potion
+color = fffff0
+light = 5
+everburning = yes
+artifact = yes
+depth = 3
+value = 3000
+
+[item art_dawnbringer]
+name = Dawnbringer, the Long Sword
+desc = Its blade burns with a clean flame and lights the way.
+kind = weapon
+sprite = sword
+viewmodel = sword
+color = ffd080
+dice = 2d6
+tohit = 3
+todam = 3
+light = 1
+brand = fire
+resist = cold
+artifact = yes
+depth = 6
+value = 5000
+
+[item art_frostbite]
+name = Frostbite, the Dagger
+desc = Rime forms on everything it touches.
+kind = weapon
+sprite = dagger
+viewmodel = dagger
+color = c0f0ff
+dice = 1d6
+tohit = 4
+todam = 2
+finesse = yes
+cooldown = 0.4
+dex = 2
+brand = cold
+artifact = yes
+depth = 4
+value = 3500
+
+[item art_gravewarden]
+name = Gravewarden, the Mace
+desc = Blessed by forgotten priests to lay the dead to rest.
+kind = weapon
+sprite = mace
+viewmodel = mace
+color = fff0a0
+dice = 2d6
+tohit = 2
+todam = 3
+wis = 2
+brand = holy
+artifact = yes
+depth = 5
+value = 4000
+
+[item art_thundersong]
+name = Thundersong, the Long Bow
+desc = Its string hums before every shot.
+kind = weapon
+sprite = bow
+viewmodel = bow
+color = 8080ff
+dice = 1d10
+tohit = 5
+todam = 4
+ranged = yes
+finesse = yes
+range = 22
+cooldown = 0.75
+dex = 1
+artifact = yes
+depth = 8
+value = 5000
+
+[item art_pyrewood]
+name = Pyrewood, the Staff
+desc = Charred but unburnable, warm as a hearth.
+kind = weapon
+sprite = staff
+viewmodel = staff
+color = ff6020
+dice = 1d8
+spellpower = 7
+int = 2
+resist = fire
+artifact = yes
+depth = 7
+value = 5000
+
+[item art_ironskin]
+name = Ironskin, the Plate Armor
+desc = Forged for a king who never fell in battle.
+kind = armor
+sprite = armor
+color = c0c0d0
+armor = 11
+con = 2
+resist = fire, cold
+artifact = yes
+depth = 10
+value = 8000
+
+[item art_shadowcloak]
+name = Shadowcloak, the Leather Armor
+desc = Light slides off it.
+kind = armor
+sprite = armor
+color = 303040
+armor = 4
+dex = 2
+stealth = 3
+artifact = yes
+depth = 4
+value = 3000
+
+[item art_clearsight]
+name = the Crown of Clear Sight
+desc = Nothing hidden stays hidden from its wearer.
+kind = helm
+sprite = crown
+color = 80ffff
+armor = 3
+wis = 2
+search = 5
+light = 1
+artifact = yes
+depth = 6
+value = 4500
+
+[item art_wanderer]
+name = the Ring of the Wanderer
+desc = Its wearer is never tired and seldom hungry.
+kind = ring
+sprite = ring
+color = 40ff40
+speed = 1
+slowdigest = 60
+artifact = yes
+depth = 5
+value = 4000
+
+[item art_lastbreath]
+name = the Amulet of Last Breath
+desc = Wounds close almost as fast as they open.
+kind = amulet
+sprite = amulet
+color = ff2040
+regen = 200
+con = 2
+artifact = yes
+depth = 8
+value = 5000
+
+[item art_starfire]
+name = the Ring of Starfire
+desc = A ring of meteoric iron. Spells cast by its wearer burn brighter.
+kind = ring
+sprite = ring
+color = ffa0ff
+spellpower = 4
+int = 1
+wis = 1
+artifact = yes
+depth = 9
+value = 6000
+
+# --- quest items (never generated randomly; placed by quests) ---------------
+
+[item lost_amulet]
+name = Amulet of the Lost Prince
+kind = quest
+sprite = amulet
+color = 40ffd0
+value = 500
+
+[item ancient_tome]
+name = Ancient Tome
+kind = quest
+sprite = tome
+color = a06030
+value = 500
+
+[item silver_chalice]
+name = Silver Chalice
+kind = quest
+sprite = chalice
+color = e0e0ff
+value = 500
+
+# --- magic devices: wands (charges) and rods (recharge) -----------------------
+
+[item wand_magic_missile]
+name = Wand of Magic Missile
+kind = wand
+sprite = wand
+color = 80a0ff
+spell = magic_missile
+charges = 10-16
+depth = 1
+rarity = 6
+value = 120
+
+[item wand_stinking_cloud]
+name = Wand of Stinking Cloud
+kind = wand
+sprite = wand
+color = 80ff40
+spell = stinking_cloud
+charges = 8-12
+depth = 3
+rarity = 5
+value = 200
+
+[item wand_sleep_monster]
+name = Wand of Sleep Monster
+kind = wand
+sprite = wand
+color = c0a0ff
+spell = sleep_monster
+charges = 8-12
+depth = 3
+rarity = 4
+value = 180
+
+[item wand_scare_monster]
+name = Wand of Scare Monster
+kind = wand
+sprite = wand
+color = ffd060
+spell = scare_monster
+charges = 6-10
+depth = 5
+rarity = 3
+value = 220
+
+[item wand_frost_bolt]
+name = Wand of Frost Bolts
+kind = wand
+sprite = wand
+color = b0f0ff
+spell = frost_bolt
+charges = 6-10
+depth = 6
+rarity = 4
+value = 350
+
+[item wand_stone_to_mud]
+name = Wand of Stone to Mud
+kind = wand
+sprite = wand
+color = c0a060
+spell = stone_to_mud
+charges = 8-14
+depth = 8
+rarity = 3
+value = 400
+
+[item wand_fireball]
+name = Wand of Fire Balls
+kind = wand
+sprite = wand
+color = ff8020
+spell = fireball
+charges = 4-8
+depth = 14
+rarity = 2
+value = 900
+
+[item rod_illumination]
+name = Rod of Illumination
+kind = rod
+sprite = rod
+color = ffffa0
+spell = light
+recharge = 30
+depth = 2
+rarity = 3
+value = 300
+
+[item rod_detection]
+name = Rod of Detection
+kind = rod
+sprite = rod
+color = ff60ff
+spell = detect_monsters
+recharge = 40
+depth = 5
+rarity = 3
+value = 500
+
+[item rod_mapping]
+name = Rod of Treasure Maps
+kind = rod
+sprite = rod
+color = 60ff60
+spell = magic_mapping
+recharge = 90
+depth = 10
+rarity = 2
+value = 1000
+
+[item rod_curing]
+name = Rod of Curing
+kind = rod
+sprite = rod
+color = ffffff
+spell = cure_serious
+recharge = 60
+depth = 12
+rarity = 2
+value = 1200
+
+[item rod_recall]
+name = Rod of Recall
+kind = rod
+sprite = rod
+color = c080ff
+spell = word_of_recall
+recharge = 300
+depth = 18
+rarity = 1
+value = 3000
+
+# --- more potions and scrolls ------------------------------------------------
+
+[item potion_antidote]
+name = Potion of Antidote
+desc = Bitter, but it burns the poison out of you.
+kind = potion
+sprite = potion
+color = 60e060
+curepoison = yes
+heal = 5
+depth = 2
+rarity = 3
+stack = 10
+value = 15
+
+[item potion_speed]
+name = Potion of Speed
+desc = For a while you move, strike and cast much faster.
+kind = potion
+sprite = potion
+color = 60ffd0
+spell = haste_self
+depth = 7
+rarity = 2
+stack = 10
+value = 120
+
+[item potion_heroism]
+name = Potion of Berserk Strength
+desc = A battle fury: +4 to hit and +3 damage, but -2 armor class.
+kind = potion
+sprite = potion
+color = ff4040
+spell = berserk
+depth = 5
+rarity = 2
+stack = 10
+value = 90
+
+[item potion_resistance]
+name = Potion of Resistance
+desc = Half damage from fire, cold and poison for a minute.
+kind = potion
+sprite = potion
+color = ffa060
+spell = resist_elements
+depth = 8
+rarity = 2
+stack = 10
+value = 150
+
+[item potion_restoration]
+name = Potion of Restoration
+desc = Restores stats drained by monsters.
+kind = potion
+sprite = potion
+color = f0f0ff
+restore = yes
+depth = 6
+rarity = 2
+stack = 10
+value = 200
+
+[item potion_vigor]
+name = Potion of Vigor
+desc = Heals nearly any wound.
+kind = potion
+sprite = potion
+color = ff80a0
+heal = 300
+depth = 14
+rarity = 2
+stack = 10
+value = 400
+
+[item potion_nimbleness]
+name = Potion of Nimbleness
+desc = Permanently raises your dexterity.
+kind = potion
+sprite = potion
+color = 40c0ff
+gainstat = dex
+depth = 10
+rarity = 1
+value = 1500
+
+[item potion_insight]
+name = Potion of Insight
+desc = Permanently raises your wisdom.
+kind = potion
+sprite = potion
+color = ffe0ff
+gainstat = wis
+depth = 10
+rarity = 1
+value = 1500
+
+[item potion_clairvoyance]
+name = Potion of Clairvoyance
+desc = Visions of the dungeon around you.
+kind = potion
+sprite = potion
+color = 60ff60
+spell = magic_mapping
+depth = 9
+rarity = 2
+stack = 10
+value = 250
+
+[item scroll_teleport]
+name = Scroll of Teleportation
+kind = scroll
+sprite = scroll
+color = e080ff
+spell = teleport_self
+depth = 5
+rarity = 3
+stack = 10
+value = 40
+
+[item scroll_sanctuary]
+name = Scroll of Sanctuary
+kind = scroll
+sprite = scroll
+color = f0f0ff
+spell = sanctuary
+depth = 4
+rarity = 2
+stack = 10
+value = 40
+
+[item scroll_satisfy]
+name = Scroll of Satisfy Hunger
+kind = scroll
+sprite = scroll
+color = e0c080
+spell = satisfy_hunger
+depth = 3
+rarity = 3
+stack = 10
+value = 25
+
+[item scroll_delving]
+name = Scroll of Delving
+kind = scroll
+sprite = scroll
+color = a08060
+spell = delve
+depth = 6
+rarity = 2
+stack = 10
+value = 80
+
+[item scroll_stoneskin]
+name = Scroll of Stoneskin
+kind = scroll
+sprite = scroll
+color = a09080
+spell = stoneskin
+depth = 7
+rarity = 2
+stack = 10
+value = 90
+
+[item scroll_fireball]
+name = Scroll of Fire Ball
+kind = scroll
+sprite = scroll
+color = ff8020
+spell = fireball
+depth = 8
+rarity = 2
+stack = 10
+value = 100
+
+[item scroll_teleport_other]
+name = Scroll of Banishing
+kind = scroll
+sprite = scroll
+color = c0a0ff
+spell = teleport_other
+depth = 9
+rarity = 2
+stack = 10
+value = 120
+
+# --- more equipment -----------------------------------------------------------
+
+[item war_hammer]
+name = War Hammer
+kind = weapon
+sprite = mace
+color = a0a0a8
+dice = 3d6
+cooldown = 1.1
+viewmodel = mace
+depth = 7
+rarity = 3
+value = 300
+
+[item glaive]
+name = Glaive
+kind = weapon
+sprite = spear
+color = c0c0c8
+dice = 2d10
+range = 2.1
+cooldown = 1.15
+viewmodel = spear
+depth = 9
+rarity = 2
+value = 450
+
+[item starsteel_sword]
+name = Starsteel Sword
+kind = weapon
+sprite = sword
+color = c0d8ff
+dice = 3d8
+tohit = 3
+todam = 2
+cooldown = 0.85
+viewmodel = sword
+depth = 14
+rarity = 2
+value = 1200
+
+[item heavy_crossbow]
+name = Heavy Crossbow
+kind = weapon
+sprite = bow
+color = 6a4a2a
+dice = 3d8
+ranged = yes
+finesse = yes
+range = 16
+cooldown = 1.6
+viewmodel = bow
+depth = 10
+rarity = 2
+value = 700
+
+[item composite_bow]
+name = Composite Bow
+kind = weapon
+sprite = bow
+color = 8a5a3a
+dice = 2d8
+tohit = 2
+ranged = yes
+finesse = yes
+range = 16
+cooldown = 0.8
+viewmodel = bow
+depth = 12
+rarity = 2
+value = 900
+
+[item runed_staff]
+name = Runed Staff
+kind = weapon
+sprite = staff
+color = 80ffd0
+dice = 1d8
+spellpower = 4
+cooldown = 0.9
+viewmodel = staff
+depth = 12
+rarity = 2
+value = 1100
+
+[item brigandine]
+name = Brigandine
+kind = armor
+sprite = armor
+color = 7a6a5a
+armor = 8
+depth = 9
+rarity = 2
+value = 600
+
+[item starsteel_mail]
+name = Starsteel Mail
+kind = armor
+sprite = armor
+color = c0d8ff
+armor = 12
+dex = 1
+depth = 16
+rarity = 1
+value = 2500
+
+[item drakehide_armor]
+name = Drakehide Armor
+kind = armor
+sprite = armor
+color = a03020
+armor = 11
+resist = fire
+depth = 18
+rarity = 1
+value = 3000
+
+[item great_helm]
+name = Great Helm
+kind = helm
+sprite = helm
+color = 8a8a98
+armor = 5
+depth = 10
+rarity = 2
+value = 500
+
+[item circlet_focus]
+name = Circlet of Focus
+kind = helm
+sprite = crown
+color = 40a0ff
+armor = 1
+int = 1
+spellpower = 1
+depth = 8
+rarity = 2
+value = 900
+
+[item ring_resist_poison]
+name = Ring of Resist Poison
+kind = ring
+sprite = ring
+color = 60e060
+resist = poison
+depth = 8
+rarity = 2
+value = 700
+
+[item ring_constitution]
+name = Ring of Constitution
+kind = ring
+sprite = ring
+color = ff8040
+con = 2
+depth = 10
+rarity = 2
+value = 1200
+
+[item amulet_warding]
+name = Amulet of Warding
+kind = amulet
+sprite = amulet
+color = a0c0ff
+armor = 4
+depth = 9
+rarity = 2
+value = 900
+
+[item amulet_vitality]
+name = Amulet of Vitality
+kind = amulet
+sprite = amulet
+color = ff4060
+con = 2
+regen = 50
+depth = 13
+rarity = 1
+value = 1800
+
+[item great_lantern]
+name = Great Lantern
+desc = A big brass lantern. Refill it with oil.
+kind = light
+sprite = lantern
+color = ffe080
+light = 7
+fuel = 2400
+depth = 10
+rarity = 2
+value = 600
+
+[item smoked_fish]
+name = Smoked Fish
+kind = food
+sprite = meat
+color = c08050
+food = 450
+depth = 3
+rarity = 3
+stack = 10
+value = 6
+
+[item honey_cake]
+name = Honey Cake
+kind = food
+sprite = ration
+color = f0c060
+food = 500
+heal = 15
+depth = 6
+rarity = 2
+stack = 10
+value = 15
+
+# --- more wands and rods ------------------------------------------------------
+
+[item wand_teleport_other]
+name = Wand of Banishing
+kind = wand
+sprite = wand
+color = e0a0ff
+spell = teleport_other
+charges = 4-8
+depth = 10
+rarity = 2
+value = 700
+
+[item wand_ice_storm]
+name = Wand of Ice Storms
+kind = wand
+sprite = wand
+color = a0e8ff
+spell = ice_storm
+charges = 4-7
+depth = 16
+rarity = 1
+value = 1500
+
+[item rod_teleport]
+name = Rod of Escape
+kind = rod
+sprite = rod
+color = e080ff
+spell = teleport_self
+recharge = 60
+depth = 14
+rarity = 1
+value = 2000
+
+[item rod_speed]
+name = Rod of Speed
+kind = rod
+sprite = rod
+color = 60ffd0
+spell = haste_self
+recharge = 90
+depth = 20
+rarity = 1
+value = 4000
+
+# --- more artifacts -----------------------------------------------------------
+
+[item art_widowfang]
+name = Widowfang, the Dagger
+desc = A green-black blade that drips with venom.
+kind = weapon
+sprite = dagger
+color = 80ff60
+dice = 2d6
+tohit = 6
+todam = 4
+finesse = yes
+cooldown = 0.5
+brand = poison
+dex = 2
+stealth = 2
+artifact = yes
+viewmodel = dagger
+depth = 11
+rarity = 1
+value = 4000
+
+[item art_stormcaller]
+name = Stormcaller, the Great Bow
+desc = Its string hums like distant thunder.
+kind = weapon
+sprite = bow
+color = a0c0ff
+dice = 3d8
+tohit = 6
+todam = 6
+ranged = yes
+finesse = yes
+range = 18
+cooldown = 0.7
+dex = 2
+speed = 1
+artifact = yes
+viewmodel = bow
+depth = 15
+rarity = 1
+value = 6000
+
+[item art_bulwark]
+name = the Bulwark of Kessar
+desc = Plate armor forged for a king who never fell in battle.
+kind = armor
+sprite = armor
+color = d0c0a0
+armor = 18
+con = 3
+resist = fire, cold, poison
+artifact = yes
+depth = 18
+rarity = 1
+value = 8000
+
+[item art_mindcrown]
+name = the Crown of Clear Thought
+desc = Thoughts come quickly and clearly under this thin silver crown.
+kind = helm
+sprite = crown
+color = c080ff
+armor = 4
+int = 3
+wis = 3
+spellpower = 3
+search = 3
+artifact = yes
+depth = 20
+rarity = 1
+value = 8000

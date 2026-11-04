@@ -1,0 +1,130 @@
+# Dum character classes.
+#
+# str/dex/con/int/wis: base stats (a little randomness is added at creation).
+# hitdie:  hit points gained per level = 1d<hitdie> + CON modifier.
+# mana / manaperlevel: spell points (plus cast stat modifier per level).
+# melee/ranged/magic: skill bonus to hit and spell power.
+# search: finding secret doors. stealth: monsters wake up slower. disarm: picking locks.
+# device: skill with wands and rods (fewer failures, more damage).
+# spells: spell ids, optionally "spell:level" to override when the class learns it.
+#         Abilities (warriors) are spells too - see spells.txt.
+# items: starting equipment (first weapon/armor/light found is equipped).
+
+[class warrior]
+name = Warrior
+desc = A hardened fighter. Many hit points, best with melee weapons and heavy armor.
+str = 16
+dex = 13
+con = 15
+int = 8
+wis = 9
+hitdie = 10
+mana = 0
+manaperlevel = 0
+melee = 4
+ranged = 2
+magic = 0
+search = 1
+stealth = 0
+disarm = 1
+device = 1
+caststat = con
+color = c04030
+spells = second_wind, battle_cry, whirlwind, berserk, iron_skin
+items = long_sword, chain_mail, torch, torch, ration, ration, ration, potion_heal, potion_heal, scroll_recall
+
+[class priest]
+name = Priest
+desc = A servant of the light. Heals and blesses allies, smites the undead.
+str = 13
+dex = 10
+con = 13
+int = 10
+wis = 16
+hitdie = 8
+mana = 4
+manaperlevel = 2
+melee = 2
+ranged = 0
+magic = 3
+search = 2
+stealth = 1
+disarm = 1
+caststat = wis
+color = f0e0a0
+device = 3
+spells = heal, bless, light, smite, satisfy_hunger, holy_burst, sanctuary, magic_mapping:9, cure_serious,
+         orb_of_draining, resist_elements, word_of_recall:18, holy_word
+items = mace, leather_armor, torch, torch, ration, ration, ration, potion_heal, scroll_recall
+
+[class wizard]
+name = Wizard
+desc = A scholar of the arcane. Frail, but commands devastating spells.
+str = 8
+dex = 13
+con = 10
+int = 17
+wis = 12
+hitdie = 6
+mana = 6
+manaperlevel = 3
+melee = 0
+ranged = 0
+magic = 4
+search = 3
+stealth = 2
+disarm = 2
+caststat = int
+color = 4060e0
+device = 6
+spells = magic_missile, detect_monsters, light, blink, stinking_cloud, frost_bolt, sleep_monster, fireball,
+         magic_mapping, stone_to_mud, haste_self, ice_storm, resist_elements, teleport_self,
+         teleport_other, word_of_recall:20, stoneskin, delve, meteor_swarm, mana_storm
+items = quarterstaff, robe, torch, torch, ration, ration, ration, potion_mana, scroll_recall
+
+[class rogue]
+name = Rogue
+desc = Quick and quiet. Finds secret doors, picks locks and strikes fast.
+str = 11
+dex = 17
+con = 12
+int = 12
+wis = 10
+hitdie = 7
+mana = 1
+manaperlevel = 1
+melee = 3
+ranged = 3
+magic = 1
+search = 6
+stealth = 5
+disarm = 6
+caststat = int
+color = 606060
+device = 5
+spells = detect_monsters:3, sleep_monster:5, blink:6, stinking_cloud:9, magic_mapping:12, teleport_self:18,
+         word_of_recall:25
+items = short_sword, leather_armor, torch, torch, ration, ration, ration, potion_heal, scroll_mapping, scroll_recall
+
+[class ranger]
+name = Ranger
+desc = A hunter of the wilds. Deadly with a bow, keen eyes spot danger early.
+str = 12
+dex = 16
+con = 13
+int = 10
+wis = 13
+hitdie = 8
+mana = 1
+manaperlevel = 1
+melee = 1
+ranged = 5
+magic = 1
+search = 4
+stealth = 3
+disarm = 3
+caststat = wis
+color = 40a040
+device = 3
+spells = detect_monsters, light:3, heal:6, satisfy_hunger:8, resist_elements:12, frost_bolt:14, haste_self:20
+items = short_bow, dagger, leather_armor, torch, torch, ration, ration, ration, potion_heal, scroll_recall

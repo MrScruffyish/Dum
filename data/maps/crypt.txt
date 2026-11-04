@@ -1,0 +1,84 @@
+# Hand-made maps for the sample campaign "The Sunken Crypt".
+# Map symbols: see docs/CAMPAIGNS.md. Letters are defined with "place".
+
+[map crypt_gate]
+name = The Crypt Gate
+depth = 2
+lit = no
+monsters = no
+wall = dark
+floor = stone
+place z = monster zombie
+place k = monster kobold
+place s = monster skeleton
+place b = monster cave_bat awake
+place t = item torch
+place f = item ration
+place p = item potion_heal
+place n = item scroll_light
+map:
+   #########           ###########
+   #*******#           #.........#
+   #***<***#           #..s...s..#
+   #*******#           #.........#
+   #***t***#           ##.......##
+   ####+####            ###+L+###
+      #.#                 #.#
+      #.#                 #.#
+   ####.#########%%%%%%%%%#.#####
+   #............,,,,,,,,,,,....b#
+   #.##########%%,,,k,,,%%%####.#
+   #.#        %%,,,,,,,,,%%   #.#
+   #.#        %,,,,f,,,,,,%   #.#
+   #.#        %%,,,,,,,,,%%   #.#
+   #.#         %%%%:%%%%%%    #.#
+   #.#            #.#         #.#
+   #.####S#########.###########.#
+   #..z..........p..............#
+   #######################+######
+                         #.#
+                     #####'#####
+                     #___n_____#
+                     #_________#
+                     #____>____#
+                     ###########
+
+[map crypt_heart]
+name = The Heart of the Crypt
+depth = 5
+lit = no
+monsters = yes
+wall = dark
+floor = tiles
+place V = monster bone_lord
+place g = monster ghoul
+place a = item art_gravewarden
+place c = item silver_chalice
+map:
+             #######
+             #*****#
+             #**<**#
+             #*****#
+             ###+###
+               #.#
+               #.#
+  ##############.##############
+  #___________________________#
+  #___#_____#_______#_____#___#
+  #___________________________#
+  ######'###############'######
+       #.#             #.#
+       #.#             #.#
+  ######.######   ######.######
+  #____g______#   #______g____#
+  #___________#   #___________#
+  #_____c_____#   #_____a_____#
+  #___________#   #___________#
+  ######+######   ######+######
+       #.#             #.#
+       #.#             #.#
+  ######.###############.######
+  #*************************###
+  #*************V***********>*#
+  #***************************#
+  #############################

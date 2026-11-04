@@ -1,0 +1,47 @@
+# Dum town stores (level 0). At most 8.
+#
+# name / owner: shown in the shop window.
+# sign:  item whose picture is painted on the shop door.
+# items: what the store sells (it never runs out). Prices are the item 'value' in items.txt.
+# buys:  kinds of items the store buys, for half their value:
+#        weapon armor helm ring amulet light food potion scroll fuel wand rod, and 'staff' (weapons
+#        with spell power).
+#        Every store buys quest treasures for their full value.
+
+[store general]
+name = General Store
+owner = Brannoc the Grocer
+sign = ration
+items = ration, apple, dried_meat, smoked_fish, torch, flask_oil, lantern, scroll_recall
+buys = food, light, fuel
+
+[store armoury]
+name = Armoury
+owner = Hilde Ironhide
+sign = armor
+items = robe, leather_armor, studded_leather, chain_mail, scale_mail, plate_armor, leather_cap, iron_helm, steel_helm
+buys = armor, helm
+
+[store weaponsmith]
+name = Weaponsmith
+owner = Odo Sharp-Edge
+sign = long_sword
+items = dagger, rapier, short_sword, long_sword, spear, mace, flail, war_axe, great_sword, sling, short_bow, long_bow, light_crossbow
+buys = weapon
+
+[store alchemist]
+name = Alchemist
+owner = Mirelle the Wise
+sign = potion_heal
+items = potion_heal, potion_cure_serious, potion_greater_heal, potion_mana, potion_antidote, potion_restoration,
+        scroll_light, scroll_detect, scroll_blink, scroll_satisfy, scroll_teleport, scroll_recall
+buys = potion, scroll
+
+[store magic]
+name = Magic Shop
+owner = Quillon the Strange
+sign = wizard_staff
+items = quarterstaff, wizard_staff, staff_of_fire, wand_magic_missile, wand_sleep_monster, wand_stinking_cloud,
+        rod_illumination, scroll_mapping, scroll_detect, ring_protection, ring_accuracy, ring_resist_fire,
+        ring_resist_cold, amulet_slow_digestion
+buys = staff, scroll, ring, amulet, wand, rod

@@ -1,0 +1,75 @@
+# Dum difficulty levels. The host (or dedicated server) picks one; it applies to everyone
+# and is stored in the save. Shown in the main menu in this order. Add your own!
+#
+# monster_damage / monster_hp / monster_speed: multipliers
+# monster_tohit: added to monster attack rolls
+# alertness:     how quickly sleeping monsters notice you (multiplier)
+# extra_groups:  more (or fewer, negative) monster groups per level
+# hunger / fuel: how fast food and light run out (multipliers)
+# respawn:       seconds until a dead player gets back up (while someone lives)
+# party_wipe:    restart = the whole party dead starts a new game; revive = everyone gets up
+# xp / gold:     multipliers for experience and gold found
+
+[difficulty story]
+name = Story
+desc = For exploring and the story. Danger is mild and death is a short nap.
+monster_damage = 0.4
+monster_hp = 0.6
+monster_tohit = -4
+alertness = 0.4
+monster_speed = 0.8
+extra_groups = -3
+hunger = 0.5
+fuel = 0.5
+respawn = 3
+party_wipe = revive
+xp = 1.25
+gold = 1.25
+
+[difficulty easy]
+name = Easy
+desc = Forgiving fights and supplies; a fallen party gets back up.
+monster_damage = 0.6
+monster_hp = 0.75
+monster_tohit = -2
+alertness = 0.6
+monster_speed = 0.9
+extra_groups = -2
+hunger = 0.7
+fuel = 0.7
+respawn = 6
+party_wipe = revive
+
+[difficulty normal]
+name = Normal
+desc = The intended experience.
+
+[difficulty hard]
+name = Hard
+desc = Tougher, faster, more watchful monsters. Supplies matter.
+monster_damage = 1.3
+monster_hp = 1.25
+monster_tohit = 2
+alertness = 1.4
+monster_speed = 1.1
+extra_groups = 2
+hunger = 1.25
+fuel = 1.25
+respawn = 20
+xp = 1.1
+gold = 1.1
+
+[difficulty nightmare]
+name = Nightmare
+desc = For veterans. Everything wants you dead, and it is good at it.
+monster_damage = 1.6
+monster_hp = 1.5
+monster_tohit = 4
+alertness = 1.8
+monster_speed = 1.2
+extra_groups = 4
+hunger = 1.5
+fuel = 1.5
+respawn = 30
+xp = 1.25
+gold = 1.25

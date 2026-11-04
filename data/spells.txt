@@ -1,0 +1,624 @@
+# Dum spell definitions.
+#
+# type:    bolt (projectile at auto-aimed target), ball (projectile that explodes, radius),
+#          nova (burst around the caster), heal, bless, light, detect, blink, map,
+#          recall (after 'duration' + 0..'range' seconds: dungeon -> town, town -> deepest level),
+#          teleport (far away, at least 'range' tiles if possible), haste (move/attack/cast faster),
+#          shield (+8 armor class), resist (fire, cold, poison for you and allies in 'radius'),
+#          dig (turns the wall or rubble in front of you, up to 'range' tiles, into floor),
+#          feed (you are full), whirlwind (a melee blow against everything around you),
+#          berserk (+4 to hit, +3 damage, -2 armor class, heals 'dice'),
+#          descent (after 'duration' seconds the party falls 'range' levels deeper; endless dungeon only)
+# effect:  sleep, fear, slow or teleport (sends it far away) - extra effect of a bolt/ball/nova on monsters (bosses are
+#          immune, deep monsters often resist). A spell with no 'dice' does no damage.
+# recharge: seconds before the spell can be used again (abilities use this instead of mana).
+# ability = yes: a fighting technique (warriors), shown as such and costs no mana.
+# target = self: heal only the caster (otherwise the most wounded ally you look at).
+# element: physical, arcane, fire, cold (slows), holy (x2 vs undead), poison
+# dice:    base damage/healing, plus 'scale' per caster level
+# Damage/healing = dice + scale * level + spell power,
+# spell power = class magic skill / 2 + cast stat modifier + staff bonus.
+
+[spell magic_missile]
+name = Magic Missile
+desc = A dart of pure force that never misses its mark.
+type = bolt
+element = arcane
+mana = 2
+level = 1
+dice = 2d4
+scale = 0.5
+speed = 14
+cooldown = 0.6
+color = 80a0ff
+
+[spell frost_bolt]
+name = Frost Bolt
+desc = A shard of ice that slows its target.
+type = bolt
+element = cold
+mana = 4
+level = 3
+dice = 4d6
+scale = 0.7
+speed = 12
+cooldown = 0.8
+color = b0f0ff
+
+[spell fireball]
+name = Fireball
+desc = An exploding sphere of flame.
+type = ball
+element = fire
+mana = 8
+level = 5
+dice = 5d6
+scale = 1.0
+radius = 1.8
+speed = 10
+cooldown = 1.2
+color = ff8020
+
+[spell blink]
+name = Blink
+desc = Teleports you a short distance forward.
+type = blink
+mana = 3
+level = 2
+range = 5
+cooldown = 1.0
+color = d080ff
+
+[spell light]
+name = Call Light
+desc = Brightens the area around you for a minute.
+type = light
+mana = 2
+level = 1
+radius = 7
+duration = 60
+cooldown = 1.0
+color = ffffa0
+
+[spell detect_monsters]
+name = Detect Monsters
+desc = Shows nearby creatures on your map for a while.
+type = detect
+mana = 2
+level = 1
+radius = 24
+duration = 20
+cooldown = 1.0
+color = ff60ff
+
+[spell magic_mapping]
+name = Magic Mapping
+desc = Reveals the dungeon layout around you.
+type = map
+mana = 10
+level = 7
+radius = 30
+cooldown = 2.0
+color = 60ff60
+
+[spell heal]
+name = Cure Wounds
+desc = Heals you, or the most wounded ally you are looking at.
+type = heal
+element = holy
+mana = 3
+level = 1
+dice = 2d8
+scale = 1.0
+cooldown = 1.0
+color = ffffff
+
+[spell bless]
+name = Bless
+desc = You and nearby allies fight better for a while.
+type = bless
+element = holy
+mana = 2
+level = 1
+radius = 6
+duration = 30
+cooldown = 1.0
+color = fff080
+
+[spell smite]
+name = Smite
+desc = A bolt of holy light. Deadly to the undead.
+type = bolt
+element = holy
+mana = 3
+level = 2
+dice = 3d6
+scale = 0.6
+speed = 16
+cooldown = 0.8
+color = fff8c0
+
+[spell holy_burst]
+name = Holy Burst
+desc = Radiant energy bursts from you, searing enemies nearby.
+type = nova
+element = holy
+mana = 7
+level = 5
+dice = 4d8
+scale = 0.8
+radius = 3.0
+cooldown = 1.5
+color = fffff0
+
+[spell word_of_recall]
+name = Word of Recall
+desc = After a short while, takes the party to town - or from town down to the deepest level reached.
+type = recall
+mana = 15
+level = 30
+duration = 15
+range = 10
+cooldown = 1.0
+color = c080ff
+
+[spell stinking_cloud]
+name = Stinking Cloud
+desc = A ball of poisonous gas that bursts on impact.
+type = ball
+element = poison
+mana = 4
+level = 3
+dice = 3d4
+scale = 0.6
+radius = 1.5
+speed = 10
+cooldown = 1.0
+color = 80ff40
+
+[spell sleep_monster]
+name = Sleep
+desc = Puts a monster into a deep magical sleep. Any wound wakes it.
+type = bolt
+element = arcane
+effect = sleep
+mana = 3
+level = 4
+speed = 14
+cooldown = 0.8
+color = c0a0ff
+
+[spell scare_monster]
+name = Scare Monster
+desc = Fills a monster with terror so it runs away from you.
+type = bolt
+element = arcane
+effect = fear
+mana = 3
+level = 6
+speed = 14
+cooldown = 0.8
+color = ffd060
+
+[spell stone_to_mud]
+name = Stone to Mud
+desc = Turns the wall or rubble in front of you into mud. Makes your own corridors.
+type = dig
+mana = 5
+level = 9
+range = 6
+cooldown = 0.8
+color = c0a060
+
+[spell haste_self]
+name = Haste Self
+desc = For a while you move, strike and cast much faster.
+type = haste
+mana = 12
+level = 11
+duration = 20
+cooldown = 1.0
+color = 60ffd0
+
+[spell ice_storm]
+name = Ice Storm
+desc = A great ball of ice and freezing wind. Slows what survives.
+type = ball
+element = cold
+mana = 14
+level = 13
+dice = 6d8
+scale = 1.2
+radius = 2.5
+speed = 9
+cooldown = 1.4
+color = a0e8ff
+
+[spell resist_elements]
+name = Resist Elements
+desc = You and nearby allies take half damage from fire, cold and poison for a minute.
+type = resist
+mana = 10
+level = 15
+radius = 6
+duration = 60
+cooldown = 1.0
+color = ffa060
+
+[spell teleport_self]
+name = Teleport
+desc = Takes you far away on this level, out of harm's way - or into it.
+type = teleport
+mana = 12
+level = 17
+range = 20
+cooldown = 1.0
+color = e080ff
+
+[spell stoneskin]
+name = Stoneskin
+desc = Your skin hardens like stone (+8 armor class) for half a minute.
+type = shield
+mana = 14
+level = 22
+duration = 30
+cooldown = 1.0
+color = a09080
+
+[spell meteor_swarm]
+name = Meteor Swarm
+desc = Calls down burning rocks on your foes.
+type = ball
+element = fire
+mana = 28
+level = 25
+dice = 10d10
+scale = 1.5
+radius = 2.5
+speed = 11
+cooldown = 1.8
+color = ff6020
+
+[spell mana_storm]
+name = Mana Storm
+desc = Raw magic tears through everything around you.
+type = nova
+element = arcane
+mana = 40
+level = 30
+dice = 12d12
+scale = 2.0
+radius = 4.0
+cooldown = 2.0
+color = d0a0ff
+
+# --- priest prayers ---------------------------------------------------------
+
+[spell satisfy_hunger]
+name = Satisfy Hunger
+desc = Fills your belly as if you had eaten a feast.
+type = feed
+element = holy
+mana = 6
+level = 5
+cooldown = 1.0
+color = e0c080
+
+[spell sanctuary]
+name = Sanctuary
+desc = Monsters close to you fall into a deep sleep.
+type = nova
+element = holy
+effect = sleep
+mana = 6
+level = 7
+radius = 3.5
+cooldown = 1.5
+color = f0f0ff
+
+[spell cure_serious]
+name = Cure Serious Wounds
+desc = Heals a lot - you, or the most wounded ally you are looking at.
+type = heal
+element = holy
+mana = 8
+level = 11
+dice = 6d8
+scale = 1.5
+cooldown = 1.0
+color = ffffff
+
+[spell orb_of_draining]
+name = Orb of Draining
+desc = A ball of holy power. Twice as deadly to the undead.
+type = ball
+element = holy
+mana = 9
+level = 13
+dice = 6d6
+scale = 1.0
+radius = 1.8
+speed = 12
+cooldown = 1.2
+color = fff0a0
+
+[spell holy_word]
+name = Holy Word
+desc = A word of power that sears every enemy around you.
+type = nova
+element = holy
+mana = 30
+level = 22
+dice = 10d8
+scale = 1.5
+radius = 4.0
+cooldown = 2.0
+color = fffff0
+
+[spell teleport_other]
+name = Teleport Other
+desc = A bolt that sends a monster far away on this level.
+type = bolt
+element = arcane
+effect = teleport
+mana = 7
+level = 19
+speed = 16
+cooldown = 0.8
+color = e0a0ff
+
+[spell delve]
+name = Delve
+desc = After a few seconds the floor gives way and the party falls two levels deeper.
+type = descent
+mana = 10
+level = 25
+duration = 5
+range = 2
+cooldown = 1.0
+color = a08060
+
+# --- warrior techniques (abilities: no mana, they recharge) -----------------
+
+[spell second_wind]
+name = Second Wind
+desc = You catch your breath in the middle of a fight and heal.
+type = heal
+target = self
+ability = yes
+mana = 0
+level = 5
+dice = 3d8
+scale = 1.5
+recharge = 45
+cooldown = 0.5
+color = ff9070
+
+[spell battle_cry]
+name = Battle Cry
+desc = A terrible roar: monsters around you flee in terror. Wakes everything nearby.
+type = nova
+element = physical
+effect = fear
+ability = yes
+mana = 0
+level = 10
+radius = 5
+recharge = 30
+cooldown = 0.5
+color = ffc060
+
+[spell whirlwind]
+name = Whirlwind
+desc = You spin around and strike every monster within reach of your weapon.
+type = whirlwind
+ability = yes
+mana = 0
+level = 15
+recharge = 12
+cooldown = 0.6
+color = e0e0e0
+
+[spell berserk]
+name = Berserk
+desc = A battle fury: +4 to hit and +3 damage, but -2 armor class. Heals a little.
+type = berserk
+ability = yes
+mana = 0
+level = 20
+dice = 2d8
+scale = 1.0
+duration = 20
+recharge = 60
+cooldown = 0.5
+color = ff4040
+
+[spell iron_skin]
+name = Iron Skin
+desc = You brace yourself: +8 armor class for 15 seconds.
+type = shield
+ability = yes
+mana = 0
+level = 25
+duration = 15
+recharge = 60
+cooldown = 0.5
+color = c0c0d0
+
+# --- monster spells ---------------------------------------------------------
+
+[spell m_firebolt]
+name = fire bolt
+type = bolt
+element = fire
+mana = 0
+dice = 2d6
+scale = 0
+speed = 8
+color = ff6010
+
+[spell m_darkbolt]
+name = shadow bolt
+type = bolt
+element = arcane
+mana = 0
+dice = 3d6
+scale = 0
+speed = 8
+color = a040ff
+
+[spell m_frost]
+name = frost breath
+type = bolt
+element = cold
+mana = 0
+dice = 3d8
+scale = 0
+speed = 7
+color = 80e0ff
+
+[spell m_deathbolt]
+name = death bolt
+type = ball
+element = arcane
+mana = 0
+dice = 5d8
+scale = 0
+radius = 1.5
+speed = 7
+color = 60ff80
+
+[spell m_web]
+name = venom spit
+type = bolt
+element = poison
+mana = 0
+dice = 2d4
+scale = 0
+speed = 9
+color = 80ff40
+
+[spell m_arrow]
+name = arrow
+type = bolt
+element = physical
+mana = 0
+dice = 1d8
+scale = 0
+speed = 12
+color = c0a070
+
+[spell m_rock]
+name = thrown boulder
+type = bolt
+element = physical
+mana = 0
+dice = 3d6
+scale = 0
+speed = 9
+color = 908070
+
+[spell m_gaze]
+name = paralyzing gaze
+type = bolt
+element = cold
+mana = 0
+dice = 1d4
+scale = 0
+speed = 10
+color = d0d0ff
+
+[spell m_firebreath]
+name = breath of fire
+type = ball
+element = fire
+mana = 0
+dice = 6d6
+scale = 0
+radius = 1.8
+speed = 9
+color = ff7010
+
+[spell m_hellfire]
+name = hellfire
+type = ball
+element = fire
+mana = 0
+dice = 8d6
+scale = 0
+radius = 2.0
+speed = 8
+color = ff3000
+
+[spell m_fireburst]
+name = burst of flame
+type = ball
+element = fire
+mana = 0
+dice = 3d6
+scale = 0
+radius = 2.0
+color = ff9030
+
+[spell m_frostburst]
+name = burst of frost
+type = ball
+element = cold
+mana = 0
+dice = 3d6
+scale = 0
+radius = 2.0
+color = a0e0ff
+
+[spell m_venomcloud]
+name = cloud of venom
+type = ball
+element = poison
+mana = 0
+dice = 4d6
+scale = 0
+radius = 1.8
+speed = 8
+color = 70e030
+
+[spell m_icebreath]
+name = breath of ice
+type = ball
+element = cold
+mana = 0
+dice = 6d6
+scale = 0
+radius = 1.8
+speed = 9
+color = a0f0ff
+
+[spell m_mindblast]
+name = mind blast
+type = bolt
+element = arcane
+mana = 0
+dice = 5d8
+scale = 0
+speed = 10
+color = ff80ff
+
+[spell m_storm]
+name = storm of force
+type = ball
+element = arcane
+mana = 0
+dice = 8d8
+scale = 0
+radius = 2.2
+speed = 9
+color = c0c0ff
+
+[spell m_cinders]
+name = spray of cinders
+type = bolt
+element = fire
+mana = 0
+dice = 4d8
+scale = 0
+speed = 11
+color = ff9040
