@@ -7,6 +7,7 @@
 //   dum_tool newcampaign <id> [--name N] [--levels L] [--depth D] [--handmade K] [--seed S] [--force]
 //                                                    generate a campaign with levels, monsters and goals
 //   dum_tool list                                    list campaigns and maps
+//   dum_tool ids [monsters|items|spells|classes|stores]   list ids, names and picture names
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -186,6 +187,35 @@ int cmdNewCampaign(const std::string& id) {
     return 0;
 }
 
+// Every id in the data files, with the name shown in the game and the picture file name
+// (data/gfx/<picture>.png) that replaces its art.
+int cmdIds(const std::string& what) {
+    bool all = what.empty();
+    if (all || what == "monsters") {
+        std::printf("Monsters (data/monsters.txt)            depth  picture\n");
+        for (auto& m : gData.monsters)
+            std::printf("  %-20s %-22s %3d%s  monster_%s.png\n", m.id.c_str(), m.name.c_str(), m.depth, m.boss ? " boss" : "     ", m.id.c_str());
+    }
+    if (all || what == "items") {
+        std::printf("\nItems (data/items.txt)                   depth  picture\n");
+        for (auto& it : gData.items)
+            std::printf("  %-20s %-28s %3d  item_%s.png\n", it.id.c_str(), it.name.substr(0, 28).c_str(), it.depth, it.id.c_str());
+    }
+    if (all || what == "spells") {
+        std::printf("\nSpells and abilities (data/spells.txt)          picture\n");
+        for (auto& sp : gData.spells) std::printf("  %-20s %-26s spell_%s.png\n", sp.id.c_str(), sp.name.c_str(), sp.id.c_str());
+    }
+    if (all || what == "classes") {
+        std::printf("\nClasses (data/classes.txt)                      picture (seen by others in co-op)\n");
+        for (auto& c : gData.classes) std::printf("  %-20s %-26s player_%s.png\n", c.id.c_str(), c.name.c_str(), c.id.c_str());
+    }
+    if (all || what == "stores") {
+        std::printf("\nStores (data/stores.txt)                        door picture\n");
+        for (auto& st : gData.stores) std::printf("  %-20s %-26s shop_%s.png\n", st.id.c_str(), st.name.c_str(), st.id.c_str());
+    }
+    return 0;
+}
+
 int cmdList() {
     std::printf("Campaigns:\n");
     for (auto& c : gData.campaigns) std::printf("  %-20s %s (%zu levels)\n", c.id.c_str(), c.name.c_str(), c.levels.size());
@@ -199,6 +229,8 @@ void usage() {
         "dum_tool - make maps, campaigns and quests for Dum\n\n"
         "  dum_tool check                     check all data files (classes, items, maps, campaigns...)\n"
         "  dum_tool list                      list campaigns and hand-made maps\n"
+        "  dum_tool ids [monsters|items|spells|classes|stores]\n"
+        "                                     list ids, names and picture file names\n"
         "  dum_tool show <map-id>             print a hand-made map and what is placed on it\n"
         "  dum_tool genmap <id> [--name N] [--depth D] [--seed S] [--out FILE] [--force]\n"
         "                                     generate a random level as an editable map file\n"
@@ -231,6 +263,7 @@ int main(int argc, char** argv) {
     std::string arg = gArgs.size() > 1 ? gArgs[1] : "";
     if (cmd == "check") return cmdCheck();
     if (cmd == "list") return cmdList();
+    if (cmd == "ids") return cmdIds(arg);
     if (cmd == "show" && !arg.empty()) return cmdShow(arg);
     if (cmd == "genmap" && !arg.empty()) return cmdGenMap(arg);
     if (cmd == "newcampaign" && !arg.empty()) return cmdNewCampaign(arg);

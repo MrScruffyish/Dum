@@ -189,8 +189,11 @@ See **[docs/ART_AND_SOUND.md](docs/ART_AND_SOUND.md)** (replacing pictures and s
 Everything is in `data/` and read at startup. The game finds `data/` next to the executable
 or in its parent directory, so `build/dum` uses the repository's `data/` directly.
 
-- `data/classes.txt`, `items.txt`, `monsters.txt`, `spells.txt`: all game content. The
-  formats are described at the top of each file.
+- `data/classes.txt`, `items.txt`, `monsters.txt`, `spells.txt`, `stores.txt`: all game
+  content. The formats are described at the top of each file. **How to add your own
+  monsters, items, spells, classes and shops, with examples: [docs/MODDING.md](docs/MODDING.md).**
+  `./build/dum_tool ids` lists every id (and its picture file name), and
+  `./build/dum_tool check` finds mistakes in your files.
 - **Art:** run `./build/dum --export-art` to write every picture to `data/gfx/*.png`. Edit
   any of them and the game will use your file instead of the generated one. Delete a file to
   get the generated picture back. Wall, floor and door textures must be power-of-two sizes

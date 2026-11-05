@@ -44,16 +44,20 @@ follow the rules in the last column.
 | `spell_<id>` | 32x32 | glowing projectile / explosion of a spell | black = invisible (it is *added* to the screen like light) |
 | `arrow` | 32x32 | arrows and sling stones in flight | transparent |
 
-`<id>` is the id from the data files: `[monster goblin]` → `monster_goblin.png`,
+`<id>` is the id from the data files (`./build/dum_tool ids` lists them all with their
+picture names): `[monster goblin]` → `monster_goblin.png`,
 `[item potion_heal]` → `item_potion_heal.png`, `[class wizard]` → `player_wizard.png`.
 New monsters and items you add to the data files get generated art automatically, and you
-can override it the same way.
+can override it the same way. How to add them: [MODDING.md](MODDING.md).
 
 ## Drawing your own monster, step by step
 
 You don't need `--export-art` for this. Just put files in `data/gfx/` (create the folder).
 
-1. Find the monster's id in `data/monsters.txt`: `[monster goblin]` → the id is `goblin`.
+1. Find the monster's id: `./build/dum_tool ids monsters` lists every monster with its id,
+   its name in the game and the exact PNG file name to use. Or look in
+   `data/monsters.txt`: `[monster goblin]` → the id is `goblin`. (`dum_tool ids items` does
+   the same for items, and so on.)
 2. Draw it at any size (big is fine, for example 512x512; it is scaled down, see *Sizes*) on a
    **transparent background**, standing with its **feet on the bottom row** of the picture,
    facing you. Save it as `data/gfx/monster_goblin.png`.
