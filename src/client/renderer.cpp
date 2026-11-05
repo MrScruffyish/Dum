@@ -297,6 +297,7 @@ void Renderer::drawWorld(Map& m, const Assets& a, Vec2 cam, float angle, float h
         int idx = my * m.w + mx;
         uint8_t tile = m.tiles[idx];
         const Texture* t = tile == T_DOOR ? &a.door : tile == T_DOOR_LOCKED ? &a.doorLocked : tile == T_RUBBLE ? &a.rubble
+                         : tile == T_DOOR_KEY ? &a.keyDoors[m.keyDoorColor(mx, my)]
                          : tile == T_SHOP ? &a.shopDoors[m.floorTex[idx] & 7] : &a.walls[m.wallTex[idx] & 7];
         float wallX = side == 0 ? cam.y + perp * rd.y : cam.x + perp * rd.x;
         wallX -= std::floor(wallX);

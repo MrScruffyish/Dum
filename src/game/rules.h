@@ -32,7 +32,7 @@ inline bool useTileInFront(const Map& m, Vec2 pos, float angle, int& ox, int& oy
         Vec2 c = pos + dir * d;
         int x = (int)std::floor(c.x), y = (int)std::floor(c.y);
         uint8_t t = m.at(x, y);
-        if (t == T_DOOR || t == T_DOOR_OPEN || t == T_DOOR_LOCKED || t == T_RUBBLE || t == T_SHOP) { ox = x; oy = y; return true; }
+        if (t == T_DOOR || t == T_DOOR_OPEN || t == T_DOOR_LOCKED || t == T_DOOR_KEY || t == T_RUBBLE || t == T_SHOP) { ox = x; oy = y; return true; }
         if (Map::tileSolid(t)) return false;
     }
     return false;

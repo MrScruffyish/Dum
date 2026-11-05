@@ -54,6 +54,7 @@ follow the rules in the last column.
 | `floor_stone`, `floor_dirt`, `floor_tiles`, `floor_wood` | 64x64 | floor textures | power of two, seamless |
 | `ceiling`, `ceiling_cave` | 64x64 | ceilings (cave ceiling above dirt floors) | power of two, seamless |
 | `door`, `door_locked` | 64x64 | closed doors (fills a whole wall tile) | power of two |
+| `door_red`, `door_blue`, `door_green`, `door_yellow` | 64x64 | doors with a coloured lock (vaults) | power of two |
 | `rubble` | 64x64 | rubble blocking a corridor | power of two |
 | `stairs_down`, `stairs_up`, `stairs_up_ceiling` | 64x64 | floor of stair tiles, light shaft above up-stairs | power of two |
 | `monster_<id>` | 64x64 | monster, standing pose | any size, transparent background |
@@ -62,6 +63,8 @@ follow the rules in the last column.
 | `monster_<id>_die1`, `_die2`, ... | 64x64 | death animation, played where it fell | 1 to 16 frames, as above; the last frame lies there a moment, then fades |
 | `player_<class>_walk1`, ... | 64x64 | walk animation of other players in co-op | as above |
 | `player_<class>` / `player_<class>_attack` | 64x64 | how other players see your class in co-op | any size, transparent |
+| `item_chest`, `item_chest_open` | 32x32 | chests, closed and opened (drawn 0.45 wall heights tall) | any size, transparent, bottom row on the floor |
+| `item_key_red`, `item_key_blue`, `item_key_green`, `item_key_yellow` | 32x32 | the keys | any size, transparent |
 | `item_<id>` | 32x32 | items lying on the floor (and the shop sign) | any size, transparent; the whole picture is drawn 0.28 wall heights tall, so leave empty space around small things |
 | `hand_fist`, `hand_dagger`, `hand_sword`, `hand_mace`, `hand_axe`, `hand_staff`, `hand_bow` | 128x128 | the first-person weapon in your hand | any size; drawn at the bottom right of the view |
 | `spell_<id>` | 32x32 | glowing projectile / explosion of a spell | black = invisible (it is *added* to the screen like light) |

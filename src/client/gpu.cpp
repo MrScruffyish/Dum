@@ -375,6 +375,7 @@ void GpuRenderer::Impl::buildMesh(const Map& m, const Assets& a) {
             }
             // Wall faces toward each open neighbour, lit from that neighbour's tile.
             const Texture* wt = tile == T_DOOR ? &a.door : tile == T_DOOR_LOCKED ? &a.doorLocked : tile == T_RUBBLE ? &a.rubble
+                              : tile == T_DOOR_KEY ? &a.keyDoors[m.keyDoorColor(x, y)]
                               : tile == T_SHOP ? &a.shopDoors[m.floorTex[idx] & 7] : &a.walls[m.wallTex[idx] & 7];
             auto open = [&](int nx, int ny) { return m.inside(nx, ny) && !Map::tileSolid(m.tiles[ny * m.w + nx]); };
             // u runs the way the software renderer maps it (so pictures aren't mirrored); v = 0 at the top.

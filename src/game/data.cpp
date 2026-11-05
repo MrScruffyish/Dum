@@ -203,7 +203,7 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
             {"recall", SpellType::Recall}, {"teleport", SpellType::Teleport}, {"haste", SpellType::Haste},
             {"shield", SpellType::Shield}, {"resist", SpellType::Resist}, {"dig", SpellType::Dig},
             {"feed", SpellType::Feed}, {"whirlwind", SpellType::Whirlwind}, {"berserk", SpellType::Berserk},
-            {"descent", SpellType::Descent}};
+            {"descent", SpellType::Descent}, {"treasure", SpellType::Treasure}};
         if (!types.count(t)) { err = where(s) + "unknown spell type " + t; return false; }
         d.type = types.at(t);
         std::string e = g.str("element", "arcane");
@@ -250,7 +250,7 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
             {"food", ItemKind::Food}, {"potion", ItemKind::Potion}, {"scroll", ItemKind::Scroll},
             {"fuel", ItemKind::Fuel}, {"gold", ItemKind::Gold}, {"quest", ItemKind::Quest},
             {"helm", ItemKind::Helm}, {"ring", ItemKind::Ring}, {"amulet", ItemKind::Amulet},
-            {"wand", ItemKind::Wand}, {"rod", ItemKind::Rod}};
+            {"wand", ItemKind::Wand}, {"rod", ItemKind::Rod}, {"chest", ItemKind::Chest}, {"key", ItemKind::Key}};
         if (!kinds.count(k)) { err = where(s) + "unknown item kind " + k; return false; }
         d.kind = kinds.at(k);
         d.color = g.color("color", 0xFFC0C0C0);
@@ -290,6 +290,12 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
         d.slowDigest = g.i("slowdigest", 0);
         d.regen = g.i("regen", 0);
         d.artifact = g.b("artifact", false);
+        if (g.has("keycolor")) {
+            std::string kc = g.str("keycolor");
+            for (int c = 0; c < KEY_COUNT; c++)
+                if (kc == keyColorName(c)) d.keyColor = c;
+            if (d.keyColor < 0) { err = where(s) + "unknown keycolor " + kc + " (red, blue, green, yellow)"; return false; }
+        }
         d.everburning = g.b("everburning", false);
         static const std::map<std::string, Element> elemNames = {
             {"physical", Element::Physical}, {"arcane", Element::Arcane}, {"fire", Element::Fire},

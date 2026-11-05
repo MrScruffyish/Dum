@@ -278,6 +278,41 @@ struct Gen {
             }
     }
 
+    // Vaults: a dead-end room (one way in) gets a door with a coloured lock. The server puts
+    // the key somewhere reachable without it, and treasure chests inside.
+    void placeVaults() {
+        if (depth < 2 || !rng.chance(std::min(75, 35 + depth * 5))) return;
+        int want = depth >= 6 && rng.chance(35) ? 2 : 1, made = 0;
+        int color = rng.range(0, KEY_COUNT - 1);
+        std::vector<int> order(m.rooms.size());
+        for (size_t i = 0; i < order.size(); i++) order[i] = (int)i;
+        for (size_t i = order.size(); i > 1; i--) std::swap(order[i - 1], order[rng.range(0, (int)i - 1)]);
+        for (int r : order) {
+            if (made >= want) break;
+            // Never the rooms with the stairs.
+            int sr = roomId[m.startY * m.w + m.startX], dr = roomId[m.downY * m.w + m.downX];
+            if (r == sr || r == dr) continue;
+            // Its ways in: open cells outside the room right next to it.
+            std::vector<std::pair<int, int>> entries;
+            for (int y = 1; y < m.h - 1; y++)
+                for (int x = 1; x < m.w - 1; x++) {
+                    // (doors, secret doors and rubble are ways in too)
+                    if (roomId[y * m.w + x] == r || m.at(x, y) == T_ROCK || m.at(x, y) == T_WALL) continue;
+                    const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
+                    for (int k = 0; k < 4; k++)
+                        if (roomId[(y + dy[k]) * m.w + x + dx[k]] == r) { entries.push_back({x, y}); break; }
+                }
+            if (entries.size() != 1) continue;
+            int x = entries[0].first, y = entries[0].second;
+            bool horiz = Map::tileSolid(m.at(x, y - 1)) && Map::tileSolid(m.at(x, y + 1));
+            bool vert = Map::tileSolid(m.at(x - 1, y)) && Map::tileSolid(m.at(x + 1, y));
+            if (!horiz && !vert) continue;   // must be a doorway
+            m.set(x, y, T_DOOR_KEY);
+            m.wallTex[y * m.w + x] = (uint8_t)(8 + (color + made) % KEY_COUNT);   // see keyDoorColor()
+            made++;
+        }
+    }
+
     void placeRubble() {
         for (int y = 1; y < m.h - 1; y++)
             for (int x = 1; x < m.w - 1; x++)
@@ -376,6 +411,7 @@ struct Gen {
         m.set(bx, by, T_STAIRS_DOWN);
         m.startX = sx; m.startY = sy;
         m.downX = bx; m.downY = by;
+        placeVaults();
         return true;
     }
 };

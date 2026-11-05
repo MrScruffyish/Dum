@@ -318,6 +318,7 @@ std::string Client::invUseLabel(const ItemStack& s) const {
         case ItemKind::Wand: return "aim";
         case ItemKind::Rod: return "zap";
         case ItemKind::Quest: return "examine";
+        case ItemKind::Key: return "use (walk into the door with its colour of lock)";
         default: return "use";
     }
 }
@@ -602,9 +603,10 @@ void Client::move(float dt) {
         bumpCd_ = std::max(0.0f, bumpCd_ - dt);
         int dx, dy;
         if (moved < step.len() * 0.3f && bumpCd_ <= 0 && useTileInFront(map_, pos_, std::atan2(mv.y, mv.x), dx, dy) &&
-            (map_.at(dx, dy) == T_DOOR || map_.at(dx, dy) == T_DOOR_LOCKED || map_.at(dx, dy) == T_RUBBLE || map_.at(dx, dy) == T_SHOP)) {
+            (map_.at(dx, dy) == T_DOOR || map_.at(dx, dy) == T_DOOR_LOCKED || map_.at(dx, dy) == T_DOOR_KEY || map_.at(dx, dy) == T_RUBBLE ||
+             map_.at(dx, dy) == T_SHOP)) {
             uint8_t bt = map_.at(dx, dy);
-            bumpCd_ = bt == T_RUBBLE ? 0.5f : bt == T_DOOR_LOCKED ? 1.05f : 0.6f;
+            bumpCd_ = bt == T_RUBBLE ? 0.5f : bt == T_DOOR_LOCKED ? 1.05f : bt == T_DOOR_KEY ? 2.0f : 0.6f;
             if (map_.at(dx, dy) == T_SHOP) { stopAuto(""); autoWalk_ = false; tryOpenShop(std::atan2(mv.y, mv.x)); bumpCd_ = 1.0f; return; }
             // Tell the server which way we bumped (may differ from where we look when strafing).
             action(A_USE, 1, (int)(std::atan2(mv.y, mv.x) * 1000.0f));
@@ -753,10 +755,20 @@ void Client::draw(Renderer& r) {
                 if (e.s.flags & EF_HURT) { s.tint = 0xFFFF2020; s.tintAmt = 0.5f; }
                 break;
             }
-            case ET_ITEM:
+            case ET_ITEM: {
                 s.tex = &A.items[e.s.def];
                 s.height = 0.28f;
+                if (gData.items[e.s.def].kind == ItemKind::Chest) {
+                    s.height = 0.45f;
+                    uint8_t f = e.s.flags;   // detected: red = trapped, dim = empty, a golden glint = treasure
+                    if (f & EF_CHEST_KNOWN) {
+                        if (f & EF_CHEST_TRAP) { s.tint = 0xFFFF2010; s.tintAmt = 0.45f + 0.15f * std::sin((float)time_ * 4); }
+                        else if (f & EF_CHEST_EMPTY) s.brightness = 0.55f;
+                        else { s.tint = 0xFFFFD040; s.tintAmt = 0.2f + 0.1f * std::sin((float)time_ * 3); }
+                    }
+                }
                 break;
+            }
             case ET_PROJECTILE:
                 if (e.s.def == 0xFFFF) { s.tex = &A.arrow; s.height = 0.2f; s.zoff = 0.38f; }
                 else { s.tex = &A.spellOrbs[e.s.def]; s.height = 0.3f; s.zoff = 0.32f; s.additive = true; s.fullbright = true; }
@@ -1122,6 +1134,11 @@ void Client::drawMinimap(Renderer& r, int x0, int y0, int w, int h, int scale, b
             switch (t) {
                 case T_WALL: case T_ROCK: case T_DOOR_SECRET: c = 0xFF8A8070; break;
                 case T_DOOR: case T_DOOR_LOCKED: c = 0xFFB07030; break;
+                case T_DOOR_KEY: {
+                    const uint32_t kc[4] = {0xFFFF3030, 0xFF4080FF, 0xFF40E050, 0xFFFFE030};
+                    c = kc[map_.keyDoorColor(tx, ty)];
+                    break;
+                }
                 case T_DOOR_OPEN: c = 0xFF704820; break;
                 case T_STAIRS_DOWN: c = 0xFFFFFF40; break;
                 case T_STAIRS_UP: c = 0xFF40FFFF; break;
@@ -1139,6 +1156,8 @@ void Client::drawMinimap(Renderer& r, int x0, int y0, int w, int h, int scale, b
     for (auto& [id, e] : ents_) {
         if (e.s.type == ET_PLAYER) dot(e.rpos, 0xFF40FF40, std::max(2, scale));
         else if (e.s.type == ET_MONSTER && me_.detectT > 0 && dist(e.rpos, pos_) < 24) dot(e.rpos, (e.s.flags & EF_BOSS) ? 0xFFFF8000 : 0xFFFF3030, std::max(2, scale));
+        else if (e.s.type == ET_ITEM && (e.s.flags & EF_CHEST_KNOWN) && gData.items[e.s.def].kind == ItemKind::Chest)   // detected chests
+            dot(e.rpos, (e.s.flags & EF_CHEST_TRAP) ? 0xFFFF4040 : (e.s.flags & EF_CHEST_EMPTY) ? 0xFF909090 : 0xFFFFD040, std::max(2, scale));
     }
     // Player with facing direction
     dot(pos_, 0xFFFFFFFF, std::max(2, scale));
@@ -1387,8 +1406,13 @@ std::string Client::usePrompt() const {
     std::vector<Vec2> pos;
     std::vector<const CEnt*> items;
     for (auto& [id, e] : ents_)
-        if (e.s.type == ET_ITEM) { pos.push_back(e.s.pos); items.push_back(&e); }
+        if (e.s.type == ET_ITEM && gData.items[e.s.def].id != "chest_open") { pos.push_back(e.s.pos); items.push_back(&e); }
     int i = pickupCandidate(map_, pos_, angle_, pos);
+    if (i >= 0 && gData.items[items[i]->s.def].kind == ItemKind::Chest) {
+        uint8_t f = items[i]->s.flags;
+        std::string what = !(f & EF_CHEST_KNOWN) ? "" : (f & EF_CHEST_TRAP) ? " (trapped!)" : (f & EF_CHEST_EMPTY) ? " (empty)" : " (treasure!)";
+        return "[" + keys_->label(K_USE) + "] Open the chest" + what;
+    }
     if (i >= 0) {
         ItemStack s;
         s.def = (int16_t)items[i]->s.def;
@@ -1411,6 +1435,13 @@ std::string Client::usePrompt() const {
             case T_DOOR: return "[" + keys_->label(K_USE) + "] Open the door";
             case T_DOOR_OPEN: return "[" + keys_->label(K_USE) + "] Close the door";
             case T_DOOR_LOCKED: return "[" + keys_->label(K_USE) + "] Pick the lock (or keep walking into it)";
+            case T_DOOR_KEY: {
+                int c = map_.keyDoorColor(x, y);
+                for (auto& it : me_.inv)
+                    if (!it.empty() && it.d().kind == ItemKind::Key && it.d().keyColor == c)
+                        return "[" + keys_->label(K_USE) + "] Unlock the " + keyColorName(c) + " door with your key";
+                return std::string("A ") + keyColorName(c) + " lock: you need the " + keyColorName(c) + " key";
+            }
             case T_RUBBLE: return "[" + keys_->label(K_USE) + "] Dig through the rubble (or walk into it)";
             default: break;
         }

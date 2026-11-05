@@ -235,6 +235,22 @@ Texture doorTex(bool locked) {
     return t;
 }
 
+// A door with a coloured lock: coloured iron bands and frame, a big lock plate with a keyhole.
+Texture keyDoorTex(uint32_t col) {
+    Texture t = doorTex(false);
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++) {
+            bool frame = x < 3 || x > 60 || y < 3;
+            bool band = (y >= 12 && y <= 16) || (y >= 46 && y <= 50);
+            if (frame || band) t.set(x, y, colMul(col, 0.55f + 0.35f * h2(x, y, 9) + (y == 12 || y == 46 ? 0.25f : 0.0f)));
+        }
+    fillRect(t, 22, 24, 41, 42, colMul(col, 0.6f));
+    fillRect(t, 23, 25, 40, 41, col);
+    fillCircle(t, 31.5f, 31, 2.6f, 0xFF101010);
+    fillRect(t, 31, 31, 32, 37, 0xFF101010);
+    return t;
+}
+
 // A heap of loose rocks with a dark gap above: "the passage continues, dig through".
 Texture rubbleTex() {
     Texture t(64, 64);
@@ -823,6 +839,34 @@ Texture itemSprite(const std::string& s, uint32_t col, int seed) {
         fillRect(t, 9, 11, 23, 26, colMul(col, 0.8f));
         fillRect(t, 24, 10, 26, 27, 0xFFE0D8C0);
         fillCircle(t, 16, 18, 3, gold);
+    } else if (s == "chest" || s == "chest_open") {
+        // A wooden chest with iron bands and a lock; open: the lid stands up behind it.
+        uint32_t wood2 = col == 0xFFC0C0C0 ? 0xFF8A5A30 : col, iron = 0xFF5A5A62;
+        bool open = s == "chest_open";
+        if (open) {
+            fillRect(t, 4, 6, 27, 15, colMul(wood2, 0.8f));            // lid, upright
+            fillRect(t, 4, 9, 27, 10, iron);
+            fillRect(t, 5, 15, 26, 18, 0xFF181010);                      // dark inside
+        } else {
+            fillEllipse(t, 16, 15, 12, 5, colMul(wood2, 1.1f));          // rounded lid
+            fillRect(t, 4, 14, 27, 17, colMul(wood2, 1.05f));
+        }
+        fillRect(t, 4, 17, 27, 29, wood2);                                // body
+        fillRect(t, 4, 17, 27, 18, iron);
+        fillRect(t, 4, 27, 27, 28, iron);
+        fillRect(t, 8, 12, 9, 29, iron);
+        fillRect(t, 22, 12, 23, 29, iron);
+        if (!open) {
+            fillRect(t, 14, 16, 17, 21, gold);                           // lock
+            t.set(15, 18, 0xFF101010); t.set(15, 19, 0xFF101010);
+        }
+    } else if (s == "key") {
+        // A big old key in the key's colour: ring, shaft, teeth.
+        fillCircle(t, 9, 16, 5.5f, col);
+        fillCircle(t, 9, 16, 2.5f, 0);
+        fillRect(t, 14, 15, 28, 17, col);
+        fillRect(t, 24, 18, 25, 21, col);
+        fillRect(t, 27, 18, 28, 22, col);
     } else if (s == "chalice") {
         fillEllipse(t, 16, 10, 8, 6, col);
         fillRect(t, 15, 14, 17, 24, col);
@@ -1104,6 +1148,10 @@ void Assets::build() {
     walls[7] = walls[WT_BRICK];
     door = doorTex(false);
     doorLocked = doorTex(true);
+    {
+        const uint32_t kc[KEY_COUNT] = {0xFFD03030, 0xFF3A68E0, 0xFF38B048, 0xFFE8C830};
+        for (int i = 0; i < KEY_COUNT; i++) keyDoors[i] = keyDoorTex(kc[i]);
+    }
     rubble = rubbleTex();
     floors[FT_STONE] = flagstones(0xFF6A6460, 11);
     floors[FT_DIRT] = dirtFloor(0xFF5A4A3A, 12);
@@ -1176,6 +1224,7 @@ std::vector<std::pair<std::string, Texture*>> Assets::namedTextures() {
     for (int i = 0; i < FT_COUNT; i++) v.push_back({floorNames[i], &floors[i]});
     v.push_back({"door", &door});
     v.push_back({"door_locked", &doorLocked});
+    for (int i = 0; i < KEY_COUNT; i++) v.push_back({std::string("door_") + keyColorName(i), &keyDoors[i]});
     for (size_t i = 0; i < gData.stores.size() && i < 8; i++) v.push_back({"shop_" + gData.stores[i].id, &shopDoors[i]});
     v.push_back({"rubble", &rubble});
     v.push_back({"ceiling", &ceiling});

@@ -34,7 +34,7 @@ name = Alchemist
 owner = Mirelle the Wise
 sign = potion_heal
 items = potion_heal, potion_cure_serious, potion_greater_heal, potion_mana, potion_antidote, potion_restoration,
-        scroll_light, scroll_detect, scroll_blink, scroll_satisfy, scroll_teleport, scroll_recall
+        scroll_light, scroll_detect, scroll_detect_objects, scroll_blink, scroll_satisfy, scroll_teleport, scroll_recall
 buys = potion, scroll
 
 [store magic]

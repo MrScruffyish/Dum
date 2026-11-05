@@ -11,11 +11,11 @@
 enum StatId { STR, DEX, CON, INT, WIS, NUM_STATS };
 extern const char* kStatNames[NUM_STATS];
 
-enum class ItemKind : uint8_t { Weapon, Armor, Light, Food, Potion, Scroll, Fuel, Gold, Quest, Helm, Ring, Amulet, Wand, Rod };
+enum class ItemKind : uint8_t { Weapon, Armor, Light, Food, Potion, Scroll, Fuel, Gold, Quest, Helm, Ring, Amulet, Wand, Rod, Chest, Key };
 enum class Element : uint8_t { Physical, Arcane, Fire, Cold, Holy, Poison };
 enum class SpellType : uint8_t {
     Bolt, Ball, Nova, Heal, Bless, Light, Detect, Blink, Map, Recall,
-    Teleport, Haste, Shield, Resist, Dig, Feed, Whirlwind, Berserk, Descent
+    Teleport, Haste, Shield, Resist, Dig, Feed, Whirlwind, Berserk, Descent, Treasure
 };
 // Extra effect of a bolt/ball/nova on the monsters it hits.
 enum class SpellEffect : uint8_t { None, Sleep, Fear, Slow, TeleportAway };
@@ -69,6 +69,7 @@ struct ItemDef {
     std::vector<Element> resist;
     Element brand = Element::Physical;  // weapons: damage element (fire, cold, holy...)
     bool artifact = false;    // unique: only one exists per game
+    int keyColor = -1;        // keys: the KeyColor they open
     bool everburning = false; // light that never runs out
     int gainStat = -1;        // potion: permanently raises this stat
     bool restore = false;     // potion: restores drained stats

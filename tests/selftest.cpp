@@ -304,6 +304,108 @@ int main(int argc, char** argv) {
         CHECK(s4.debugArtifactInPlay("art_phial"), "carried artifact was lost");
         std::printf("artifacts ok\n");
     }
+    {   // Keys, coloured doors and chests.
+        auto nk = std::make_shared<ServerNet>();
+        Bot b;
+        nk->attachLoopback(b.pipe);
+        Server sk(nk, 4242);
+        b.hello(3);   // rogue
+        for (int t = 0; t < 5; t++) { sk.tick(); b.poll(); }
+        int vaults = 0, chests = 0, keysOk = 0;
+        for (int depth = 2; depth <= 14 && vaults < 4; depth++) {
+            for (int again = 0; again < 3; again++) {
+                sk.debugGoto(depth);
+                const Map& m = sk.map();
+                // Flood from the stairs without passing coloured doors.
+                std::vector<uint8_t> reach(m.w * m.h, 0);
+                std::vector<int> st = {m.startY * m.w + m.startX};
+                reach[st[0]] = 1;
+                while (!st.empty()) {
+                    int c = st.back(); st.pop_back();
+                    int x = c % m.w, y = c / m.w;
+                    for (int k = 0; k < 4; k++) {
+                        int nx = x + (k == 0) - (k == 1), ny = y + (k == 2) - (k == 3);
+                        uint8_t t = m.at(nx, ny);
+                        if (!m.inside(nx, ny) || reach[ny * m.w + nx] || t == T_ROCK || t == T_WALL || t == T_DOOR_KEY) continue;
+                        reach[ny * m.w + nx] = 1;
+                        st.push_back(ny * m.w + nx);
+                    }
+                }
+                CHECK(reach[m.downY * m.w + m.downX], "depth %d: stairs down behind a coloured door", depth);
+                for (auto& it : sk.debugItems()) if (it.item.d().kind == ItemKind::Chest) chests++;
+                for (int y = 0; y < m.h; y++)
+                    for (int x = 0; x < m.w; x++) {
+                        if (m.at(x, y) != T_DOOR_KEY) continue;
+                        vaults++;
+                        bool key = false;
+                        for (auto& it : sk.debugItems())
+                            if (it.item.d().kind == ItemKind::Key && it.item.d().keyColor == m.keyDoorColor(x, y) &&
+                                reach[(int)it.pos.y * m.w + (int)it.pos.x]) key = true;
+                        CHECK(key, "depth %d: no reachable %s key", depth, keyColorName(m.keyDoorColor(x, y)));
+                        if (key) keysOk++;
+                    }
+            }
+        }
+        CHECK(vaults > 0 && chests > 0, "no vaults (%d) or chests (%d) made", vaults, chests);
+        // The detection scroll marks the chests around you as known.
+        {
+            sk.debugGive(b.id, "scroll_detect_objects");
+            for (int t = 0; t < 3; t++) { sk.tick(); b.poll(); }
+            int slot = -1;
+            for (int i = 0; i < INV_SIZE; i++) if (!b.st.inv[i].empty() && b.st.inv[i].d().id == "scroll_detect_objects") slot = i;
+            CHECK(slot >= 0, "no detection scroll");
+            Vec2 me(sk.map().startX + 0.5f, sk.map().startY + 0.5f);   // (after a level change you stand at the stairs)
+            b.action(A_INV_USE, slot);
+            for (int t = 0; t < 3; t++) { sk.tick(); b.poll(); }
+            int near = 0, known = 0;
+            for (auto& it : sk.debugItems()) {
+                if (it.item.d().id != "chest" || dist(it.pos, me) > 25) continue;
+                near++;
+                if (it.item.fuel & CHEST_KNOWN) known++;
+            }
+            CHECK(near == known, "detection: %d of %d nearby chests known", known, near);
+        }
+        // Open a treasure chest: it becomes an open chest and loot appears.
+        auto& items = sk.debugItems();
+        int ci = -1;
+        for (size_t i = 0; i < items.size(); i++) if (items[i].item.d().id == "chest") ci = (int)i;
+        if (ci >= 0) {
+            items[ci].item.fuel = CH_TREASURE;
+            Vec2 cp = items[ci].pos;
+            int before = (int)items.size();
+            sk.debugMovePlayer(b.id, cp + Vec2(-0.7f, 0));
+            sk.debugFace(b.id, 0);
+            b.action(A_USE);
+            for (int t = 0; t < 3; t++) { sk.tick(); b.poll(); }
+            bool opened = false;
+            for (auto& it : sk.debugItems()) if (it.item.d().id == "chest_open" && dist(it.pos, cp) < 0.01f) opened = true;
+            CHECK(opened && (int)sk.debugItems().size() > before, "chest: opened %d, items %d -> %d", opened, before, (int)sk.debugItems().size());
+        }
+        // A key opens its door (and is used up).
+        const Map& m = sk.map();
+        for (int y = 0; y < m.h; y++)
+            for (int x = 0; x < m.w; x++) {
+                if (m.at(x, y) != T_DOOR_KEY) continue;
+                int color = m.keyDoorColor(x, y);
+                sk.debugGive(b.id, std::string("key_") + keyColorName(color));
+                // Stand on the open side of the door, facing it.
+                for (int k = 0; k < 4; k++) {
+                    int nx = x + (k == 0) - (k == 1), ny = y + (k == 2) - (k == 3);
+                    if (Map::tileSolid(m.at(nx, ny))) continue;
+                    sk.debugMovePlayer(b.id, Vec2(nx + 0.5f, ny + 0.5f));
+                    sk.debugFace(b.id, std::atan2((float)(y - ny), (float)(x - nx)));
+                    break;
+                }
+                b.action(A_USE);
+                for (int t = 0; t < 3; t++) { sk.tick(); b.poll(); }
+                CHECK(m.at(x, y) == T_DOOR_OPEN, "the %s key did not open its door", keyColorName(color));
+                bool keyLeft = false;
+                for (auto& it : sk.debugPlayer(b.id)->inv) if (!it.empty() && it.d().kind == ItemKind::Key) keyLeft = true;
+                CHECK(!keyLeft, "key not used up");
+                y = m.h; break;
+            }
+        std::printf("keys and chests ok (%d vaults, %d chests)\n", vaults, chests);
+    }
     {   // Joining with different data files: refused, told which files, and nothing is sent.
         auto nd = std::make_shared<ServerNet>();
         Bot bad;

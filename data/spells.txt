@@ -8,7 +8,9 @@
 #          dig (turns the wall or rubble in front of you, up to 'range' tiles, into floor),
 #          feed (you are full), whirlwind (a melee blow against everything around you),
 #          berserk (+4 to hit, +3 damage, -2 armor class, heals 'dice'),
-#          descent (after 'duration' seconds the party falls 'range' levels deeper; endless dungeon only)
+#          descent (after 'duration' seconds the party falls 'range' levels deeper; endless dungeon only),
+#          treasure (chests within 'radius' tiles: shows them on the map and whether each is trapped,
+#          empty or full; detected traps are much easier to disarm)
 # effect:  sleep, fear, slow or teleport (sends it far away) - extra effect of a bolt/ball/nova on monsters (bosses are
 #          immune, deep monsters often resist). A spell with no 'dice' does no damage.
 # recharge: seconds before the spell can be used again (abilities use this instead of mana).
@@ -90,6 +92,16 @@ radius = 24
 duration = 20
 cooldown = 1.0
 color = ff60ff
+
+[spell detect_objects]
+name = Detect Traps and Treasure
+desc = Reveals the chests around you: which hold treasure, which are empty, which are trapped.
+type = treasure
+mana = 3
+level = 2
+radius = 30
+cooldown = 1.0
+color = f0c040
 
 [spell magic_mapping]
 name = Magic Mapping

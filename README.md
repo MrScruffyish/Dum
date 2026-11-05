@@ -148,6 +148,26 @@ A dedicated server runs it with `--campaign abyss`.
 - Levels are generated anew on every visit (like Angband), so items left lying around are lost
   when you leave a level.
 
+## Keys, vaults and chests
+
+- **Coloured doors** (red, blue, green, yellow) can't be picked or bashed. From level 2 on,
+  a level may have a *vault*: a dead-end room behind such a door. "A door with a coloured
+  lock guards a treasure" tells you when there is one. Its key lies somewhere you can reach
+  without it. Walk into the door (or press E) with the key in your pack to open it; the key
+  is used up. A coloured door shows on the map in its colour.
+- **Chests** stand in rooms, and vaults hold one or two richer ones. Press E in front of
+  one to open it: gold and items, nothing at all, or a **trap** (poison needle, gas, fire,
+  monsters appearing, an alarm that wakes the whole level, a rune that teleports you away).
+  A trapped chest still has its treasure inside. Opening a chest is your chance to spot
+  and disarm its trap (class disarm skill, DEX and level count). Walking over a chest never
+  opens it.
+- **Finding out first:** the *Detect Traps and Treasure* spell (rogues learn it at level 2)
+  and scroll (the Alchemist sells it) show every chest nearby on your map: red = trapped,
+  grey = empty, gold = treasure. In the 3D view a detected trapped chest glows red, and the
+  E prompt says what's inside. A detected trap is much easier to disarm. Classes with a
+  good eye (search skill, rogues most of all) may also notice by themselves what's odd about
+  a chest they stand next to.
+
 ## Saving, difficulty, tips
 
 - The game **saves automatically** every minute, on every level change and when you leave.

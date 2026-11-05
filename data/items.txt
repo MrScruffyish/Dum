@@ -9,6 +9,10 @@
 #   stats), curepoison = yes, spell = <id> (casts it, like a scroll). Food can also heal.
 #   Any healing cures poison.
 # artifact = yes: unique, only one exists per game (never sold in shops).
+# Keys: kind = key, keycolor = red|blue|green|yellow - opens doors with that colour of lock
+#   (used up). The dungeon places a key on every level that has such a door.
+# Chests: kind = chest. 'chest' is placed closed (treasure, empty or trapped - decided when
+#   the level is made), 'chest_open' is what is left after opening one.
 # everburning = yes: a light that never runs out.
 # sprite:  floor picture (dagger sword mace axe staff bow armor robe torch lantern
 #          ration apple meat potion scroll flask gold amulet tome chalice wand rod)
@@ -1608,3 +1612,72 @@ artifact = yes
 depth = 20
 rarity = 1
 value = 8000
+
+# ---- Keys and chests (placed by the dungeon, never found randomly) ----
+
+[item key_red]
+name = Red Key
+desc = Opens a door with a red lock.
+kind = key
+keycolor = red
+sprite = key
+color = e03030
+stack = 5
+value = 0
+
+[item key_blue]
+name = Blue Key
+desc = Opens a door with a blue lock.
+kind = key
+keycolor = blue
+sprite = key
+color = 4070f0
+stack = 5
+value = 0
+
+[item key_green]
+name = Green Key
+desc = Opens a door with a green lock.
+kind = key
+keycolor = green
+sprite = key
+color = 40c050
+stack = 5
+value = 0
+
+[item key_yellow]
+name = Yellow Key
+desc = Opens a door with a yellow lock.
+kind = key
+keycolor = yellow
+sprite = key
+color = f0d030
+stack = 5
+value = 0
+
+[item chest]
+name = chest
+desc = Open it (E). It may hold treasure - or nothing, or a trap.
+kind = chest
+sprite = chest
+color = 8a5a30
+value = 0
+
+[item chest_open]
+name = open chest
+desc = Already opened.
+kind = chest
+sprite = chest_open
+color = 8a5a30
+value = 0
+
+[item scroll_detect_objects]
+name = Scroll of Detect Traps and Treasure
+kind = scroll
+sprite = scroll
+color = f0c040
+spell = detect_objects
+depth = 2
+rarity = 3
+stack = 10
+value = 40

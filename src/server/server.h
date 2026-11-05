@@ -132,6 +132,9 @@ public:
     static SaveInfo peekSave(const std::string& path);
     void tick();
     int playerCount() const;
+    // Single player with a menu open (the game is paused): handle the player's actions
+    // (inventory, shop...) and send back the results at once, without moving the world on.
+    void pausedTick();
     // Names of the players in the game (connected ones).
     std::vector<std::string> playerNames() const {
         std::vector<std::string> v;
@@ -142,6 +145,8 @@ public:
     void announce(const std::string& s) { text(-1, 0xFFFFE080, s); }
     const Map& map() const { return map_; }
     int floorItemCount() const { return (int)items_.size(); }
+    std::vector<FloorItem>& debugItems() { return items_; }
+    void debugFace(int playerId, float angle) { if (SPlayer* sp = playerById(playerId)) { sp->angle = angle; sp->useCd = 0; } }
     int maxDepthReached() const { return maxDepth_; }
     const std::vector<Quest>& quests() const { return quests_; }
     void debugSetMaxDepth(int d) { maxDepth_ = d; }
@@ -250,6 +255,11 @@ private:
     void newGame();
     void newLevel(int depth, bool down);
     void populate(const std::vector<int>* pool = nullptr);
+    void placeChestsAndKeys();
+    ItemStack makeChest(bool rich);
+    void openChest(SPlayer& p, size_t idx);
+    void springTrap(SPlayer& p, int trap, Vec2 pos);
+    bool isClosedChest(const ItemStack& it) const { return !it.empty() && it.d().kind == ItemKind::Chest && it.d().id == "chest"; }
     void placePlayers();
     void rollCharacter(SPlayer& p, int cls);
     bool randomFloor(Vec2& out, bool awayFromStart, int room = -1);

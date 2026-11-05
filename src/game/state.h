@@ -61,6 +61,15 @@ enum EventKind : uint8_t {
 
 enum EntType : uint8_t { ET_PLAYER, ET_MONSTER, ET_ITEM, ET_PROJECTILE, ET_EFFECT };
 enum EntFlag : uint8_t { EF_ASLEEP = 1, EF_HURT = 2, EF_ATTACK = 4, EF_DEAD = 8, EF_SLOW = 16, EF_BOSS = 32, EF_BLESS = 64 };
+// Chests (items) reuse flag bits: what detection or a search has found out about them.
+enum ChestFlag : uint8_t { EF_CHEST_KNOWN = 1, EF_CHEST_TRAP = 2, EF_CHEST_EMPTY = 4 };
+
+// A closed chest keeps its secret in its ItemStack's fuel (so it is saved with no format change):
+// low 4 bits = ChestContent, CHEST_KNOWN = detected (contents and trap shown), CHEST_RICH = vault.
+enum ChestContent : uint8_t { CH_TREASURE = 0, CH_EMPTY, CH_TRAP_NEEDLE, CH_TRAP_GAS, CH_TRAP_FIRE, CH_TRAP_SUMMON,
+                              CH_TRAP_ALARM, CH_TRAP_TELEPORT, CH_COUNT };
+constexpr int CHEST_KNOWN = 16, CHEST_RICH = 32;
+inline bool chestTrapped(int fuel) { return (fuel & 15) >= CH_TRAP_NEEDLE; }
 
 // One entity as sent in a snapshot.
 struct EntSnap {

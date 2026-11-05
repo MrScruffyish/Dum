@@ -19,7 +19,15 @@ enum Tile : uint8_t {
     T_STAIRS_UP,
     T_RUBBLE,        // blocks movement and sight until cleared
     T_SHOP,          // town shop entrance (store index in floorTex)
+    T_DOOR_KEY,      // door with a coloured lock: only the key of that colour opens it (colour: keyDoorColor)
 };
+
+// Colours of key doors and keys.
+enum KeyColor : uint8_t { KEY_RED = 0, KEY_BLUE, KEY_GREEN, KEY_YELLOW, KEY_COUNT };
+inline const char* keyColorName(int c) {
+    static const char* n[KEY_COUNT] = {"red", "blue", "green", "yellow"};
+    return c >= 0 && c < KEY_COUNT ? n[c] : "strange";
+}
 
 enum TileFlag : uint8_t {
     F_LIT = 1,       // room is lit by itself
@@ -52,10 +60,13 @@ struct Map {
     uint8_t flag(int x, int y) const { return inside(x, y) ? flags[y * w + x] : 0; }
 
     static bool tileSolid(uint8_t t) {
-        return t == T_ROCK || t == T_WALL || t == T_DOOR || t == T_DOOR_LOCKED || t == T_DOOR_SECRET || t == T_RUBBLE || t == T_SHOP;
+        return t == T_ROCK || t == T_WALL || t == T_DOOR || t == T_DOOR_LOCKED || t == T_DOOR_SECRET || t == T_RUBBLE || t == T_SHOP ||
+               t == T_DOOR_KEY;
     }
     static bool tileIsDoor(uint8_t t) { return t == T_DOOR || t == T_DOOR_OPEN || t == T_DOOR_LOCKED; }
     bool solid(int x, int y) const { return tileSolid(at(x, y)); }
+    // Colour of a T_DOOR_KEY tile's lock (kept in wallTex as 8 + colour).
+    int keyDoorColor(int x, int y) const { return inside(x, y) ? (wallTex[y * w + x] - 8) & 3 : 0; }
     bool opaque(int x, int y) const { return tileSolid(at(x, y)); }
     bool solidAt(Vec2 p) const { return solid((int)std::floor(p.x), (int)std::floor(p.y)); }
 

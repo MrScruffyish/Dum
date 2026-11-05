@@ -125,6 +125,33 @@ then keeps ticking the server on the *Still hosting* screen
 menu, or quits if the host had asked to quit. It ends by itself when the last player has
 left.
 
+## Keys, vaults and chests
+
+- **Vaults** are made by the generator (`Gen::placeVaults` in `src/game/map.cpp`), from
+  level 2 on: a room whose cells touch exactly one open cell outside it (a dead end), and
+  never the rooms with the stairs. That doorway becomes `T_DOOR_KEY`, which is solid like a
+  closed door. Its lock colour is stored as `wallTex = 8 + colour` (`Map::keyDoorColor`),
+  so it travels with the map and saves with no format change.
+- **Keys and chests** are placed by the server (`Server::placeChestsAndKeys`, called from
+  `populate`). A flood fill from the up stairs that treats coloured doors as walls finds
+  where you can go without keys. Each door's key goes into a room cell there, the vault's
+  rich chests into cells outside it, and 0-3 ordinary chests into reachable rooms.
+- **A chest is an ordinary floor item** (`kind = chest`). Its secret lives in the
+  `ItemStack`'s `fuel`: the low 4 bits are the `ChestContent` (treasure, empty, or one of
+  six traps), `CHEST_KNOWN` means detected, and `CHEST_RICH` marks a vault chest. So it is
+  saved and loaded like any item. Opening one (`Server::openChest`, through `doUse` and
+  `pickupItem`) turns it into `chest_open`, which stays as scenery: it is skipped by E,
+  auto-pickup and the prompt. There is one roll to disarm a trap; otherwise
+  `springTrap` runs it. Then the loot is dropped around the chest.
+- **What clients know:** only detected chests reveal anything, through the item snapshot's
+  flag bits (`EF_CHEST_KNOWN`, `EF_CHEST_TRAP`, `EF_CHEST_EMPTY`). The client uses them for
+  the red, dim or golden look, the E prompt and the map dots. `SpellType::Treasure` sets
+  `CHEST_KNOWN` within its radius. Players with the `search` skill roll every half second
+  to notice what an undetected chest within 2 tiles holds.
+- **Unlocking:** `doUse` on a `T_DOOR_KEY` looks for a key of that colour in the pack,
+  uses it up and opens the door (it becomes `T_DOOR_OPEN`). Walking into the door does the
+  same (bump-to-open). Monsters can't open these doors, and Stone to Mud can't dig them.
+
 ## The Abyss
 
 The Abyss is a hidden difficulty (`hidden = yes`, `per_level = 0.5` in

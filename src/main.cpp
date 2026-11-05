@@ -1054,6 +1054,7 @@ int main(int argc, char** argv) {
             // Single player pauses while a menu is open.
             bool paused = app.mode == Mode::Single && app.client->paused();
             float speed = app.mode == Mode::Single ? app.set.gameSpeed : 1.0f;
+            if (app.server && paused) app.server->pausedTick();   // inventory/shop actions still happen
             if (app.server && !paused) {
                 acc += dt * speed;
                 int n = 0;

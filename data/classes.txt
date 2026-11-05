@@ -102,7 +102,7 @@ disarm = 6
 caststat = int
 color = 606060
 device = 5
-spells = detect_monsters:3, sleep_monster:5, blink:6, stinking_cloud:9, magic_mapping:12, teleport_self:18,
+spells = detect_objects:2, detect_monsters:3, sleep_monster:5, blink:6, stinking_cloud:9, magic_mapping:12, teleport_self:18,
          word_of_recall:25
 items = short_sword, leather_armor, torch, torch, ration, ration, ration, potion_heal, scroll_mapping, scroll_recall
 

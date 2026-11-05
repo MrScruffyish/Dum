@@ -40,6 +40,7 @@ int viewModelFromName(const std::string& n);
 struct Assets {
     Texture walls[8];
     Texture door, doorLocked, rubble;
+    Texture keyDoors[4];   // doors with a red / blue / green / yellow lock (KeyColor)
     Texture floors[8];
     Texture shopDoors[8];
     Texture ceiling, ceilingCave, stairsDown, stairsUp, stairsUpCeil;

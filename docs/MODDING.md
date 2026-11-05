@@ -238,6 +238,13 @@ rod uses `spell` and `recharge = 20` (seconds).
 
 **Unique artifacts:** `artifact = yes` (only one per game, never in shops).
 
+**Keys and chests:** `kind = key` with `keycolor = red` (or `blue`, `green`, `yellow`)
+opens doors with that colour of lock. The dungeon places the four keys `key_red`...
+`key_yellow` by itself whenever a level has such a door. `kind = chest` items are the
+chests: `chest` (closed) and `chest_open` (opened). The dungeon places them and decides
+what is inside, so leave their ids as they are; change their `name`, `color` or pictures
+(`item_chest.png`, `item_chest_open.png`) freely.
+
 **Floor pictures** (`sprite`): dagger sword mace axe staff bow armor robe torch lantern
 ration apple meat potion scroll flask gold amulet tome chalice wand rod, drawn in your
 `color`. Or draw your own: `data/gfx/item_war_pick.png`.
@@ -267,6 +274,8 @@ effect = slow              # optional: sleep fear slow teleport (on monsters it 
 ```
 
 Balls also take `radius`, and novas and some other types take `range` and `duration`.
+`type = treasure` reveals the chests within `radius` tiles: trapped, empty or full, and on
+the map (that's `detect_objects`).
 Warrior techniques are spells with `ability = yes` and `recharge = 30` (seconds) instead
 of mana.
 

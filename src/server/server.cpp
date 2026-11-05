@@ -476,6 +476,7 @@ void Server::populate(const std::vector<int>* pool) {
         Vec2 p;
         if (randomFloor(p, false)) dropItem(makeItem(pickItem(depth)), p);
     }
+    placeChestsAndKeys();
     // Guaranteed supplies: food and light.
     for (const char* id : {"ration", "ration", "torch", "flask_oil"}) {
         Vec2 p;
@@ -504,6 +505,157 @@ void Server::populate(const std::vector<int>* pool) {
             text(-1, COL_ORANGE, "You sense a powerful presence on this level...");
         }
     }
+}
+
+// ------------------------------------------------------------ chests, keys --
+
+static const char* kTrapNames[CH_COUNT] = {"", "", "poison needle", "gas trap", "fire trap", "summoning rune", "alarm", "teleport rune"};
+
+ItemStack Server::makeChest(bool rich) {
+    ItemStack c = makeItem(gData.findItem("chest"));
+    int r = rng_.range(0, 99), code;
+    if (rich) code = r < 75 ? CH_TREASURE : rng_.range(CH_TRAP_NEEDLE, CH_TRAP_SUMMON);
+    else code = r < 45 ? CH_TREASURE : r < 70 ? CH_EMPTY : rng_.range(CH_TRAP_NEEDLE, CH_TRAP_TELEPORT);
+    c.fuel = code | (rich ? CHEST_RICH : 0);
+    return c;
+}
+
+// A key for every coloured door (somewhere you can get to without it), rich chests in the
+// vault behind it, and a few ordinary chests around the level.
+void Server::placeChestsAndKeys() {
+    if (gData.findItem("chest") < 0) return;
+    // What can be reached from the stairs without any key?
+    std::vector<uint8_t> reach(map_.w * map_.h, 0);
+    std::vector<int> stack = {map_.startY * map_.w + map_.startX};
+    reach[stack[0]] = 1;
+    while (!stack.empty()) {
+        int c = stack.back();
+        stack.pop_back();
+        int x = c % map_.w, y = c / map_.w;
+        const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
+        for (int k = 0; k < 4; k++) {
+            int nx = x + dx[k], ny = y + dy[k];
+            if (!map_.inside(nx, ny) || reach[ny * map_.w + nx]) continue;
+            uint8_t t = map_.at(nx, ny);
+            if (t == T_ROCK || t == T_WALL || t == T_DOOR_KEY) continue;
+            reach[ny * map_.w + nx] = 1;
+            stack.push_back(ny * map_.w + nx);
+        }
+    }
+    auto spotIn = [&](bool inReach, Vec2& out) {
+        for (int t = 0; t < 300; t++) {
+            int x = rng_.range(1, map_.w - 2), y = rng_.range(1, map_.h - 2);
+            if (map_.at(x, y) != T_FLOOR || !(map_.flag(x, y) & F_ROOM) || (bool)reach[y * map_.w + x] != inReach) continue;
+            if (dist(Vec2(x + 0.5f, y + 0.5f), Vec2(map_.startX + 0.5f, map_.startY + 0.5f)) < 5) continue;
+            out = Vec2(x + 0.5f, y + 0.5f);
+            return true;
+        }
+        return false;
+    };
+    bool vault = false;
+    for (int y = 0; y < map_.h; y++)
+        for (int x = 0; x < map_.w; x++) {
+            if (map_.at(x, y) != T_DOOR_KEY) continue;
+            vault = true;
+            int color = map_.keyDoorColor(x, y), keyDef = -1;
+            for (size_t i = 0; i < gData.items.size(); i++)
+                if (gData.items[i].kind == ItemKind::Key && gData.items[i].keyColor == color) keyDef = (int)i;
+            Vec2 p;
+            if (keyDef >= 0 && spotIn(true, p)) dropItem(makeItem(keyDef), p);
+        }
+    if (vault) {
+        int n = rng_.range(1, 2);
+        for (int i = 0; i < n; i++) {
+            Vec2 p;
+            if (spotIn(false, p)) dropItem(makeChest(true), p);
+        }
+        text(-1, COL_YELLOW, "Somewhere on this level, a door with a coloured lock guards a treasure.");
+    }
+    int n = rng_.range(0, 2) + (power_ >= 5 ? 1 : 0);
+    for (int i = 0; i < n; i++) {
+        Vec2 p;
+        if (spotIn(true, p)) dropItem(makeChest(false), p);
+    }
+}
+
+void Server::openChest(SPlayer& p, size_t idx) {
+    PlayerState& s = p.st;
+    int code = items_[idx].item.fuel & 15;
+    bool known = items_[idx].item.fuel & CHEST_KNOWN, rich = items_[idx].item.fuel & CHEST_RICH;
+    Vec2 pos = items_[idx].pos;
+    int openDef = gData.findItem("chest_open");
+    if (openDef >= 0) items_[idx].item = makeItem(openDef);   // same entity: its picture just changes
+    else items_.erase(items_.begin() + idx);
+    p.useCd = 0.6f;
+    event(EV_DOOR, pos);
+    if (chestTrapped(code)) {
+        // Notice and disarm it: skill, DEX and experience; much easier when it was detected.
+        int chance = 10 + s.c().disarm * 8 + s.mod(DEX) * 4 + s.level * 2 + (known ? 35 : 0) - power_;
+        if (rng_.chance(clampi(chance, 5, 95))) {
+            text(s.id, COL_GREEN, std::string("You find a ") + kTrapNames[code] + " on the chest and disarm it.");
+        } else {
+            springTrap(p, code, pos);
+            if (s.dead) return;
+        }
+    }
+    if (code == CH_EMPTY) { text(s.id, COL_GREY, "The chest is empty."); return; }
+    // Treasure: gold and items (vault chests: more and better).
+    int gold = gData.findItem("gold");
+    std::vector<ItemStack> loot;
+    if (gold >= 0) loot.push_back(makeItem(gold, std::max(1, (int)(rng_.range(8, 25) * std::max(1, power_) * (rich ? 3 : 1) * rules().gold))));
+    int n = rich ? rng_.range(2, 3) : rng_.range(1, 2);
+    for (int i = 0; i < n; i++) loot.push_back(makeItem(pickItem(power_ + (rich ? 3 : 1))));
+    if (rich && rng_.chance(12)) { int a = pickArtifact(power_ + 4); if (a >= 0) loot.push_back(makeItem(a)); }
+    for (size_t i = 0; i < loot.size(); i++) {
+        float a = (float)i / loot.size() * 2 * PI;
+        dropItem(loot[i], pos + dirFromAngle(a) * 0.35f);
+    }
+    text(s.id, COL_YELLOW, rich ? "The chest is full of treasure!" : "There is something in the chest.");
+}
+
+void Server::springTrap(SPlayer& p, int trap, Vec2 pos) {
+    PlayerState& s = p.st;
+    int dmg = rng_.range(2, 8) + power_;
+    text(s.id, COL_RED, std::string("It's a trap! A ") + kTrapNames[trap] + "!");
+    switch (trap) {
+        case CH_TRAP_NEEDLE:
+            s.poisonT = std::max(s.poisonT, 8.0f + power_);
+            damagePlayer(p, std::max(1, dmg / 2), "a poison needle", Element::Poison);
+            break;
+        case CH_TRAP_GAS:
+            explode(pos, 2.5f, dmg, Element::Poison, gData.findSpell("stinking_cloud"), true, nullptr);
+            break;
+        case CH_TRAP_FIRE:
+            explode(pos, 2.2f, dmg + rng_.range(1, 6), Element::Fire, gData.findSpell("fireball"), true, nullptr);
+            break;
+        case CH_TRAP_SUMMON: {
+            int n = rng_.range(2, 3) + power_ / 6;
+            for (int i = 0; i < n; i++) {
+                Vec2 c = pos + dirFromAngle(rng_.frand() * 2 * PI) * (1.0f + rng_.frand());
+                if (map_.circleFree(c, MONSTER_RADIUS)) spawnMonster(pickMonster(power_ + 1), c, true);
+            }
+            text(-1, COL_ORANGE, "Monsters appear around the chest!");
+            break;
+        }
+        case CH_TRAP_ALARM:
+            for (auto& m : monsters_) wakeMonster(m, false);
+            text(-1, COL_ORANGE, "A loud bell rings! Everything on this level heard it.");
+            break;
+        case CH_TRAP_TELEPORT: {
+            Vec2 best = p.pos;
+            float bestD = 0;
+            for (int t = 0; t < 30; t++) {
+                Vec2 c;
+                if (randomFloor(c, false) && dist(c, p.pos) > bestD) { best = c; bestD = dist(c, p.pos); }
+            }
+            p.pos = best;
+            sendTeleport(p);
+            text(s.id, COL_PURPLE, "The world twists around you.");
+            break;
+        }
+        default: break;
+    }
+    p.dirty = true;
 }
 
 void Server::placePlayers() {
@@ -627,6 +779,20 @@ void Server::tick() {
     if (!savePath_.empty() && tickNo_ % (30 * 60) == 0) saveGame();
     if (tickNo_ % 2 == 0) sendSnapshots();
     sendPlayerStates();
+    net_->flush();
+}
+
+void Server::pausedTick() {
+    handleNet();
+    for (auto& [pid, p] : players_) {
+        if (!p.joined || !p.dirty) continue;
+        Writer w;
+        w.u8(S_PSTATE);
+        w.u32(tickNo_);
+        p.st.write(w);
+        send(pid, w, true);
+        p.dirty = false;
+    }
     net_->flush();
 }
 
@@ -814,12 +980,26 @@ void Server::updatePlayers(float dt) {
                 }
         }
 
+        // Searching: a good eye (class 'search' skill) may notice what is odd about a chest
+        // standing right next to it - trapped, empty, or full.
+        if ((tickNo_ + id) % 15 == 0 && s.c().search > 0) {
+            for (auto& it : items_) {
+                if (!isClosedChest(it.item) || (it.item.fuel & CHEST_KNOWN) || dist(it.pos, p.pos) > 2.0f) continue;
+                if (!rng_.chance(s.c().search * 4 + s.mod(WIS) * 2)) continue;
+                it.item.fuel |= CHEST_KNOWN;
+                int code = it.item.fuel & 15;
+                text(id, COL_CYAN, chestTrapped(code) ? std::string("You notice a ") + kTrapNames[code] + " on the chest!"
+                                   : code == CH_EMPTY ? "The chest seems light - probably empty." : "The chest is heavy. Treasure!");
+            }
+        }
+
         // Auto-pickup: gold always, other items when enabled and there is room in the pack.
         // Items you dropped yourself stay on the floor (press E to take them back).
         for (size_t i = 0; i < items_.size(); i++) {
             const FloorItem& f = items_[i];
             if (dist(f.pos, p.pos) > 0.6f) continue;
             bool gold = f.item.d().kind == ItemKind::Gold;
+            if (f.item.d().kind == ItemKind::Chest) continue;   // opened with E, never by walking over
             if (!gold && (!p.autoPickup || f.droppedBy == id || !canCarry(p, f.item))) continue;
             pickupItem(p, i, false);
             break;  // at most one item per tick
@@ -1613,6 +1793,21 @@ bool Server::castSpell(SPlayer& p, int spell, int power) {
             text(s.id, COL_PURPLE, n ? "You sense the presence of " + std::to_string(n) + " creatures. (see map)" : "You sense no creatures nearby.");
             return true;
         }
+        case SpellType::Treasure: {
+            int found = 0, trapped = 0, empty = 0;
+            for (auto& it : items_) {
+                if (!isClosedChest(it.item) || dist(it.pos, p.pos) > sp.radius) continue;
+                it.item.fuel |= CHEST_KNOWN;
+                found++;
+                if (chestTrapped(it.item.fuel & 15)) trapped++;
+                else if ((it.item.fuel & 15) == CH_EMPTY) empty++;
+            }
+            if (!found) text(s.id, COL_PURPLE, "You sense no chests nearby.");
+            else text(s.id, COL_PURPLE, "You sense " + std::to_string(found) + (found == 1 ? " chest" : " chests") + ": " +
+                                            std::to_string(found - trapped - empty) + " with treasure, " + std::to_string(trapped) +
+                                            " trapped, " + std::to_string(empty) + " empty. (see map)");
+            return true;
+        }
         case SpellType::Blink: {
             Vec2 dir = dirFromAngle(p.angle);
             Vec2 best = p.pos;
@@ -1797,7 +1992,8 @@ void Server::doUse(SPlayer& p, bool doorsOnly) {
 
     // 1. Pick up an item at your feet or right in front of you.
     std::vector<Vec2> itemPos;
-    for (auto& it : items_) itemPos.push_back(it.pos);
+    for (auto& it : items_)   // (open chests are scenery)
+        itemPos.push_back(it.item.d().kind == ItemKind::Chest && !isClosedChest(it.item) ? Vec2(-1000, -1000) : it.pos);
     int bestI = doorsOnly ? -1 : pickupCandidate(map_, p.pos, p.angle, itemPos);
     if (bestI >= 0) { pickupItem(p, (size_t)bestI); return; }
 
@@ -1863,6 +2059,23 @@ void Server::doUse(SPlayer& p, bool doorsOnly) {
             map_.set(x, y, T_DOOR);
             sendTile(x, y);
             event(EV_DOOR, Vec2(x + 0.5f, y + 0.5f));
+            return;
+        }
+        if (t == T_DOOR_KEY) {
+            p.useCd = 0.6f;
+            int color = map_.keyDoorColor(x, y);
+            for (auto& slot : s.inv) {
+                if (slot.empty() || slot.d().kind != ItemKind::Key || slot.d().keyColor != color) continue;
+                if (--slot.count <= 0) slot = ItemStack();
+                p.dirty = true;
+                map_.set(x, y, T_DOOR_OPEN);
+                sendTile(x, y);
+                event(EV_DOOR, Vec2(x + 0.5f, y + 0.5f));
+                text(-1, COL_GREEN, s.name + " unlocks the " + keyColorName(color) + " door.");
+                return;
+            }
+            text(s.id, COL_GREY, std::string("This door has a ") + keyColorName(color) + " lock that can't be picked. The " +
+                                     keyColorName(color) + " key is somewhere on this level.");
             return;
         }
         if (t == T_DOOR_LOCKED) {
@@ -1947,6 +2160,10 @@ bool Server::addToInventory(SPlayer& p, const ItemStack& it) {
 }
 
 void Server::pickupItem(SPlayer& p, size_t idx, bool quiet) {
+    if (items_[idx].item.d().kind == ItemKind::Chest) {   // chests are opened, not carried
+        if (isClosedChest(items_[idx].item)) openChest(p, idx);
+        return;
+    }
     FloorItem f = items_[idx];
     if (!addToInventory(p, f.item)) { if (!quiet) text(p.st.id, COL_GREY, "Your pack is full."); return; }
     items_.erase(items_.begin() + idx);
@@ -2034,6 +2251,11 @@ void Server::useItem(SPlayer& p, int slot) {
             break;
         case ItemKind::Quest:
             text(s.id, COL_YELLOW, "The " + d.name + " glimmers. Someone would pay well for this.");
+            break;
+        case ItemKind::Key:
+            text(s.id, COL_WHITE, std::string("It opens a door with a ") + keyColorName(d.keyColor) + " lock: walk up to it and press E.");
+            break;
+        case ItemKind::Chest:
             break;
     }
 }
@@ -2231,6 +2453,10 @@ void Server::sendSnapshots() {
             e.id = it.id;
             e.type = ET_ITEM;
             e.def = (uint16_t)it.item.def;
+            if (isClosedChest(it.item) && (it.item.fuel & CHEST_KNOWN)) {
+                int code = it.item.fuel & 15;
+                e.flags = EF_CHEST_KNOWN | (chestTrapped(code) ? EF_CHEST_TRAP : 0) | (code == CH_EMPTY ? EF_CHEST_EMPTY : 0);
+            }
             e.pos = it.pos;
             e.extra = (uint8_t)std::min(255, it.item.count);
             ents.push_back(e);
