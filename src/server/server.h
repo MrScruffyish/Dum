@@ -132,6 +132,14 @@ public:
     static SaveInfo peekSave(const std::string& path);
     void tick();
     int playerCount() const;
+    // Names of the players in the game (connected ones).
+    std::vector<std::string> playerNames() const {
+        std::vector<std::string> v;
+        for (auto& [id, p] : players_) if (p.joined) v.push_back(p.st.name);
+        return v;
+    }
+    // A message to everyone (yellow), e.g. from the host's program.
+    void announce(const std::string& s) { text(-1, 0xFFFFE080, s); }
     const Map& map() const { return map_; }
     int floorItemCount() const { return (int)items_.size(); }
     int maxDepthReached() const { return maxDepth_; }

@@ -180,11 +180,18 @@ Attacks roll a d20 plus your skill and modifiers against the monster's armor cla
   starts over.
 - Kills give full XP to everyone. Drop items with D or hand them over with G (the ally must
   be within 3 steps).
-- **Different data files?** Everyone plays with the host's monsters, items, spells, classes
-  and shops. If a joining player's files differ (a different version, or the host's own
-  content), the host sends its files automatically, and the joining player uses them for
-  that game without their own files being changed. Pictures and sounds stay each player's
-  own. Details in [docs/MODDING.md](docs/MODDING.md#checking-and-testing-your-changes).
+- **Players can leave and come back.** Their character, with everything it carries, waits
+  for them. The others play on.
+- **The host can leave too.** If friends are still playing when the host leaves the game or
+  closes the window, the host's window shows *Still hosting* and keeps the game running for
+  them. Enter joins again, and Esc ends the game for everyone. When the last friend leaves,
+  the game is saved and the window goes back to the menu. Closing the window a second time
+  also ends it.
+- **Everyone needs the same data files** (`data/*.txt`: monsters, items, spells, classes,
+  shops, difficulty), because the game sends them by number. When you join, your game sends
+  a checksum of each file. If any differ from the host's, you can't join, and both of you
+  are told which files differ. Then copy the host's files (or agree on a version). Nothing
+  but the checksums is sent. Pictures and sounds don't need to match.
 
 ## Modding
 

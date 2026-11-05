@@ -33,6 +33,8 @@ struct Bot {
     float angle = 0;
     int msgs = 0, snapshots = 0, levels = 0;
     std::vector<EntSnap> ents;
+    std::string rejected;   // reason, if the server refused us
+    std::string wrongFile;  // pretend this data file differs from the server's
     Bot() { net.useLoopback(pipe); }
 
     void hello(int cls) {
@@ -41,7 +43,7 @@ struct Bot {
         w.u16(PROTOCOL_VERSION);
         w.str("Bot" + std::to_string(cls));
         w.u8((uint8_t)cls);
-        dataChecksums(w);
+        dataChecksums(w, wrongFile);
         net.send(w.buf, true);
     }
     void action(ActionId a, int x = 0, int y = 0) {
@@ -58,6 +60,7 @@ struct Bot {
             Reader r(e.data);
             uint8_t t = r.u8();
             if (t == S_WELCOME) id = r.u16();
+            else if (t == S_REJECT) rejected = r.str();
             else if (t == S_LEVEL) { map.deserialize(r); levels++; }
             else if (t == S_TILE) { int x = r.u16(), y = r.u16(); map.set(x, y, r.u8()); }
             else if (t == S_TELEPORT) { pos.x = r.f32(); pos.y = r.f32(); angle = r.f32(); }
@@ -221,7 +224,6 @@ int main(int argc, char** argv) {
         std::printf("auto-pickup ok\n");
     }
     bool sentHello[2] = {false, false};
-    int gotData[2] = {0, 0};
     uint16_t remoteIds[2] = {0, 0};
     int remoteSnaps[2] = {0, 0};
     int ticks = 30 * 180;
@@ -237,32 +239,13 @@ int main(int argc, char** argv) {
                 if (e.type == NetEvent::Connect && !sentHello[i]) {
                     Writer w;
                     w.u8(C_HELLO); w.u16(PROTOCOL_VERSION); w.str("Remote" + std::to_string(i)); w.u8((uint8_t)(i + 2));
-                    dataChecksums(w, i == 0 ? "items.txt" : "");   // Remote0 pretends its items.txt differs
+                    dataChecksums(w);
                     remote[i].send(w.buf, true);
                     sentHello[i] = true;
                 } else if (e.type == NetEvent::Data) {
                     Reader r(e.data);
                     uint8_t ty = r.u8();
                     if (ty == S_WELCOME) remoteIds[i] = r.u16();
-                    if (ty == S_DATA) {
-                        // The host sends its files and which differ; "switch" and say hello again.
-                        int n = r.u8();
-                        bool sameText = true;
-                        for (int f = 0; f < n && r.ok; f++) {
-                            std::string name = r.str();
-                            uint32_t len = r.u32();
-                            std::string text((const char*)r.p + r.pos, std::min<size_t>(len, r.n - r.pos));
-                            r.pos += len;
-                            for (auto& sf : gData.shared) if (sf.name == name && sf.text != text) sameText = false;
-                        }
-                        std::string first = r.u8() ? r.str() : "";
-                        CHECK(n == (int)gData.shared.size() && sameText && first == "items.txt", "S_DATA: %d files, differing '%s'", n, first.c_str());
-                        gotData[i]++;
-                        Writer w;
-                        w.u8(C_HELLO); w.u16(PROTOCOL_VERSION); w.str("Remote" + std::to_string(i)); w.u8((uint8_t)(i + 2));
-                        dataChecksums(w);
-                        remote[i].send(w.buf, true);
-                    }
                     if (ty == S_SNAPSHOT) remoteSnaps[i]++;
                 }
             }
@@ -320,6 +303,19 @@ int main(int argc, char** argv) {
         CHECK(!s4.debugArtifactInPlay("art_frostbite"), "artifact left on a level did not return to the pool");
         CHECK(s4.debugArtifactInPlay("art_phial"), "carried artifact was lost");
         std::printf("artifacts ok\n");
+    }
+    {   // Joining with different data files: refused, told which files, and nothing is sent.
+        auto nd = std::make_shared<ServerNet>();
+        Bot bad;
+        nd->attachLoopback(bad.pipe);
+        Server sd(nd, 31);
+        bad.wrongFile = "monsters.txt";
+        bad.hello(1);
+        for (int t = 0; t < 10; t++) { sd.tick(); bad.poll(); }
+        CHECK(bad.id == 0 && bad.rejected.find("monsters.txt") != std::string::npos && bad.rejected.find("items.txt") == std::string::npos,
+              "different data: id %d, reason '%s'", bad.id, bad.rejected.c_str());
+        CHECK(sd.playerCount() == 0, "different data: %d players in the game", sd.playerCount());
+        std::printf("data file check ok\n");
     }
     {   // The Abyss: harder every level, a wipe sends the party halfway back up, scores are kept.
         auto na = std::make_shared<ServerNet>();
@@ -621,7 +617,6 @@ int main(int argc, char** argv) {
     CHECK(bots[0].id != 0, "bot got no welcome");
     CHECK(bots[0].snapshots > 100, "bot got few snapshots: %d", bots[0].snapshots);
     CHECK(remoteIds[0] && remoteIds[1], "remote players did not join (%d %d)", remoteIds[0], remoteIds[1]);
-    CHECK(gotData[0] == 1 && gotData[1] == 0, "data check: S_DATA sent %d/%d times (want 1/0)", gotData[0], gotData[1]);
     CHECK(remoteSnaps[0] > 50, "remote got few snapshots: %d", remoteSnaps[0]);
     CHECK(server.playerCount() == 3, "player count %d", server.playerCount());
     CHECK(maxDepth >= 3, "level changes did not happen (max depth %d)", maxDepth);

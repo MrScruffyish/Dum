@@ -104,7 +104,7 @@ struct Settings {
     }
 };
 
-enum class Screen { Main, Class, Address, Name, HostChoice, Controls, Options, Scores, Playing };
+enum class Screen { Main, Class, Address, Name, HostChoice, Controls, Options, Scores, HostOnly, Playing };
 enum MenuId { M_CONTINUE, M_NEW, M_HOST, M_JOIN, M_NAME, M_ADVENTURE, M_DIFFICULTY, M_SCORES, M_OPTIONS, M_CONTROLS, M_QUIT };
 enum OptId { O_SPEED, O_TURN, O_MOUSE, O_AIM, O_FACE, O_QUICK, O_RENDERER, O_RES, O_TEXTURES, O_ANIM, O_WINDOW, O_VOLUME, O_FULLSCREEN, O_COUNT };
 // Resolutions of the 3D view (the HUD and menus always look the same) and window sizes.
@@ -118,7 +118,6 @@ struct App {
     SDL_Renderer* sdlr = nullptr;            // CPU renderer: SDL shows our pictures
     std::unique_ptr<GpuRenderer> gpu;        // GPU renderer (then sdlr is null)
     std::string dataDir;                     // our own data folder
-    bool usingHostData = false;              // co-op: playing with the host's data files
     std::string gpuInfo;
     SDL_Texture* tex = nullptr;
     SDL_Texture* uiTex = nullptr;   // HUD/menu layer when the 3D view is not 640x360
@@ -177,6 +176,14 @@ struct App {
         } else {
             if (!cnet->connect(set.address, (uint16_t)set.port, err)) return false;
         }
+        makeClient(cnet);
+        if (mode == Mode::Host)
+            status = "Hosting on UDP port " + std::to_string(set.port) + ". Friends join with: dum --connect <your-ip>";
+        screen = Screen::Playing;
+        return true;
+    }
+
+    void makeClient(std::shared_ptr<ClientNet> cnet) {
         client = std::make_unique<Client>(cnet, set.name, classIndex(), &assets, &sound, set.autoPickup, &set.keys);
         client->mouseSens = 0.00175f * set.mouse;   // per window pixel of mouse movement
         client->turnSpeed = set.turnSpeed;
@@ -184,48 +191,40 @@ struct App {
         client->autoFace = set.autoFace;
         client->quickCast = set.quickCast;
         client->animate = set.animate;
-        if (mode == Mode::Join)
-            client->onHostData = [this](const std::vector<GameData::SharedFile>& f, std::string& e) { return useHostData(f, e); };
-        if (mode == Mode::Host)
-            status = "Hosting on UDP port " + std::to_string(set.port) + ". Friends join with: dum --connect <your-ip>";
+    }
+
+    // ---- The host leaves while friends are still playing: keep the game running for them.
+    bool quitAfterHosting = false;   // the host wanted to quit Dum: do so when everyone has left
+    // True when this program hosts and someone besides us is in the game.
+    bool othersPlaying() const { return mode == Mode::Host && server && server->playerCount() > (client ? 1 : 0); }
+    void keepHosting(bool quitAfter) {
+        if (client && client->autoPickup != set.autoPickup) { set.autoPickup = client->autoPickup; set.save(); }
+        client.reset();   // our character leaves like any player (kept for when we come back)
+        SDL_SetRelativeMouseMode(SDL_FALSE);
+        quitAfterHosting = quitAfter;
+        status.clear();
+        screen = Screen::HostOnly;
+        sel = 0;
+    }
+    void rejoinHosted() {
+        auto pipe = std::make_shared<LoopbackPipe>();
+        serverNet->attachLoopback(pipe);
+        auto cnet = std::make_shared<ClientNet>();
+        cnet->useLoopback(pipe);
+        makeClient(cnet);
+        quitAfterHosting = false;
         screen = Screen::Playing;
-        return true;
     }
-
-    // Load game data from dir (ours, or the host's copy) and rebuild the art to match.
-    bool switchData(const std::string& dir, std::string& err) {
-        GameData nd;
-        if (!nd.load(dir, err)) return false;
-        gData = std::move(nd);
-        assets.build();
-        assets.loadOverrides(dataDir);   // our own pictures still apply where the names match
-        if (gpu) gpu->dropTextures();
-        return true;
-    }
-
-    // Co-op: the host's data files differ from ours. Save them in a folder of their own (ours
-    // stay untouched) and play with them until we leave the game.
-    bool useHostData(const std::vector<GameData::SharedFile>& files, std::string& err) {
-        std::string dir = (set.dir.empty() ? std::string("./") : set.dir) + "hostdata";
-#ifdef _WIN32
-        std::string cmd = "mkdir \"" + dir + "\" 2>nul";
-#else
-        std::string cmd = "mkdir -p '" + dir + "'";
-#endif
-        if (std::system(cmd.c_str()) != 0) {}   // may already exist
-        for (auto& f : files) {
-            if (f.name.find('/') != std::string::npos || f.name.find('\\') != std::string::npos || f.name.find("..") != std::string::npos ||
-                f.name.size() < 5 || f.name.substr(f.name.size() - 4) != ".txt") {
-                err = "unexpected file name from the host: " + f.name;
-                return false;
-            }
-            std::ofstream o(dir + "/" + f.name, std::ios::binary | std::ios::trunc);
-            if (!o || !o.write(f.text.data(), (std::streamsize)f.text.size())) { err = "cannot write " + dir + "/" + f.name; return false; }
+    void endHosting(const std::string& why) {
+        if (server) {
+            server->announce(why);
+            for (int i = 0; i < 3; i++) server->tick();   // get the message out before closing
         }
-        if (!switchData(dir, err)) { err = "the host's data doesn't load: " + err; std::string e2; switchData(dataDir, e2); return false; }
-        usingHostData = true;
-        std::printf("Using the host's data files (saved in %s)\n", dir.c_str());
-        return true;
+        bool quit = quitAfterHosting;
+        quitAfterHosting = false;
+        stopGame();   // saves the game
+        status = why;
+        if (quit) running = false;
     }
 
     void stopGame() {
@@ -233,11 +232,6 @@ struct App {
         client.reset();
         server.reset();
         serverNet.reset();
-        if (usingHostData) {   // back to our own data files
-            std::string err;
-            if (!switchData(dataDir, err)) std::fprintf(stderr, "dum: reloading %s: %s\n", dataDir.c_str(), err.c_str());
-            usingHostData = false;
-        }
         SDL_SetRelativeMouseMode(SDL_FALSE);
         screen = Screen::Main;
         sel = 0;
@@ -394,6 +388,11 @@ struct App {
                 }
                 set.save();
             }
+            return;
+        }
+        if (screen == Screen::HostOnly) {
+            if (k == SDLK_RETURN || k == SDLK_KP_ENTER || k == SDLK_SPACE) rejoinHosted();
+            else if (k == SDLK_ESCAPE) endHosting("The host has ended the game. It is saved: the host can continue it later.");
             return;
         }
         if (screen == Screen::Scores) {
@@ -560,6 +559,21 @@ struct App {
             R.text((R.W - R.textW(h)) / 2, cy + 8, h, 0xFF908070);
             R.text((R.W - R.textW("Mouse: left = attack, right = cast, wheel = select spell")) / 2, cy + 20,
                    "Mouse: left = attack, right = cast, wheel = select spell", 0xFF908070);
+        } else if (screen == Screen::HostOnly) {
+            std::string t = "Still hosting";
+            R.text((R.W - R.textW(t, 2)) / 2, y, t, 0xFFD0C8B8, 2);
+            y += 26;
+            std::string who;
+            if (server) for (auto& n : server->playerNames()) who += (who.empty() ? "" : ", ") + n;
+            std::string l1 = "The game goes on for: " + who;
+            R.text((R.W - R.textW(l1.substr(0, 100))) / 2, y, l1.substr(0, 100), 0xFFFFE080);
+            y += 14;
+            const char* lines[] = {"Keep this window open while they play. When the last one leaves,",
+                                   "the game is saved and this window goes back to the menu."};
+            for (const char* l : lines) { R.text((R.W - R.textW(l)) / 2, y, l, 0xFFB0A890); y += 11; }
+            y += 14;
+            const char* keys[] = {"Enter: join the game again", "Esc: end the game for everyone (it is saved)"};
+            for (const char* l : keys) { R.text((R.W - R.textW(l, 2)) / 2, y, l, 0xFFD0C8B8, 2); y += 22; }
         } else if (screen == Screen::Scores) {
             R.text((R.W - R.textW("The Abyss - deepest runs", 2)) / 2, y - 8, "The Abyss - deepest runs", 0xFFD0C8B8, 2);
             y += 16;
@@ -1003,7 +1017,13 @@ int main(int argc, char** argv) {
 
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_QUIT) app.running = false;
+            if (e.type == SDL_QUIT) {
+                // Closing the window while friends play on our server: keep hosting (close again to end it).
+                if (app.screen == Screen::Playing && app.othersPlaying()) app.keepHosting(true);
+                else if (app.screen == Screen::HostOnly) app.endHosting("The host has closed the game. It is saved.");
+                else app.running = false;
+                continue;
+            }
             if (e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED && !app.set.fullscreen) {
                 app.set.winW = e.window.data1;
                 app.set.winH = e.window.data2;
@@ -1050,13 +1070,24 @@ int main(int argc, char** argv) {
                 if (shown < 12) app.r->beginUi();
                 if (shown < 12) app.r->text((app.r->W - app.r->textW(app.status)) / 2, app.r->H - 72, app.status, 0xFFFFE080);
             }
-            if (app.client->quitApp) app.running = false;
-            if (app.client->leave) {
+            if ((app.client->quitApp || app.client->leave) && app.othersPlaying()) {
+                app.keepHosting(app.client->quitApp);   // friends still playing: the game goes on for them
+            } else if (app.client->quitApp) {
+                app.running = false;
+            } else if (app.client->leave) {
                 std::string msg = app.client->error;
                 app.stopGame();
                 app.status = msg;
             }
         } else {
+            if (app.screen == Screen::HostOnly && app.server) {
+                // Hosting without playing: run the game for the others until they have all left.
+                acc += dt;
+                int n = 0;
+                while (acc >= TICK_DT && n++ < 5) { app.server->tick(); acc -= TICK_DT; }
+                if (n >= 5) acc = 0;
+                if (app.server->playerCount() == 0) app.endHosting("Everyone has left the game. It is saved: Host co-op game continues it.");
+            }
             app.drawMenu(dt);
         }
         if (showFps) {   // F3: frame rate, to help choosing a resolution

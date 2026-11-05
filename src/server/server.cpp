@@ -211,27 +211,24 @@ void Server::onHello(int peer, Reader& r) {
         return;
     }
     if (peerToPlayer_.count(peer)) return;
-    // Everyone must play with the host's data files (monsters, items... are sent by number).
-    // If any differ, send ours: the client switches to them for this game and says hello again.
+    // Everyone must have the same data files (monsters, items... are sent by number).
+    // Only checksums are compared; no files are ever sent. Different files: refuse, and say
+    // which, so the players can sort it out.
     std::map<std::string, uint32_t> theirs;
     int nf = r.u8();
     for (int i = 0; i < nf && r.ok; i++) { std::string f = r.str(); theirs[f] = r.u32(); }
-    std::vector<std::string> differ;
+    std::string differ;
     for (auto& sf : gData.shared)
-        if (!theirs.count(sf.name) || theirs[sf.name] != sf.hash) differ.push_back(sf.name);
+        if (!theirs.count(sf.name) || theirs[sf.name] != sf.hash) differ += (differ.empty() ? "" : ", ") + sf.name;
     if (!differ.empty()) {
         Writer w;
-        w.u8(S_DATA);
-        w.u8((uint8_t)gData.shared.size());
-        for (auto& sf : gData.shared) {
-            w.str(sf.name);
-            w.u32((uint32_t)sf.text.size());
-            w.bytes((const uint8_t*)sf.text.data(), sf.text.size());
-        }
-        w.u8((uint8_t)differ.size());
-        for (auto& d : differ) w.str(d);
+        w.u8(S_REJECT);
+        w.str("Your data files differ from the host's: " + differ + ". Everyone needs the same files in data/.");
         net_->send(peer, w.buf, true);
-        std::printf("[server] %s has different data files (%s): sending ours\n", name.c_str(), differ[0].c_str());
+        net_->disconnect(peer);
+        std::string who = name.empty() ? "A player" : name.substr(0, 16);
+        text(-1, COL_ORANGE, who + " can't join: different data files (" + differ + ").");
+        std::printf("[server] %s refused: data files differ (%s)\n", who.c_str(), differ.c_str());
         return;
     }
     if (name.empty()) name = "Hero";

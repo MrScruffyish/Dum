@@ -90,20 +90,18 @@ They can be combined. `--single` skips the menu and starts a new single player g
 **Saves:** saves store things by id, so renaming an id makes saved games lose those things
 (they are dropped, not crashed on).
 
-**Co-op:** everyone in a game must play with the same data files, because monsters and
-items are sent over the network by number. Dum takes care of this by itself. When you
-join, your game sends a checksum of each data file (`spells.txt`, `items.txt`,
-`monsters.txt`, `classes.txt`, `stores.txt`, `difficulty.txt`). If any differ from the
-host's, the host sends its files and your game uses them for that game. You see a message
-saying so. Your own files are not changed: the host's copies are kept in a `hostdata`
-folder next to your saves, and your own data comes back when you leave the game. So only
-the **host** needs your new monsters and items. Two things don't travel:
+**Co-op:** everyone in a game must have the same data files, because monsters and items
+are sent over the network by number. When you join, your game sends a checksum of each
+data file (`spells.txt`, `items.txt`, `monsters.txt`, `classes.txt`, `stores.txt`,
+`difficulty.txt`). Only the checksums are sent, never the files. If any differ from the
+host's, you can't join. You see a message naming the files, and the host's screen shows
+who was turned away and why. So when you play your own content together, **give your
+friends a copy of your changed `.txt` files** (zip your `data/` folder). Line endings don't
+count, so a file copied between Windows and Linux still matches.
 
-- **Pictures and sounds** stay each player's own. Without the host's PNGs you see the
-  generated picture of a new monster (from its `sprite` and colors), which is fine for
-  playing. To see the same art, copy the host's `data/gfx/` folder.
-- **A new class** can only be chosen by players who have it in their own `classes.txt`,
-  because the class is picked before joining.
+Pictures and sounds don't have to match. Without your PNGs, a friend sees the generated
+picture of a new monster (from its `sprite` and colors), which is fine for playing. Copy
+`data/gfx/` too if you want everyone to see the same art.
 
 ## A new monster
 

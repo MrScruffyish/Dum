@@ -8,7 +8,7 @@
 #include "common/serialize.h"
 #include "game/data.h"
 
-constexpr uint16_t PROTOCOL_VERSION = 8;   // 8: data file checksums, S_DATA
+constexpr uint16_t PROTOCOL_VERSION = 8;   // 8: data file checksums in C_HELLO
 constexpr uint16_t DEFAULT_PORT = 27666;
 constexpr float TICK_DT = 1.0f / 30.0f;
 constexpr int INV_SIZE = 20;
@@ -37,7 +37,6 @@ enum MsgType : uint8_t {
     S_ROSTER,        // players
     S_TELEPORT,      // f32 x, f32 y, f32 angle
     S_REVEAL,        // u16 x, u16 y, u8 radius (magic mapping)
-    S_DATA,          // your data files differ: u8 n + n x (str file, u32 size, bytes), u8 m + m x str differing file
 };
 
 enum ActionId : uint8_t {

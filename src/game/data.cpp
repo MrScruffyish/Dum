@@ -172,8 +172,9 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
         std::ifstream f(dataDir + "/" + n, std::ios::binary);
         SharedFile sf;
         sf.name = n;
-        if (f) sf.text.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
-        sf.hash = textHash(sf.text);
+        std::string text;
+        if (f) text.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+        sf.hash = textHash(text);
         shared.push_back(std::move(sf));
     }
     std::vector<Section> secs;

@@ -80,10 +80,6 @@ public:
     bool strongAim = false;     // wider auto-aim cone (sent to the server)
     bool quickCast = true;      // number keys use their slot at once (not just select it)
     bool animate = true;        // monsters and players use their walk frames (Options: Animation)
-    // Co-op: the host's data files differ from ours. Called with the host's files; switch to
-    // them (true) or fail (false + err). Set by main.cpp, which owns the data and the art.
-    std::function<bool(const std::vector<GameData::SharedFile>&, std::string&)> onHostData;
-    std::string hostDataNote;   // set when we switched to the host's data (shown once in game)
 
 private:
     enum class Auto { None, Explore, Travel };
@@ -175,7 +171,6 @@ private:
     void invAction(SDL_Keycode k);
     void quickUse(ItemKind kind);
     void sendHello();
-    int hostDataTries_ = 0;
     // The picture for a creature: attack pose, a walk frame (when animating) or the normal one.
     const Texture* creatureFrame(const CEnt& e, const Texture& still, const std::vector<Texture>& walk, AnimStyle style) const;
     // Monsters falling over where they died (only drawn with Animation on).

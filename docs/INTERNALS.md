@@ -1,7 +1,7 @@
 # How Dum works inside
 
 Notes for whoever changes the code. They cover the newer systems (renderers, animation,
-art loading, co-op data sharing, The Abyss). For playing and modding, see the README,
+art loading, co-op data checks and leaving, The Abyss). For playing and modding, see the README,
 [MODDING.md](MODDING.md) and [ART_AND_SOUND.md](ART_AND_SOUND.md).
 
 ## The big picture
@@ -94,28 +94,36 @@ each picture its file name (`monster_<id>`, `item_<id>`...). That list drives bo
   for 1.2 s, then a 0.6 s fade. The server knows nothing about it. All of this happens
   only with the Animation option on.
 
-## Co-op data sharing
+## Co-op: same data for everyone
 
 Monsters, items and spells travel over the network by index, so a client with different
-data files would show the wrong things. The handshake makes sure everyone plays with the
-host's data (protocol version 8):
+data files would show the wrong things. The handshake (protocol version 8) checks this.
+Only checksums are compared: no file is ever sent, so a host can't push data onto
+players' computers.
 
-1. `GameData::load` keeps the raw text and an FNV-1a checksum of each **shared file**
+1. `GameData::load` computes an FNV-1a checksum of each **shared file**
    (`GameData::sharedNames()`: spells, items, monsters, classes, stores, difficulty).
-   Carriage returns are skipped, so Windows and Linux line endings hash the same. Maps
-   and campaigns are not shared because only the server uses them.
-2. `C_HELLO` carries the client's checksums. `Server::onHello` compares them. If any
-   differ, it doesn't add the player. Instead it replies `S_DATA` with all its shared
-   files (32-bit lengths, so files over 64 KB are fine) and the names that differ.
-3. The client (`S_DATA` in `Client::handleMessage`) hands the files to `onHostData`, a
-   callback set by `main.cpp`. `App::useHostData` writes them to `<save folder>/hostdata/`
-   (only plain `*.txt` names accepted), reloads `gData` from there, and rebuilds the art.
-   Your own `data/gfx` pictures still apply where names match. Then the client sends its
-   hello again, which now matches. It tries only once, then gives up with a message.
-4. `App::stopGame` loads your own data again when you leave.
+   Carriage returns are skipped, so Windows and Linux line endings hash the same. Maps and
+   campaigns are not checked because only the server uses them.
+2. `C_HELLO` carries the client's checksums. `Server::onHello` compares them with its own.
+   If any differ, it answers `S_REJECT` naming the files, disconnects, and tells the
+   players already in the game who was turned away.
 
-The self-test (`tests/selftest.cpp`) has a remote client claim a different `items.txt`
-and checks that it gets `S_DATA` once and then joins.
+The self-test has a bot claim a different `monsters.txt` and checks that it is refused,
+that the reason names that file (and only that one), and that it never enters the game.
+
+## Co-op: players leaving
+
+When a player disconnects, `Server::onDisconnect` keeps their character in `saved_`
+(restored by name when they come back, and stored in the save), and the others play on.
+The host is the special case, because the server runs in the host's program. If the host
+leaves (menu or window close) while others are connected, `App::keepHosting` drops only
+the host's own client. The server sees that as an ordinary player leaving. The main loop
+then keeps ticking the server on the *Still hosting* screen
+(`Screen::HostOnly`). `rejoinHosted` connects a fresh client through a new loopback pipe.
+`endHosting` announces the end, saves (the `Server` destructor saves), and goes back to the
+menu, or quits if the host had asked to quit. It ends by itself when the last player has
+left.
 
 ## The Abyss
 
