@@ -20,6 +20,7 @@ struct CEnt {
     EntSnap s;
     Vec2 rpos;          // smoothed render position
     float anim = 0;     // walk animation phase
+    double moved = -1;  // when it last moved (client time)
 };
 
 struct LogLine {
@@ -77,6 +78,7 @@ public:
     bool autoFace = true;       // auto-fight turns toward enemies
     bool strongAim = false;     // wider auto-aim cone (sent to the server)
     bool quickCast = true;      // number keys use their slot at once (not just select it)
+    bool animate = true;        // monsters and players use their walk frames (Options: Animation)
 
 private:
     enum class Auto { None, Explore, Travel };
@@ -167,6 +169,11 @@ private:
     void openUi(Ui u);
     void invAction(SDL_Keycode k);
     void quickUse(ItemKind kind);
+    // The picture for a creature: attack pose, a walk frame (when animating) or the normal one.
+    const Texture* creatureFrame(const CEnt& e, const Texture& still, const std::vector<Texture>& walk, AnimStyle style) const;
+    // Monsters falling over where they died (only drawn with Animation on).
+    struct Dying { Vec2 pos; int def; double start; };
+    std::vector<Dying> dying_;
     std::string usePrompt() const;
     void hintRubble();
     bool tryOpenShop(float angle);

@@ -117,7 +117,7 @@ void Client::handleMessage(const std::vector<uint8_t>& data) {
                 CEnt e;
                 if (it != ents_.end()) {
                     e = it->second;
-                    if ((s.pos - e.s.pos).len() > 0.01f) e.anim += (s.pos - e.s.pos).len() * 3.0f;
+                    if ((s.pos - e.s.pos).len() > 0.01f) { e.anim += (s.pos - e.s.pos).len() * 3.0f; e.moved = time_; }
                     if (dist(e.rpos, s.pos) > 3.0f) e.rpos = s.pos;
                 } else {
                     e.rpos = s.pos;
@@ -167,7 +167,13 @@ void Client::handleMessage(const std::vector<uint8_t>& data) {
                     break;
                 case EV_DOOR: sound_->play(SND_DOOR, vol, pan); break;
                 case EV_PICKUP: if (mine) sound_->play(SND_PICKUP, 0.8f, 0); break;
-                case EV_MONSTER_DIE: sound_->play(SND_DIE, vol, pan); break;
+                case EV_MONSTER_DIE: {
+                    sound_->play(SND_DIE, vol, pan);
+                    auto it = ents_.find(ent);
+                    if (animate && it != ents_.end() && it->second.s.type == ET_MONSTER && !gData.monsters[it->second.s.def].invisible)
+                        dying_.push_back({it->second.rpos, it->second.s.def, time_});
+                    break;
+                }
                 case EV_PLAYER_DIE: sound_->play(SND_DIE, vol, pan); break;
                 case EV_LEVELUP: if (mine) sound_->play(SND_LEVELUP, 1.0f, 0); break;
                 case EV_HEAL: if (mine) { healFlash_ = 0.5f; sound_->play(SND_HEAL, 0.8f, 0); } break;
@@ -721,7 +727,7 @@ void Client::draw(Renderer& r) {
             case ET_MONSTER: {
                 const MonsterDef& d = gData.monsters[e.s.def];
                 bool atk = e.s.flags & EF_ATTACK;
-                s.tex = atk ? &A.monstersAttack[e.s.def] : &A.monsters[e.s.def];
+                s.tex = atk ? &A.monstersAttack[e.s.def] : creatureFrame(e, A.monsters[e.s.def], A.monstersWalk[e.s.def], animStyleFor(d.sprite));
                 s.height = 0.85f * d.size;
                 bool flyer = d.sprite == "bat" || d.sprite == "ghost" || d.sprite == "eye" || d.sprite == "imp";
                 if (flyer) s.zoff = 0.25f + 0.06f * std::sin((float)time_ * 5.0f + id);
@@ -736,7 +742,8 @@ void Client::draw(Renderer& r) {
             }
             case ET_PLAYER: {
                 if (e.s.flags & EF_DEAD) continue;
-                s.tex = (e.s.flags & EF_ATTACK) ? &A.playersAttack[e.s.def % A.players.size()] : &A.players[e.s.def % A.players.size()];
+                int ci = e.s.def % A.players.size();
+                s.tex = (e.s.flags & EF_ATTACK) ? &A.playersAttack[ci] : creatureFrame(e, A.players[ci], A.playersWalk[ci], AnimStyle::Legs);
                 s.height = 0.82f;
                 s.zoff = std::fabs(std::sin(e.anim)) * 0.02f;
                 if (e.s.flags & EF_HURT) { s.tint = 0xFFFF2020; s.tintAmt = 0.5f; }
@@ -763,6 +770,25 @@ void Client::draw(Renderer& r) {
             }
         }
         sprites.push_back(s);
+    }
+
+    // Death animations: the frames at 10 per second, then the last one lies there and fades.
+    const double DIE_FPS = 10, LINGER = 1.2, FADE = 0.6;
+    for (size_t i = 0; i < dying_.size();) {
+        const Dying& dy = dying_[i];
+        const auto& frames = A.monstersDie[dy.def];
+        double age = time_ - dy.start, playT = frames.size() / DIE_FPS;
+        if (frames.empty() || age > playT + LINGER + FADE || age < 0) { dying_.erase(dying_.begin() + i); continue; }
+        const MonsterDef& d = gData.monsters[dy.def];
+        SpriteDraw s;
+        s.pos = dy.pos;
+        s.tex = &frames[std::min((int)frames.size() - 1, (int)(age * DIE_FPS))];
+        s.height = 0.85f * d.size;
+        s.dither = d.sprite == "ghost";
+        if (d.sprite == "elemental") s.fullbright = d.color2 != 0;
+        if (age > playT + LINGER) s.brightness = (float)std::max(0.0, 1.0 - (age - playT - LINGER) / FADE);
+        sprites.push_back(s);
+        i++;
     }
 
     float bob = std::sin(bobPhase_ * 2) * 2.5f * bobAmt_ + (digShake_ > 0 ? std::sin((float)time_ * 90) * 2.0f : 0.0f);
@@ -834,6 +860,19 @@ void Client::draw(Renderer& r) {
         std::string b = alive ? "Respawning at the stairs in " + std::to_string((int)me_.respawnT + 1) + "..." : "The party has fallen...";
         r.text((r.W - r.textW(b)) / 2, r.H / 3 + 30, b, UI_TEXT);
     }
+}
+
+const Texture* Client::creatureFrame(const CEnt& e, const Texture& still, const std::vector<Texture>& walk, AnimStyle style) const {
+    if (!animate || (e.s.flags & EF_ASLEEP) || walk.empty()) return &still;
+    int n = (int)walk.size(), f;
+    if (animAlways(style)) {
+        // Wings and hovering creatures never stop; each one keeps its own rhythm.
+        f = (int)(time_ * 8.0 + e.s.id * 0.37) % n;
+    } else {
+        if (e.moved < 0 || time_ - e.moved > 0.25) return &still;   // standing: the normal picture
+        f = (int)(e.anim * 1.4f) % n;
+    }
+    return &walk[f];
 }
 
 void Client::drawViewModel(Renderer& r) {

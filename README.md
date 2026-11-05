@@ -74,21 +74,31 @@ hasn't been tested.
 | R | auto-walk forward on/off |
 | V | face the nearest monster |
 
-### Resolution and window size
+### Graphics: renderer, resolution, animation
 
 Under **Options**:
 
-- **Resolution** is how sharp the 3D view is drawn: 640x360 (classic), 960x540, 1280x720,
-  1600x900 or 1920x1080. Higher looks sharper but needs more CPU (everything is drawn
-  without the graphics card), so press F3 to see the frame rate and pick what runs smoothly.
-  The HUD, screens and menus look the same at every resolution.
-  The 3D view is drawn entirely by the CPU (split over up to 8 cores); the graphics card only
-  scales the finished picture to the window. A faster graphics card won't help, but a faster
-  CPU with more cores will.
+- **Renderer: GPU (OpenGL) or CPU.** The GPU renderer draws the 3D view on the graphics card
+  at the full window resolution (at 1920x1080 it keeps 60 frames per second on an old AMD
+  APU, using half a CPU core). It needs OpenGL 3.3, which every graphics driver from roughly
+  the last ten years has, and nothing else to install. The CPU renderer is the original
+  software renderer: it works everywhere, but larger views need a fast CPU with many cores.
+  If OpenGL can't start, Dum says why and uses the CPU renderer. You can switch any time;
+  `--gpu` / `--cpu` on the command line choose for one run.
+- **Resolution** (640x360 classic up to 1920x1080): with the CPU renderer, how sharp the 3D
+  view is drawn (higher needs more CPU; press F3 to see the frame rate). With the GPU renderer
+  the 3D view always uses the whole window, and this only sets how sharp the weapon in your
+  hand and the screen effects are. The HUD, screens and menus look the same either way.
+- **Textures: pixelated or smooth** (GPU only). Pixelated is the crisp classic look. Smooth
+  upscales the art with a pixel-art smoother and filters it.
+- **Animation: on or off.** On: monsters walk, flap their wings, slither or wobble, and fall
+  over when killed. Other players walk too. Off: still pictures, as in the classic look. You
+  can draw your own animation frames, see [docs/ART_AND_SOUND.md](docs/ART_AND_SOUND.md).
 - **Window size** sets the window to 960x540 up to 2560x1440. You can also drag the window's
   edges, and Dum remembers the size. F11 switches to fullscreen.
 
-Both are saved in the settings. `--res WxH` and `--window WxH` on the command line override them.
+All of these are saved in the settings. `--res WxH` and `--window WxH` on the command line
+override them for one run.
 
 ### Playing with less precise or less frequent input
 
@@ -186,7 +196,11 @@ or in its parent directory, so `build/dum` uses the repository's `data/` directl
   get the generated picture back. Wall, floor and door textures must be power-of-two sizes
   (64x64, 128x128...). Sprites can be any size, and transparent pixels are see-through.
   Names: `wall_brick`, `floor_stone`, `monster_goblin`, `monster_goblin_attack`,
+  `monster_goblin_walk1`... (walk animation), `monster_goblin_die1`... (death animation),
   `player_wizard`, `item_potion_heal`, `hand_sword` (first-person weapon), `spell_fireball`...
+  Draw big if you like: anything over 256 pixels is scaled down when loaded.
+  The full guide, with sizes and a step-by-step for your own monster, is in
+  [docs/ART_AND_SOUND.md](docs/ART_AND_SOUND.md).
 - **Sound:** put `data/sfx/<name>.wav` files in place to replace the synthesized effects:
   swing hit miss shoot cast explode hurt door pickup die levelup growl step stairs crit heal.
 
@@ -216,7 +230,7 @@ or in its parent directory, so `build/dum` uses the repository's `data/` directl
 src/common   math, RNG, binary serialization
 src/game     data loading, map + dungeon generator, shared state/protocol
 src/server   authoritative simulation: AI, combat, quests, inventory
-src/client   renderer, procedural art, sound, HUD/UI, input/prediction
+src/client   renderers (CPU: renderer.cpp, GPU/OpenGL: gpu.cpp), procedural art, sound, HUD/UI, input/prediction
 src/net      ENet + in-process loopback transport
 src/tools    dum_tool: generate/check maps and campaigns
 data/        game content

@@ -74,10 +74,47 @@ void Renderer::resize(int w, int h) {
     if (inUi_) endUi();
     W = worldW_ = w;
     H = worldH_ = h;
-    fb.assign(W * H, 0xFF000000);
+    fb.assign(W * H, gpu_ ? 0u : 0xFF000000u);
+    dirty_[0] = dirty_[1] = 0; dirty_[2] = W; dirty_[3] = H;
     zbuf.assign(W, 1e9f);
     layered_ = w != UI_W || h != UI_H;
     uiFb_.assign(layered_ ? UI_W * UI_H : 0, 0);
+}
+
+void Renderer::setGpu(bool on) {
+    if (inUi_) endUi();
+    gpu_ = on;
+    std::fill(fb.begin(), fb.end(), on ? 0u : 0xFF000000u);
+    dirty_[0] = dirty_[1] = 0; dirty_[2] = W; dirty_[3] = H;
+    scene_ = WorldScene();
+}
+
+void Renderer::beginFrame() {
+    uiUsed_ = false;
+    if (!gpu_) return;
+    if (inUi_) endUi();
+    scene_.valid = false;
+    scene_.sprites.clear();
+    // Clear what was drawn last frame; it must be sent again (now empty) as well.
+    for (int y = dirty_[1]; y < dirty_[3]; y++) std::fill(&fb[y * W + dirty_[0]], &fb[y * W + dirty_[2]], 0u);
+    std::copy(dirty_, dirty_ + 4, shown_);
+    dirty_[0] = W; dirty_[1] = H; dirty_[2] = 0; dirty_[3] = 0;
+}
+
+void Renderer::markDirty(int x0, int y0, int x1, int y1) {
+    if (!gpu_ || inUi_) return;
+    x0 = std::max(0, x0); y0 = std::max(0, y0); x1 = std::min(W, x1); y1 = std::min(H, y1);
+    if (x0 >= x1 || y0 >= y1) return;
+    dirty_[0] = std::min(dirty_[0], x0); dirty_[1] = std::min(dirty_[1], y0);
+    dirty_[2] = std::max(dirty_[2], x1); dirty_[3] = std::max(dirty_[3], y1);
+}
+
+void Renderer::takeWorldDirty(int& x0, int& y0, int& x1, int& y1) {
+    // Union of this frame's drawing and last frame's (which was cleared).
+    x0 = std::min(dirty_[0], shown_[0]); y0 = std::min(dirty_[1], shown_[1]);
+    x1 = std::max(dirty_[2], shown_[2]); y1 = std::max(dirty_[3], shown_[3]);
+    std::copy(dirty_, dirty_ + 4, shown_);   // a second present in the same frame sends nothing new
+    if (x0 >= x1 || y0 >= y1) { x0 = y0 = x1 = y1 = 0; }
 }
 
 void Renderer::beginUi() {
@@ -176,9 +213,17 @@ void Renderer::drawWorld(Map& m, const Assets& a, Vec2 cam, float angle, float h
     plane_ = Vec2(-dir_.y, dir_.x) * planeLen;
     horizon_ = horizon;
     const float posZ = 0.5f * H;
+    if (gpu_) {
+        scene_.valid = true;
+        scene_.map = &m;
+        scene_.assets = &a;
+        scene_.cam = cam; scene_.dir = dir_; scene_.plane = plane_;
+        scene_.horizon = horizon;
+    }
 
     // Floor and ceiling (row by row), split across CPU cores.
     Vec2 r0 = dir_ - plane_, r1 = dir_ + plane_;
+    if (!gpu_) {
     auto rows = [&](int ya, int yb) {
         for (int y = ya; y < yb; y++) {
             bool isFloor = y > horizon;
@@ -222,6 +267,7 @@ void Renderer::drawWorld(Map& m, const Assets& a, Vec2 cam, float angle, float h
         rows(0, std::min(H, chunk));
         for (auto& t : pool) t.join();
     }
+    }   // !gpu_
 
     // Walls (one ray per column).
     for (int x = 0; x < W; x++) {
@@ -260,6 +306,7 @@ void Renderer::drawWorld(Map& m, const Assets& a, Vec2 cam, float angle, float h
         int lightTile = m.inside(px, py) ? py * m.w + px : idx;
         float l = lightAt(hp, lightTile) * (side == 1 ? 0.78f : 1.0f);
         if (l > 0.06f) m.flags[idx] |= F_SEEN;
+        if (gpu_) continue;   // the GPU draws the wall; we only needed the depth and what was seen
         int li = (int)(l * 256);
         float lineH = H / perp;
         float top = horizon - lineH / 2;
@@ -273,7 +320,42 @@ void Renderer::drawWorld(Map& m, const Assets& a, Vec2 cam, float angle, float h
         for (int y = y0; y < y1; y++, texPos += texStep) fb[y * W + x] = shadePx(t->get(texX, (int)texPos), li);
     }
 
-    drawSprites(sprites);
+    if (gpu_) spriteVisibility(sprites);
+    else drawSprites(sprites);
+}
+
+void Renderer::spriteVisibility(std::vector<SpriteDraw>& sprites) {
+    for (auto& s : sprites) s.dist2 = (s.pos - cam_).len2();
+    std::sort(sprites.begin(), sprites.end(), [](const SpriteDraw& a, const SpriteDraw& b) { return a.dist2 > b.dist2; });
+    for (auto& s : sprites) {
+        s.visible = false;
+        if (!s.tex || s.tex->w == 0) continue;
+        float sx, depth;
+        if (!project(s.pos, sx, depth)) continue;
+        float unit = H / depth;
+        float sh = unit * s.height;
+        float sw = sh * s.tex->w / s.tex->h;
+        float bottom = horizon_ + unit * 0.5f - unit * s.zoff;
+        float top = bottom - sh;
+        int x0 = (int)(sx - sw / 2), x1 = (int)(sx + sw / 2);
+        int y0 = (int)top, y1 = (int)bottom;
+        if (x1 < 0 || x0 >= W || y1 < 0 || y0 >= H) continue;
+        float light = 1.0f;
+        if (!s.fullbright) {
+            int tx = (int)s.pos.x, ty = (int)s.pos.y;
+            light = lightAt(s.pos, (ty >= 0 && ty < mapH_ && tx >= 0 && tx < mapW_) ? ty * mapW_ + tx : -1);
+            if (light < 4 / 256.0f) continue;
+        }
+        s.light = light * s.brightness;
+        bool any = false;
+        for (int x = std::max(0, x0); x < std::min(W, x1) && !any; x++) any = depth < zbuf[x];
+        if (!any) continue;
+        s.visible = true;
+        int texTop = s.tex->top;
+        s.screenX0 = std::max(0, x0); s.screenX1 = std::min(W - 1, x1);
+        s.screenY0 = std::max(0, y0 + (int)(texTop * sh / s.tex->h)); s.screenY1 = std::min(H - 1, y1);
+        scene_.sprites.push_back(s);
+    }
 }
 
 void Renderer::drawSprites(std::vector<SpriteDraw>& sprites) {
@@ -332,10 +414,12 @@ void Renderer::drawSprites(std::vector<SpriteDraw>& sprites) {
 
 void Renderer::fill(int x, int y, int w, int h, uint32_t c, int alpha) {
     int x0 = std::max(0, x), y0 = std::max(0, y), x1 = std::min(W, x + w), y1 = std::min(H, y + h);
+    markDirty(x0, y0, x1, y1);
+    bool ov = overlay();
     for (int j = y0; j < y1; j++)
         for (int i = x0; i < x1; i++) {
             uint32_t& d = fb[j * W + i];
-            d = alpha >= 255 ? (c | 0xFF000000u) : inUi_ ? overPx(d, c, alpha) : blendPx(d, c, alpha);
+            d = alpha >= 255 ? (c | 0xFF000000u) : ov ? overPx(d, c, alpha) : blendPx(d, c, alpha);
         }
 }
 
@@ -348,6 +432,7 @@ void Renderer::frame(int x, int y, int w, int h, uint32_t c) {
 
 void Renderer::text(int x, int y, const std::string& s, uint32_t c, int scale, bool shadow) {
     if (shadow) text(x + scale, y + scale, s, 0xFF000000, scale, false);
+    markDirty(x, y, x + textW(s, scale), y + 8 * scale);
     int cx = x;
     for (char ch : s) {
         int i = (unsigned char)ch - 32;
@@ -370,6 +455,8 @@ void Renderer::text(int x, int y, const std::string& s, uint32_t c, int scale, b
 
 void Renderer::blit(const Texture& t, int x, int y, int w, int h, float light, bool additive) {
     int li = (int)(light * 256);
+    markDirty(x, y, x + w, y + h);
+    bool ov = overlay();
     for (int j = std::max(0, y); j < std::min(H, y + h); j++) {
         int ty = (j - y) * t.h / h;
         for (int i = std::max(0, x); i < std::min(W, x + w); i++) {
@@ -377,7 +464,7 @@ void Renderer::blit(const Texture& t, int x, int y, int w, int h, float light, b
             uint32_t c = t.px[ty * t.w + tx];
             if (!(c >> 24)) continue;
             uint32_t& d = fb[j * W + i];
-            if (additive && inUi_) {
+            if (additive && ov) {
                 uint32_t sc = shadePx(c, li);
                 uint32_t m = std::max({(sc >> 16) & 255, (sc >> 8) & 255, sc & 255});
                 d = overPx(d, sc, (int)m);
@@ -390,11 +477,13 @@ void Renderer::blit(const Texture& t, int x, int y, int w, int h, float light, b
 
 void Renderer::darken(float f) {
     int l = (int)(f * 256);
-    if (inUi_) { for (auto& p : fb) p = overPx(p, 0xFF000000, clampi(256 - l, 0, 255)); return; }
+    markDirty(0, 0, W, H);
+    if (overlay()) { for (auto& p : fb) p = overPx(p, 0xFF000000, clampi(256 - l, 0, 255)); return; }
     for (auto& p : fb) p = shadePx(p, l);
 }
 
 void Renderer::tintScreen(uint32_t c, int alpha) {
-    if (inUi_) { for (auto& p : fb) p = overPx(p, c, alpha); return; }
+    markDirty(0, 0, W, H);
+    if (overlay()) { for (auto& p : fb) p = overPx(p, c, alpha); return; }
     for (auto& p : fb) p = blendPx(p, c, alpha);
 }

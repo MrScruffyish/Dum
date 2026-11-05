@@ -45,6 +45,7 @@ add_executable(dum
   src/client/client.cpp
   src/client/autopilot.cpp
   src/client/renderer.cpp
+  src/client/gpu.cpp
   src/client/textures.cpp
   src/client/sound.cpp
 )

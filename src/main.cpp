@@ -8,6 +8,7 @@
 //   dum --export-art            write all generated art to data/gfx/*.png for editing
 //   options: --name <n> --class <warrior|priest|wizard|rogue|ranger> --port <p>
 //            --res <WxH> (3D view resolution, default from Options) --window <WxH> --fullscreen --seed <n>
+//            --gpu / --cpu (renderer, default from Options)
 //   developer: --spawn goblin,orc [--awake]   --screenshot out.png [--frames N] [--turn rad]
 #include <SDL.h>
 #include <SDL_image.h>
@@ -25,6 +26,7 @@
 #include <thread>
 
 #include "client/client.h"
+#include "client/gpu.h"
 #include "client/keys.h"
 #include "client/renderer.h"
 #include "client/sound.h"
@@ -50,6 +52,9 @@ struct Settings {
     float gameSpeed = 1.0f, turnSpeed = 1.0f;
     bool strongAim = false, autoFace = true, quickCast = true;
     int renderW = 640, renderH = 360;   // resolution of the 3D view
+    bool gpu = true;                    // draw the 3D view with OpenGL (else the CPU)
+    bool smoothTex = false;             // GPU: smoothed textures instead of crisp pixels
+    bool animate = true;                // monsters walk, flap and fall over
     int winW = 0, winH = 0;             // window size (0 = twice the classic resolution)
     KeyBinds keys;
     std::string path, dir;
@@ -80,6 +85,9 @@ struct Settings {
             else if (k == "autoface") autoFace = v == "1";
             else if (k == "quickcast") quickCast = v == "1";
             else if (k == "resolution") std::sscanf(v.c_str(), "%dx%d", &renderW, &renderH);
+            else if (k == "renderer") gpu = v != "cpu";
+            else if (k == "textures") smoothTex = v == "smooth";
+            else if (k == "animation") animate = v != "0";
             else if (k == "window") std::sscanf(v.c_str(), "%dx%d", &winW, &winH);
             else if (k == "difficulty") { int d = gData.findDifficulty(v); if (d >= 0) difficulty = d; }
         }
@@ -90,13 +98,14 @@ struct Settings {
         f << "name " << name << "\nclass " << cls << "\naddress " << address << "\nport " << port
           << "\nmouse " << mouse << "\nvolume " << volume << "\nfullscreen " << (fullscreen ? 1 : 0) << "\nautopickup " << (autoPickup ? 1 : 0) << "\nadventure " << (adventure.empty() ? "-" : adventure) << "\ndifficulty " << difficultyRules(difficulty).id << "\ngamespeed " << gameSpeed << "\nturnspeed " << turnSpeed
           << "\nstrongaim " << (strongAim ? 1 : 0) << "\nautoface " << (autoFace ? 1 : 0) << "\nquickcast " << (quickCast ? 1 : 0)
-          << "\nresolution " << renderW << "x" << renderH << "\nwindow " << winW << "x" << winH << "\n" << keys.save();
+          << "\nresolution " << renderW << "x" << renderH << "\nrenderer " << (gpu ? "gpu" : "cpu")
+          << "\ntextures " << (smoothTex ? "smooth" : "pixels") << "\nanimation " << (animate ? 1 : 0) << "\nwindow " << winW << "x" << winH << "\n" << keys.save();
     }
 };
 
 enum class Screen { Main, Class, Address, Name, HostChoice, Controls, Options, Scores, Playing };
 enum MenuId { M_CONTINUE, M_NEW, M_HOST, M_JOIN, M_NAME, M_ADVENTURE, M_DIFFICULTY, M_SCORES, M_OPTIONS, M_CONTROLS, M_QUIT };
-enum OptId { O_SPEED, O_TURN, O_MOUSE, O_AIM, O_FACE, O_QUICK, O_RES, O_WINDOW, O_VOLUME, O_FULLSCREEN, O_COUNT };
+enum OptId { O_SPEED, O_TURN, O_MOUSE, O_AIM, O_FACE, O_QUICK, O_RENDERER, O_RES, O_TEXTURES, O_ANIM, O_WINDOW, O_VOLUME, O_FULLSCREEN, O_COUNT };
 // Resolutions of the 3D view (the HUD and menus always look the same) and window sizes.
 const int kRes[][2] = {{640, 360}, {960, 540}, {1280, 720}, {1600, 900}, {1920, 1080}};
 const int kWin[][2] = {{960, 540}, {1280, 720}, {1600, 900}, {1920, 1080}, {2560, 1440}};
@@ -105,7 +114,9 @@ enum class Mode { Single, Host, Join };
 struct App {
     Settings set;
     SDL_Window* win = nullptr;
-    SDL_Renderer* sdlr = nullptr;
+    SDL_Renderer* sdlr = nullptr;            // CPU renderer: SDL shows our pictures
+    std::unique_ptr<GpuRenderer> gpu;        // GPU renderer (then sdlr is null)
+    std::string gpuInfo;
     SDL_Texture* tex = nullptr;
     SDL_Texture* uiTex = nullptr;   // HUD/menu layer when the 3D view is not 640x360
     std::unique_ptr<Renderer> r;
@@ -169,6 +180,7 @@ struct App {
         client->strongAim = set.strongAim;
         client->autoFace = set.autoFace;
         client->quickCast = set.quickCast;
+        client->animate = set.animate;
         if (mode == Mode::Host)
             status = "Hosting on UDP port " + std::to_string(set.port) + ". Friends join with: dum --connect <your-ip>";
         screen = Screen::Playing;
@@ -294,6 +306,19 @@ struct App {
                     case O_AIM: set.strongAim = !set.strongAim; break;
                     case O_FACE: set.autoFace = !set.autoFace; break;
                     case O_QUICK: set.quickCast = !set.quickCast; break;
+                    case O_RENDERER: {
+                        std::string err;
+                        if (!setupVideo(!set.gpu, err)) status = err;
+                        break;
+                    }
+                    case O_TEXTURES:
+                        set.smoothTex = !set.smoothTex;
+                        if (gpu) gpu->setSmooth(set.smoothTex);
+                        break;
+                    case O_ANIM:
+                        set.animate = !set.animate;
+                        if (client) client->animate = set.animate;
+                        break;
                     case O_RES: {
                         int n = (int)(sizeof kRes / sizeof kRes[0]), i = 0;
                         for (int j = 0; j < n; j++) if (kRes[j][0] == set.renderW) i = j;
@@ -403,7 +428,7 @@ struct App {
         r->beginUi();
         Renderer& R = *r;
         std::string title = "DUM";
-        int ts = std::max(4, R.H / 40);
+        int ts = screen == Screen::Options ? 5 : std::max(4, R.H / 40);   // Options: small logo, long list
         R.text((R.W - R.textW(title, ts)) / 2 + 2, 22 + 2, title, 0xFF300000, ts, false);
         R.text((R.W - R.textW(title, ts)) / 2, 22, title, 0xFFD03020, ts, false);
         std::string sub = "a dungeon crawl for brave parties";
@@ -440,8 +465,15 @@ struct App {
             help[O_FACE] = "With auto-fight (Q) you don't need to turn at all.";
             rows[O_QUICK] = std::string("Keys 1-9: ") + (set.quickCast ? "cast at once" : "select only");
             help[O_QUICK] = "Cast at once: one key press uses the spell, ability or wand.";
+            rows[O_RENDERER] = std::string("Renderer: ") + (gpu ? "GPU (OpenGL)" : "CPU");
+            help[O_RENDERER] = gpu ? gpuInfo.substr(0, 100) : "GPU: smooth at any window size. CPU: works everywhere.";
             rows[O_RES] = "Resolution: " + std::to_string(set.renderW) + "x" + std::to_string(set.renderH) + (set.renderW == 640 ? " (classic)" : "");
-            help[O_RES] = "Sharper 3D view, but slower. Menus and the HUD look the same.";
+            help[O_RES] = gpu ? "GPU: the 3D view always uses the whole window; this is for the weapon and effects."
+                              : "Sharper 3D view, but slower. Menus and the HUD look the same.";
+            rows[O_TEXTURES] = std::string("Textures: ") + (set.smoothTex ? "smooth" : "pixelated") + (gpu ? "" : " (GPU only)");
+            help[O_TEXTURES] = "Smooth: art is upscaled and filtered. Pixelated: the crisp classic look.";
+            rows[O_ANIM] = std::string("Animation: ") + (set.animate ? "on" : "off");
+            help[O_ANIM] = "Monsters walk, flap their wings and fall over when killed. Off: still pictures.";
             {
                 int cw, ch;
                 SDL_GetWindowSize(win, &cw, &ch);
@@ -461,9 +493,9 @@ struct App {
                 R.text((R.W - w) / 2, oy, rows[i], s ? 0xFFFFE080 : 0xFFD0C8B8, 2);
                 oy += O_COUNT > 8 ? 18 : 21;
             }
-            R.text((R.W - R.textW(help[sel])) / 2, oy + 6, help[sel], 0xFFB0A890);
-            std::string h = "Left/Right: change   Esc: back   (changes apply to the next game)";
-            R.text((R.W - R.textW(h)) / 2, oy + 20, h, 0xFF908070);
+            R.text((R.W - R.textW(help[sel])) / 2, oy + 4, help[sel], 0xFFB0A890);
+            std::string h = "Left/Right: change   Esc: back";
+            R.text((R.W - R.textW(h)) / 2, oy + 16, h, 0xFF908070);
         } else if (screen == Screen::Controls) {
             R.text((R.W - R.textW("Controls", 2)) / 2, y - 8, "Controls", 0xFFD0C8B8, 2);
             int cx = R.W / 2 - 190, cy = y + 12;
@@ -599,6 +631,7 @@ struct App {
     }
 
     void present() {
+        if (gpu) { gpu->present(*r); return; }
         r->endUi();
         SDL_UpdateTexture(tex, nullptr, r->fb.data(), r->W * 4);
         SDL_RenderClear(sdlr);
@@ -614,6 +647,7 @@ struct App {
     void applyResolution(int w, int h) {
         w = clampi(w, 320, 3840);
         h = clampi(h, 180, 2160);
+        if (gpu) { if (r) r->resize(w, h); else r = std::make_unique<Renderer>(w, h); r->setGpu(true); return; }
         if (tex) SDL_DestroyTexture(tex);
         tex = SDL_CreateTexture(sdlr, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, w, h);
         if (!uiTex) {
@@ -622,6 +656,68 @@ struct App {
         }
         SDL_RenderSetLogicalSize(sdlr, w, h);
         if (r) r->resize(w, h); else r = std::make_unique<Renderer>(w, h);
+        r->setGpu(false);
+    }
+
+    // Window coordinates -> 3D view coordinates (SDL does this itself for the CPU renderer).
+    void mapMouse(SDL_Event& e) const {
+        if (!gpu) return;
+        int vx, vy, vw, vh;
+        gpu->viewRect(vx, vy, vw, vh);
+        if (vw <= 0 || vh <= 0) return;
+        auto conv = [&](Sint32& x, Sint32& y) { x = (x - vx) * r->W / vw; y = (y - vy) * r->H / vh; };
+        if (e.type == SDL_MOUSEMOTION) conv(e.motion.x, e.motion.y);
+        if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) conv(e.button.x, e.button.y);
+    }
+
+    // Create (or re-create) the window for the GPU or the CPU renderer. If OpenGL fails, the
+    // CPU renderer is used and err says why.
+    bool setupVideo(bool wantGpu, std::string& err) {
+        int x = SDL_WINDOWPOS_CENTERED, y = SDL_WINDOWPOS_CENTERED, w = set.winW, h = set.winH;
+        if (win) {
+            SDL_GetWindowPosition(win, &x, &y);
+            SDL_GetWindowSize(win, &w, &h);
+            if (set.fullscreen) { w = set.winW; h = set.winH; }
+        }
+        if (w <= 0 || h <= 0) { w = 1280; h = 720; }
+        auto destroy = [&]() {
+            if (tex) { SDL_DestroyTexture(tex); tex = nullptr; }
+            if (uiTex) { SDL_DestroyTexture(uiTex); uiTex = nullptr; }
+            if (sdlr) { SDL_DestroyRenderer(sdlr); sdlr = nullptr; }
+            gpu.reset();
+            if (win) { SDL_DestroyWindow(win); win = nullptr; }
+        };
+        auto make = [&](bool gl) {
+            win = SDL_CreateWindow("Dum", x, y, w, h,
+                                   SDL_WINDOW_RESIZABLE | (gl ? SDL_WINDOW_OPENGL : 0) | (set.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+            return win != nullptr;
+        };
+        destroy();
+        bool ok = false;
+        if (wantGpu && make(true)) {
+            gpu = std::make_unique<GpuRenderer>();
+            gpu->setSmooth(set.smoothTex);
+            if (gpu->init(win, err)) {
+                ok = true;
+                gpuInfo = gpu->info();
+                std::printf("GPU renderer: %s\n", gpuInfo.c_str());
+            } else {
+                std::printf("GPU renderer not available (%s), using the CPU\n", err.c_str());
+                err = "GPU renderer not available, using the CPU: " + err;
+                destroy();
+            }
+        }
+        if (!ok) {
+            if (!make(false)) { err = std::string("window: ") + SDL_GetError(); return false; }
+            sdlr = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+            if (!sdlr) sdlr = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
+            if (!sdlr) { err = std::string("renderer: ") + SDL_GetError(); return false; }
+            SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");  // crisp pixels
+        }
+        set.gpu = gpu != nullptr;
+        applyResolution(r ? r->W : set.renderW, r ? r->H : set.renderH);
+        set.save();
+        return ok || !wantGpu;
     }
 };
 
@@ -748,14 +844,20 @@ int main(int argc, char** argv) {
 
     // Mouse turning uses real mouse movement, whatever the window size or resolution.
     SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_SCALING, "0");
-    app.win = SDL_CreateWindow("Dum", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ww, wh,
-                               SDL_WINDOW_RESIZABLE | (app.set.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
-    if (!app.win) { std::fprintf(stderr, "dum: window: %s\n", SDL_GetError()); return 1; }
-    app.sdlr = SDL_CreateRenderer(app.win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!app.sdlr) app.sdlr = SDL_CreateRenderer(app.win, -1, SDL_RENDERER_SOFTWARE);
-    if (!app.sdlr) { std::fprintf(stderr, "dum: renderer: %s\n", SDL_GetError()); return 1; }
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");  // crisp pixels
-    app.applyResolution(rw, rh);
+    if (opt.count("cpu")) app.set.gpu = false;
+    if (opt.count("gpu")) app.set.gpu = true;
+    {
+        // --window/--res apply to this run only (not saved).
+        int sw = app.set.winW, sh = app.set.winH;
+        app.set.winW = ww; app.set.winH = wh;
+        app.r = std::make_unique<Renderer>(rw, rh);
+        std::string verr;
+        if (!app.setupVideo(app.set.gpu, verr)) {
+            if (!app.win) { std::fprintf(stderr, "dum: %s\n", verr.c_str()); return 1; }
+            app.status = verr;
+        }
+        app.set.winW = sw; app.set.winH = sh;
+    }
 
     app.assets.build();
     app.assets.loadOverrides(dataDir);
@@ -820,8 +922,11 @@ int main(int argc, char** argv) {
             if (frameNo == shotFrames - 2 && app.client && opt.count("ui")) app.client->debugUi(opt["ui"]);
             if (frameNo >= shotFrames) {
                 app.r->endUi();
-                std::vector<uint32_t> pic = app.r->composite();
-                SDL_Surface* s = SDL_CreateRGBSurfaceWithFormatFrom(pic.data(), app.r->W, app.r->H, 32, app.r->W * 4, SDL_PIXELFORMAT_ARGB8888);
+                int pw = app.r->W, ph = app.r->H;
+                std::vector<uint32_t> pic;
+                if (app.gpu) { app.gpu->present(*app.r, false); pic = app.gpu->readPixels(pw, ph); }
+                else pic = app.r->composite();
+                SDL_Surface* s = SDL_CreateRGBSurfaceWithFormatFrom(pic.data(), pw, ph, 32, pw * 4, SDL_PIXELFORMAT_ARGB8888);
                 IMG_SavePNG(s, shotPath.c_str());
                 SDL_FreeSurface(s);
                 std::printf("saved %s\n", shotPath.c_str());
@@ -842,6 +947,7 @@ int main(int argc, char** argv) {
                 app.set.winW = e.window.data1;
                 app.set.winH = e.window.data2;
             }
+            app.mapMouse(e);   // GPU: window pixels -> 3D view pixels
             // Mouse positions come in 3D-view pixels; the HUD and menus use 640x360.
             float us = app.r->uiScale();
             if (us != 1.0f) {
@@ -910,9 +1016,10 @@ int main(int argc, char** argv) {
     netShutdown();
     app.sound.shutdown();
     app.set.save();   // remembers the window size
-    SDL_DestroyTexture(app.tex);
+    if (app.tex) SDL_DestroyTexture(app.tex);
     if (app.uiTex) SDL_DestroyTexture(app.uiTex);
-    SDL_DestroyRenderer(app.sdlr);
+    if (app.sdlr) SDL_DestroyRenderer(app.sdlr);
+    app.gpu.reset();
     SDL_DestroyWindow(app.win);
     IMG_Quit();
     SDL_Quit();

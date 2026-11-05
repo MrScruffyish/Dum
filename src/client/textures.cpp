@@ -6,6 +6,8 @@
 #include <SDL.h>
 #include <SDL_image.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -949,6 +951,132 @@ Texture playerSprite(const ClassDef& c, bool attack, int seed) {
 
 }  // namespace
 
+AnimStyle animStyleFor(const std::string& s) {
+    if (s == "rat" || s == "spider" || s == "beast") return AnimStyle::Skitter;
+    if (s == "bat" || s == "imp") return AnimStyle::Flap;
+    if (s == "ghost" || s == "eye" || s == "elemental") return AnimStyle::Float;
+    if (s == "snake" || s == "worm") return AnimStyle::Slither;
+    if (s == "blob") return AnimStyle::Squash;
+    return AnimStyle::Legs;   // humanoids, casters, skeletons, brutes, imps, golems, dragons, players
+}
+
+// One frame of movement, made by moving the pixels of the normal picture around.
+// Frames 0 and 2 are the extremes (left leg forward / right leg forward, wings up / down),
+// 1 and 3 the in-between poses.
+Texture walkFrame(const Texture& base, AnimStyle style, int frame) {
+    const int w = base.w, h = base.h;
+    Texture t(w, h);
+    if (w == 0 || h == 0) return t;
+    float k = w / 64.0f;                                    // art may be bigger than 64x64
+    float ph = frame * PI / 2;                              // 0, 90, 180, 270 degrees
+    float swing = std::cos(ph);                             // 1, 0, -1, 0
+    int bob = (frame % 2 == 1) ? (int)std::lround(k) : 0;   // up a pixel between steps
+    // Where the creature is: its bounding box (pictures have empty space around them).
+    int bx0 = w, bx1 = -1, by0 = h, by1 = -1;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+            if (base.px[y * w + x] >> 24) { bx0 = std::min(bx0, x); bx1 = std::max(bx1, x); by0 = std::min(by0, y); by1 = std::max(by1, y); }
+    if (bx1 < 0) return base;
+    float cx = (bx0 + bx1) / 2.0f, bw = std::max(1, bx1 - bx0), bh = std::max(1, by1 - by0);
+    // For every target pixel, find the source pixel it shows.
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            float sx = x, sy = y;
+            float ry = (y - by0) / bh;                      // 0 = top of the creature, 1 = feet
+            switch (style) {
+                case AnimStyle::Legs:
+                    // Lower third: the two halves swing in opposite directions (a scissor).
+                    sy += -bob;
+                    if (ry > 0.7f) {
+                        float a = (ry - 0.7f) / 0.3f * 4.0f * k * swing;
+                        sx += x < cx ? -a : a;
+                    } else if (ry > 0.35f && ry < 0.7f) {
+                        // Arms/torso sway a little the other way.
+                        sx += (x < cx ? 1 : -1) * 0.8f * k * swing * ((x < cx - bw * 0.3f || x > cx + bw * 0.3f) ? 1.0f : 0.0f);
+                    }
+                    break;
+                case AnimStyle::Skitter:
+                    // Legs along the bottom shuffle back and forth in alternating groups.
+                    sy += -bob;
+                    if (ry > 0.75f) sx += ((((int)((x - bx0) / (4 * k))) & 1) ? 1.5f : -1.5f) * k * swing;
+                    break;
+                case AnimStyle::Flap: {
+                    // Wings: the further from the middle, the more they move up and down.
+                    float out = std::fabs(x - cx) / (bw / 2);
+                    sy += out * out * 6.0f * k * swing;
+                    break;
+                }
+                case AnimStyle::Float:
+                    // Hovering: a gentle wave through the body, stronger at the bottom.
+                    sx += std::sin(y * 0.35f / k + ph) * (0.6f + ry * 1.4f) * k;
+                    sy += std::sin(ph) * k;
+                    break;
+                case AnimStyle::Slither:
+                    // A wave runs along the body.
+                    sy += std::sin((x - bx0) * 0.25f / k + ph) * 2.0f * k * std::min(1.0f, ry * 2);
+                    break;
+                case AnimStyle::Squash: {
+                    // Squash and stretch, standing on the floor.
+                    float f = 1.0f + 0.08f * swing;               // taller / flatter
+                    sy = by1 - (by1 - y) / f;
+                    sx = cx + (x - cx) * f;
+                    break;
+                }
+            }
+            int ix = (int)std::floor(sx + 0.5f), iy = (int)std::floor(sy + 0.5f);
+            t.px[y * w + x] = base.at(ix, iy);
+        }
+    t.computeTop();
+    return t;
+}
+
+// Death: the body sinks into a heap and darkens.
+Texture dieFrame(const Texture& base, int frame) {
+    const int w = base.w, h = base.h;
+    Texture t(w, h);
+    int by1 = -1;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+            if (base.px[y * w + x] >> 24) by1 = y;
+    if (by1 < 0) return base;
+    float sy = 0.75f - 0.2f * frame;          // 0.75, 0.55, 0.35, 0.15 of the height
+    float sx = 1.0f + 0.08f * (frame + 1);    // spreading out a little
+    float dark = 1.0f - 0.12f * (frame + 1);
+    float cx = w / 2.0f;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            int ix = (int)std::floor(cx + (x - cx) / sx), iy = (int)std::floor(by1 - (by1 - y) / sy);
+            uint32_t c = base.at(ix, iy);
+            if (c >> 24) t.px[y * w + x] = colMul(c, dark) | 0xFF000000u;
+        }
+    t.computeTop();
+    return t;
+}
+
+void Assets::buildWalkFrames(const std::vector<std::string>& keep) {
+    auto kept = [&](const std::string& n) { return std::find(keep.begin(), keep.end(), n) != keep.end(); };
+    monstersWalk.resize(monsters.size());
+    monstersDie.resize(monsters.size());
+    for (size_t i = 0; i < monsters.size(); i++) {
+        const std::string n = "monster_" + gData.monsters[i].id;
+        AnimStyle st = animStyleFor(gData.monsters[i].sprite);
+        if (!kept(n + "_walk")) {
+            monstersWalk[i].clear();
+            for (int f = 0; f < WALK_FRAMES; f++) monstersWalk[i].push_back(walkFrame(monsters[i], st, f));
+        }
+        if (!kept(n + "_die")) {
+            monstersDie[i].clear();
+            for (int f = 0; f < DIE_FRAMES; f++) monstersDie[i].push_back(dieFrame(monsters[i], f));
+        }
+    }
+    playersWalk.resize(players.size());
+    for (size_t i = 0; i < players.size(); i++) {
+        if (kept("player_" + gData.classes[i].id + "_walk")) continue;
+        playersWalk[i].clear();
+        for (int f = 0; f < WALK_FRAMES; f++) playersWalk[i].push_back(walkFrame(players[i], AnimStyle::Legs, f));
+    }
+}
+
 void Texture::computeTop() {
     top = h;
     for (int y = 0; y < h && top == h; y++)
@@ -1037,6 +1165,7 @@ void Assets::build() {
     }
     auto tops = [](std::vector<Texture>& v) { for (auto& t : v) t.computeTop(); };
     tops(monsters); tops(monstersAttack); tops(players); tops(playersAttack); tops(items);
+    buildWalkFrames();
 }
 
 std::vector<std::pair<std::string, Texture*>> Assets::namedTextures() {
@@ -1060,10 +1189,19 @@ std::vector<std::pair<std::string, Texture*>> Assets::namedTextures() {
     for (size_t i = 0; i < gData.monsters.size(); i++) {
         v.push_back({"monster_" + gData.monsters[i].id, &monsters[i]});
         v.push_back({"monster_" + gData.monsters[i].id + "_attack", &monstersAttack[i]});
+        if (i < monstersWalk.size())
+            for (size_t f = 0; f < monstersWalk[i].size(); f++)
+                v.push_back({"monster_" + gData.monsters[i].id + "_walk" + std::to_string(f + 1), &monstersWalk[i][f]});
+        if (i < monstersDie.size())
+            for (size_t f = 0; f < monstersDie[i].size(); f++)
+                v.push_back({"monster_" + gData.monsters[i].id + "_die" + std::to_string(f + 1), &monstersDie[i][f]});
     }
     for (size_t i = 0; i < gData.classes.size(); i++) {
         v.push_back({"player_" + gData.classes[i].id, &players[i]});
         v.push_back({"player_" + gData.classes[i].id + "_attack", &playersAttack[i]});
+        if (i < playersWalk.size())
+            for (size_t f = 0; f < playersWalk[i].size(); f++)
+                v.push_back({"player_" + gData.classes[i].id + "_walk" + std::to_string(f + 1), &playersWalk[i][f]});
     }
     for (size_t i = 0; i < gData.items.size(); i++) v.push_back({"item_" + gData.items[i].id, &items[i]});
     for (size_t i = 0; i < gData.spells.size(); i++) v.push_back({"spell_" + gData.spells[i].id, &spellOrbs[i]});
@@ -1072,30 +1210,92 @@ std::vector<std::pair<std::string, Texture*>> Assets::namedTextures() {
 
 static bool isPow2(int v) { return v > 0 && (v & (v - 1)) == 0; }
 
+namespace {
+// Shrink a picture so neither side is over maxSide, averaging the pixels it covers (alpha-
+// weighted). A pixel ends up see-through when less than half of what it covers was opaque,
+// so edges stay crisp. Power-of-two sizes stay powers of two.
+void shrinkToFit(Texture& t, int maxSide) {
+    if (t.w <= maxSide && t.h <= maxSide) return;
+    float f = (float)maxSide / std::max(t.w, t.h);
+    int nw = std::max(1, (int)std::lround(t.w * f)), nh = std::max(1, (int)std::lround(t.h * f));
+    if (isPow2(t.w) && isPow2(t.h)) { nw = t.w; nh = t.h; while (nw > maxSide || nh > maxSide) { nw /= 2; nh /= 2; } }
+    Texture n(nw, nh);
+    for (int y = 0; y < nh; y++)
+        for (int x = 0; x < nw; x++) {
+            int x0 = x * t.w / nw, x1 = std::max(x0 + 1, (x + 1) * t.w / nw);
+            int y0 = y * t.h / nh, y1 = std::max(y0 + 1, (y + 1) * t.h / nh);
+            double r = 0, g = 0, b = 0, a = 0;
+            int cnt = 0;
+            for (int yy = y0; yy < y1; yy++)
+                for (int xx = x0; xx < x1; xx++, cnt++) {
+                    uint32_t c = t.px[yy * t.w + xx];
+                    double al = (c >> 24) / 255.0;
+                    r += ((c >> 16) & 255) * al; g += ((c >> 8) & 255) * al; b += (c & 255) * al; a += al;
+                }
+            if (a < cnt * 0.5) continue;   // mostly see-through
+            n.px[y * nw + x] = 0xFF000000u | ((uint32_t)(r / a) << 16) | ((uint32_t)(g / a) << 8) | (uint32_t)(b / a);
+        }
+    n.computeTop();
+    t = std::move(n);
+}
+
+bool loadPng(const std::string& path, Texture& out) {
+    SDL_Surface* s = IMG_Load(path.c_str());
+    if (!s) return false;
+    SDL_Surface* c = SDL_ConvertSurfaceFormat(s, SDL_PIXELFORMAT_ARGB8888, 0);
+    SDL_FreeSurface(s);
+    if (!c) return false;
+    Texture n(c->w, c->h);
+    for (int y = 0; y < c->h; y++)
+        std::memcpy(&n.px[y * c->w], (uint8_t*)c->pixels + y * c->pitch, c->w * 4);
+    SDL_FreeSurface(c);
+    n.computeTop();
+    shrinkToFit(n, MAX_ART_SIZE);   // draw big, the game scales it down
+    out = std::move(n);
+    return true;
+}
+bool isAnimFrame(const std::string& n) { return n.find("_walk") != std::string::npos || n.find("_die") != std::string::npos; }
+}  // namespace
+
 void Assets::loadOverrides(const std::string& dataDir) {
     // data/gfx/<name>.png replaces the generated picture with the same name.
     // Wall/floor/ceiling textures must have power-of-two sizes (e.g. 64x64, 128x128).
+    int loadedAny = 0;
     for (auto& [name, tex] : namedTextures()) {
+        if (isAnimFrame(name)) continue;   // animations are loaded as a series below
         std::string path = dataDir + "/gfx/" + name + ".png";
-        SDL_Surface* s = IMG_Load(path.c_str());
-        if (!s) continue;
-        SDL_Surface* c = SDL_ConvertSurfaceFormat(s, SDL_PIXELFORMAT_ARGB8888, 0);
-        SDL_FreeSurface(s);
-        if (!c) continue;
+        Texture n;
+        if (!loadPng(path, n)) continue;
         bool tiled = name.rfind("wall_", 0) == 0 || name.rfind("floor_", 0) == 0 || name.rfind("ceiling", 0) == 0 ||
                      name.rfind("stairs", 0) == 0 || name.rfind("door", 0) == 0 || name == "rubble";
-        if (tiled && (!isPow2(c->w) || !isPow2(c->h))) {
+        if (tiled && (!isPow2(n.w) || !isPow2(n.h))) {
             std::printf("art override %s ignored: size must be a power of two (64x64, 128x128...)\n", path.c_str());
-            SDL_FreeSurface(c);
             continue;
         }
-        Texture n(c->w, c->h);
-        for (int y = 0; y < c->h; y++)
-            std::memcpy(&n.px[y * c->w], (uint8_t*)c->pixels + y * c->pitch, c->w * 4);
-        SDL_FreeSurface(c);
-        n.computeTop();
-        *tex = n;
+        *tex = std::move(n);
+        loadedAny++;
     }
+    // Animations: <name>_walk1.png, _walk2.png, ... (and _die1.png ... for monsters), as many as
+    // there are (up to 16). A series given as PNGs replaces the generated frames completely.
+    std::vector<std::string> series;
+    auto loadSeries = [&](const std::string& prefix, std::vector<Texture>& frames) {
+        std::vector<Texture> got;
+        for (int f = 1; f <= MAX_ANIM_FRAMES; f++) {
+            Texture t;
+            if (!loadPng(dataDir + "/gfx/" + prefix + std::to_string(f) + ".png", t)) break;
+            got.push_back(std::move(t));
+        }
+        if (got.empty()) return;
+        frames = std::move(got);
+        series.push_back(prefix.substr(0, prefix.size() - 0));
+    };
+    for (size_t i = 0; i < monsters.size(); i++) {
+        loadSeries("monster_" + gData.monsters[i].id + "_walk", monstersWalk[i]);
+        loadSeries("monster_" + gData.monsters[i].id + "_die", monstersDie[i]);
+    }
+    for (size_t i = 0; i < players.size(); i++) loadSeries("player_" + gData.classes[i].id + "_walk", playersWalk[i]);
+    // Frames that weren't given are remade from the (possibly replaced) normal pictures.
+    if (loadedAny) buildWalkFrames(series);
 }
 
 int Assets::exportPngs(const std::string& dir) {

@@ -35,8 +35,11 @@ follow the rules in the last column.
 | `stairs_down`, `stairs_up`, `stairs_up_ceiling` | 64x64 | floor of stair tiles, light shaft above up-stairs | power of two |
 | `monster_<id>` | 64x64 | monster, standing pose | any size, transparent background |
 | `monster_<id>_attack` | 64x64 | monster, attack pose (shown while it attacks/casts) | same size as the standing pose |
+| `monster_<id>_walk1`, `_walk2`, ... | 64x64 | walk animation, played while it moves (always, for flying/floating monsters) | 1 to 16 frames, numbered from 1 without gaps, same size as the standing pose |
+| `monster_<id>_die1`, `_die2`, ... | 64x64 | death animation, played where it fell | 1 to 16 frames, as above; the last frame lies there a moment, then fades |
+| `player_<class>_walk1`, ... | 64x64 | walk animation of other players in co-op | as above |
 | `player_<class>` / `player_<class>_attack` | 64x64 | how other players see your class in co-op | any size, transparent |
-| `item_<id>` | 32x32 | items lying on the floor | any size, transparent |
+| `item_<id>` | 32x32 | items lying on the floor (and the shop sign) | any size, transparent; the whole picture is drawn 0.28 wall heights tall, so leave empty space around small things |
 | `hand_fist`, `hand_dagger`, `hand_sword`, `hand_mace`, `hand_axe`, `hand_staff`, `hand_bow` | 128x128 | the first-person weapon in your hand | any size; drawn at the bottom right of the view |
 | `spell_<id>` | 32x32 | glowing projectile / explosion of a spell | black = invisible (it is *added* to the screen like light) |
 | `arrow` | 32x32 | arrows and sling stones in flight | transparent |
@@ -45,6 +48,61 @@ follow the rules in the last column.
 `[item potion_heal]` → `item_potion_heal.png`, `[class wizard]` → `player_wizard.png`.
 New monsters and items you add to the data files get generated art automatically, and you
 can override it the same way.
+
+## Drawing your own monster, step by step
+
+You don't need `--export-art` for this. Just put files in `data/gfx/` (create the folder).
+
+1. Find the monster's id in `data/monsters.txt`: `[monster goblin]` → the id is `goblin`.
+2. Draw it at any size (big is fine, for example 512x512; it is scaled down, see *Sizes*) on a
+   **transparent background**, standing with its **feet on the bottom row** of the picture,
+   facing you. Save it as `data/gfx/monster_goblin.png`.
+3. Optional: an attack pose of the same size, `monster_goblin_attack.png`.
+4. Optional: walk frames `monster_goblin_walk1.png`, `monster_goblin_walk2.png`, ... (as
+   many as you like, up to 16). They are shown in order, over and over, while it moves.
+   Four frames is the classic choice: left foot forward, passing, right foot forward,
+   passing.
+5. Optional: death frames `monster_goblin_die1.png`, `monster_goblin_die2.png`, ... shown
+   once at 10 frames per second when it is killed. The last one stays on the floor for about
+   a second and then fades. Draw the body ending up on the floor (the bottom of the picture).
+6. Start the game. `--spawn goblin` puts one in front of you for a quick look:
+   `./build/dum --single --spawn goblin`.
+
+If you only give the standing picture, the game makes walk and death frames from it by
+itself (legs swing, wings flap, snakes slither, the body collapses when it dies). Give your
+own frames to replace them. If any walk frame file exists, the generated walk frames are
+not used at all, and the same goes for death frames.
+
+Animations are shown only when **Options → Animation** is on. With it off, monsters use
+the standing and attack pictures and simply vanish when killed.
+
+**All pictures of one monster must be the same size, with the feet in the same place.**
+Each frame is scaled the same way, so if the feet move between frames the monster seems
+to jump up and down.
+
+### Sizes
+
+**Draw big; the game scales down.** Any PNG larger than 256 pixels on a side is shrunk
+when it is loaded (keeping its shape), averaging the pixels so it stays clean. So you can
+paint a monster at 512x512 or 1024x1024 and drop it in as it is. Make every frame of one
+monster the same size.
+
+| What | Draw at | Used at (at most) | Notes |
+|------|---------|-------------------|-------|
+| Monsters, players | anything, e.g. 512x512 | 256x256 | Square is easiest. The picture's height is the creature's height. |
+| Items | anything, e.g. 256x256 | 256x256 | The whole picture becomes 0.28 wall heights tall. |
+| Walls, floors, ceilings, doors, stairs | a power of two: 256, 512, 1024 | 256x256 | Must be seamless. A power of two stays a power of two when shrunk. |
+| Weapon in hand | e.g. 512x512 | 256x256 | Shown big at the bottom right of the view. |
+| Spells, arrow | e.g. 128x128 | 256x256 | Glow pictures: black means invisible. |
+
+Partial transparency is turned into all-or-nothing: a pixel is see-through if less than
+half of it was opaque. Soft edges from your paint program are fine.
+
+How much of the detail you see depends on the 3D view. The GPU renderer (Options →
+Renderer: GPU) draws at your full window resolution and smooths shrinking pictures, so a
+256x256 monster shows its detail up close. With the CPU renderer at the classic 640x360,
+64x64 is about all that's visible. Bigger pictures cost a little memory and loading time,
+not speed.
 
 ### How sprites are drawn (important when you make your own)
 
@@ -62,13 +120,17 @@ can override it the same way.
   distance and torch light, and flashes monsters red when hit. Spell pictures are the
   exception: they glow and are never darkened.
 - **Bosses** get a crown added to the generated picture. Your own picture is used as-is.
+- **Exported frames:** `--export-art` also writes the generated walk and death frames. If you
+  then change only the standing picture, delete that monster's exported `_walk`/`_die`
+  files, or they will keep showing the old look while it moves. Without them the game makes
+  new frames from your picture.
 - Keep a dark 1-pixel outline around sprites. It reads much better in dark corridors.
 
 ### Style tips
 
-- The game renders at 640x360 and scales up with sharp pixels, so detail finer than
-  the 64x64 grid is mostly wasted on monsters further than a few steps away.
-  128x128 sprites are fine for bosses that you'll see up close.
+- At the classic 640x360 the game scales up with sharp pixels, so detail finer than the
+  64x64 grid is mostly wasted on monsters further than a few steps away. With the GPU
+  renderer at full window resolution, 128x128 or 256x256 pays off.
 - Use a slightly limited palette per area (brown/grey stone near the top, darker and
   redder deeper down) to keep the levels coherent.
 - Wall textures must tile: the left edge continues the right edge, and top continues bottom.
