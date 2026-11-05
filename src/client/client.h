@@ -39,7 +39,19 @@ public:
     void draw(Renderer& r);
     bool wantsMouseGrab() const { return ui_ == Ui::None && inGame(); }
     bool inGame() const { return haveLevel_ && myId_ != 0; }
-    void debugUi(const std::string& n) {
+    // "inventory:N" also selects row N, "inventory:N!" then presses Enter on it.
+    void debugUi(std::string n) {
+        size_t c = n.find(':');
+        if (c != std::string::npos) {
+            std::string arg = n.substr(c + 1);
+            n = n.substr(0, c);
+            if (n == "inventory") {
+                ui_ = Ui::Inventory;
+                invSel_ = std::atoi(arg.c_str());
+                if (arg.find('!') != std::string::npos) invAction(SDLK_RETURN);
+                return;
+            }
+        }
         ui_ = n == "inventory" ? Ui::Inventory : n == "map" ? Ui::Map : n == "character" ? Ui::Character : n == "quests" ? Ui::Quests : n == "help" ? Ui::Help : n == "shop" ? Ui::Shop : n == "spells" ? Ui::Spells : Ui::None;
     }
     // Developer/testing: start an automatic mode ("explore", "travel", "fight").
@@ -118,6 +130,7 @@ private:
     int selSpell_ = 0;
     Ui ui_ = Ui::None;
     int invSel_ = 0;
+    int invPick_ = -1;   // equipment slot being replaced: the cursor only visits pack items that fit it
     int menuSel_ = 0;
     std::string chat_;
     bool attackHeld_ = false, castHeld_ = false;
@@ -161,6 +174,9 @@ private:
     int shopRowAt(int mx, int my, int& side) const;
     void drawShop(Renderer& r);
     int invRowAt(int mx, int my) const;
+    bool invFits(int packSlot, int equipSlot) const;
+    void invStep(int dir);
+    std::string invUseLabel(const ItemStack& s) const;
 
     void drawHud(Renderer& r);
     void drawMinimap(Renderer& r, int x, int y, int w, int h, int scale, bool full);

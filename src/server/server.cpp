@@ -1,5 +1,6 @@
 // Dum - game server implementation.
 #include "server/server.h"
+#include "game/scores.h"
 
 #include "game/rules.h"
 
@@ -432,7 +433,8 @@ void Server::dropItem(const ItemStack& it, Vec2 pos, int droppedBy) {
 void Server::populate(const std::vector<int>* pool) {
     int depth = power_;
     // Monsters
-    int groups = std::max(3, 7 + depth + rng_.range(0, 3) + rules().extraGroups);
+    int groups = 7 + depth + rng_.range(0, 3) + rules().extraGroups;
+    groups = clampi((int)std::lround(groups * rules().monsterCount), 3, 45);   // The Abyss gets crowded
     for (int g = 0; g < groups; g++) {
         int def = pickMonster(depth, pool);
         const MonsterDef& d = gData.monsters[def];
@@ -530,6 +532,7 @@ void Server::newLevel(int depth, bool down) {
     uint32_t seed = baseSeed_ + (uint32_t)depth * 1337u + rng_.next() % 100000u;
     bool campaignLevel = campaign_ >= 0 && depth > 0;
     if (campaignLevel) depth = std::min(depth, (int)gData.campaigns[campaign_].levels.size());
+    bool deeper = depth > maxDepth_;
     maxDepth_ = std::max(maxDepth_, depth);
     recallT_ = 0;
     descentT_ = 0;
@@ -548,6 +551,13 @@ void Server::newLevel(int depth, bool down) {
     }
     for (auto& it : items_)
         if (it.item.d().artifact) { text(-1, COL_YELLOW, "You feel there is something special on this level..."); break; }
+    if (abyss() && depth > 0) {
+        char buf[96];
+        std::snprintf(buf, sizeof buf, "The Abyss, level %d: monsters are %.1fx as many and as strong as on level 1.", depth,
+                      rules().monsterCount / difficultyRules(difficulty_).monsterCount);
+        text(-1, COL_ORANGE, buf);
+        if (deeper) recordScore();
+    }
     placePlayers();
     for (auto& [id, p] : players_) {
         if (!p.joined) continue;
@@ -611,26 +621,59 @@ void Server::checkPartyWipe(float dt) {
     if (alive > 0) { partyWipeT_ = -1; return; }
     if (partyWipeT_ < 0) {
         partyWipeT_ = 6.0f;
-        text(-1, COL_RED, rules().wipeRestarts ? "The whole party has perished. A new party will enter the dungeon..."
-                                               : "The whole party has fallen... but the dungeon is not done with you yet.");
+        if (abyss()) {
+            abyssDeaths_++;
+            if (!abyssFirstDeath_) abyssFirstDeath_ = map_.depth;
+            text(-1, COL_RED, "The Abyss claims the party on level " + std::to_string(map_.depth) + ". Deepest level reached: " +
+                                  std::to_string(maxDepth_) + ".");
+            recordScore();
+        } else {
+            text(-1, COL_RED, rules().wipeRestarts ? "The whole party has perished. A new party will enter the dungeon..."
+                                                   : "The whole party has fallen... but the dungeon is not done with you yet.");
+        }
     }
     partyWipeT_ -= dt;
-    if (partyWipeT_ <= 0 && !rules().wipeRestarts) {
-        // Easy: everyone gets back up at the stairs of this level.
-        partyWipeT_ = -1;
-        for (auto& [id, p] : players_) {
-            if (!p.joined) continue;
-            p.st.respawnT = 0.01f;
-        }
+    if (partyWipeT_ > 0) return;
+    partyWipeT_ = -1;
+    if (abyss()) {
+        // The Abyss: everyone wakes up halfway back up, keeping what they carry.
+        int back = std::max(1, (map_.depth + 1) / 2);
+        newLevel(back, false);
+        for (auto& [id, p] : players_)
+            if (p.joined && p.st.dead) p.st.respawnT = 0.01f;
+        text(-1, COL_YELLOW, "You wake up on level " + std::to_string(back) + ", halfway back up. Deaths in this run: " +
+                                 std::to_string(abyssDeaths_) + ".");
         return;
     }
-    if (partyWipeT_ <= 0) {
-        partyWipeT_ = -1;
-        for (auto& [id, p] : players_) rollCharacter(p, p.st.cls);
-        newGame();
-        sendRoster();
-        text(-1, COL_YELLOW, "A new party descends into Dum.");
+    if (!rules().wipeRestarts) {
+        // Easy: everyone gets back up at the stairs of this level.
+        for (auto& [id, p] : players_)
+            if (p.joined) p.st.respawnT = 0.01f;
+        return;
     }
+    for (auto& [id, p] : players_) rollCharacter(p, p.st.cls);
+    newGame();
+    sendRoster();
+    text(-1, COL_YELLOW, "A new party descends into Dum.");
+}
+
+// The Abyss: write this run's line on the high score list.
+void Server::recordScore() {
+    if (!abyss() || scorePath_.empty() || maxDepth_ <= 0) return;
+    AbyssScore sc;
+    sc.run = baseSeed_;
+    sc.deepest = maxDepth_;
+    sc.deaths = abyssDeaths_;
+    sc.firstDeath = abyssFirstDeath_;
+    std::vector<const PlayerState*> party;
+    for (auto& [id, p] : players_) if (p.joined) party.push_back(&p.st);
+    for (auto& [k, c] : saved_) party.push_back(&c.st);
+    for (auto* st : party) {
+        sc.level = std::max(sc.level, st->level);
+        sc.party += (sc.party.empty() ? "" : ", ") + st->name + " the " + st->c().name;
+    }
+    int place = saveAbyssScore(scorePath_, sc);
+    if (place > 0 && place <= 10) text(-1, COL_CYAN, "High score list: place " + std::to_string(place) + ".");
 }
 
 void Server::updatePlayers(float dt) {

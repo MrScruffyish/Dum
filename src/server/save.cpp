@@ -13,7 +13,7 @@
 namespace {
 
 const char kMagic[8] = {'D', 'U', 'M', 'S', 'A', 'V', 'E', '1'};
-constexpr uint16_t kSaveVersion = 8;   // 4: equipment slots, artifacts; 5: difficulty id; 6: campaigns; 7: quick slots, buffs; 8: poison, drain
+constexpr uint16_t kSaveVersion = 9;   // 4: equipment slots, artifacts; 5: difficulty id; 6: campaigns; 7: quick slots, buffs; 8: poison, drain; 9: Abyss deaths
 int gLoadVersion = kSaveVersion;
 
 void writeItem(Writer& w, const ItemStack& s) {
@@ -218,6 +218,8 @@ bool Server::saveGame() {
     w.u16((uint16_t)campaignDone_.size());
     for (int l : campaignDone_) w.u16((uint16_t)l);
     w.i32(power_);
+    w.i32(abyssDeaths_);
+    w.i32(abyssFirstDeath_);
 
     // Write to a temporary file first so a crash never leaves a broken save.
     std::string tmp = savePath_ + ".tmp";
@@ -327,7 +329,11 @@ bool Server::loadGame(const std::string& path, std::string& err) {
         for (int i = 0; i < nd && r.ok; i++) done.insert(r.u16());
         power = r.i32();
     }
+    int deaths = 0, firstDeath = 0;
+    if (gLoadVersion >= 9) { deaths = r.i32(); firstDeath = r.i32(); }
     if (!r.ok) { err = "damaged save file"; return false; }
+    abyssDeaths_ = deaths;
+    abyssFirstDeath_ = firstDeath;
     artifactsInPlay_ = artifacts;
     campaign_ = campaign;
     campaignWon_ = won;

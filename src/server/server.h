@@ -113,6 +113,17 @@ public:
     void setAdoptAnyCharacter(bool on) { adoptAny_ = on; }
     // Play a campaign from data/campaigns (-1 = endless dungeon). Starts a new game.
     void startCampaign(int c) { campaign_ = c; newGame(); }
+    // The Abyss: endless dungeon on the hidden 'abyss' difficulty, with a high score list.
+    bool startAbyss() {
+        int d = gData.findDifficulty("abyss");
+        if (d < 0) return false;
+        difficulty_ = d;
+        campaign_ = -1;
+        abyssDeaths_ = abyssFirstDeath_ = 0;
+        newGame();
+        return true;
+    }
+    void setScorePath(const std::string& path) { scorePath_ = path; }
     int campaign() const { return campaign_; }
     void setDifficulty(int d) { difficulty_ = clampi(d, 0, numDifficulties() - 1); }
     int difficulty() const { return difficulty_; }
@@ -182,7 +193,7 @@ private:
     int descentTo_ = 0;
     // Collapsed levels: the top levels are skipped in blocks of 5, always keeping at least
     // the 5 levels above the deepest one reached open. Town stairs lead below them.
-    int collapsedDepth() const { return campaign_ < 0 && maxDepth_ >= 10 ? ((maxDepth_ - 5) / 5) * 5 : 0; }
+    int collapsedDepth() const { return campaign_ < 0 && !abyss() && maxDepth_ >= 10 ? ((maxDepth_ - 5) / 5) * 5 : 0; }
     void collapseQuests();
     std::set<int> artifactsInPlay_;             // item defs of artifacts that exist somewhere
     std::map<int, int> rubbleDig_;                 // tile -> digging progress
@@ -190,7 +201,24 @@ private:
     std::string savePath_;
     bool adoptAny_ = false;
     int difficulty_ = 0;
-    const DifficultyRules& rules() const { return difficultyRules(difficulty_); }
+    // Rules for the current level (The Abyss grows harder with depth).
+    mutable DifficultyRules scaledRules_;
+    mutable int scaledFor_ = -1, scaledDepth_ = -1;
+    const DifficultyRules& rules() const {
+        const DifficultyRules& base = difficultyRules(difficulty_);
+        if (base.perLevel <= 0) return base;
+        if (scaledFor_ != difficulty_ || scaledDepth_ != map_.depth) {
+            scaledRules_ = base.atDepth(map_.depth);
+            scaledFor_ = difficulty_;
+            scaledDepth_ = map_.depth;
+        }
+        return scaledRules_;
+    }
+    bool abyss() const { return difficultyRules(difficulty_).perLevel > 0; }
+    int abyssDeaths_ = 0;        // party wipes in this Abyss run
+    int abyssFirstDeath_ = 0;    // depth of the first party wipe (0 = none yet)
+    std::string scorePath_;
+    void recordScore();
     Vec2 spawnPoint(int exceptPlayer);
 
     // networking

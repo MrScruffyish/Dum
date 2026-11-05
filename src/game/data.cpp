@@ -437,6 +437,9 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
         d.wipeRestarts = g.str("party_wipe", "restart") != "revive";
         d.xp = g.f("xp", 1);
         d.gold = g.f("gold", 1);
+        d.monsterCount = g.f("monster_count", 1);
+        d.perLevel = g.f("per_level", 0);
+        d.hidden = g.b("hidden", false);
         difficulties.push_back(d);
     }
     if (difficulties.empty()) { DifficultyRules d; d.id = "normal"; d.name = "Normal"; difficulties.push_back(d); }

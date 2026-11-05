@@ -59,10 +59,10 @@ hasn't been tested.
 | B | **spell book**: every spell/technique of your class and your wands and rods. Press 1-9 to put the selected one on that key, Del to take it off, Enter to choose it. New spells and devices go on a free key by themselves |
 | E / Space | use: pick up items, open/close doors, pick locks, clear rubble, take stairs (a prompt shows what E will do) |
 | P | auto-pickup on/off (on by default: walking over items picks them up when your pack has room) |
-| I | inventory: W/S or mouse to select, Enter or double-click to use/wear/wield, D drop, Shift+D drop one, G give to ally |
+| I | inventory: W/S or mouse to select, Enter or double-click to use, eat, wear or wield (the bottom line says what Enter will do), D drop, Shift+D drop one, G give to ally. **To swap equipment**, select a worn slot (e.g. Armor) and press Enter: the pack items that fit it are marked green, pick one with W/S and press Enter. U takes the item off |
 | C / J | character sheet / quest journal |
 | Tab / M | dungeon map |
-| H / X | quaff a healing potion / eat something |
+| H / X | quaff a healing potion / eat something (X picks the food that fits your hunger best; to eat a particular food, select it in the inventory and press Enter) |
 | T / Enter | chat |
 | F1 / F2 | help / hide the key legend |
 | Esc | menu (single player pauses) |
@@ -82,6 +82,9 @@ Under **Options**:
   1600x900 or 1920x1080. Higher looks sharper but needs more CPU (everything is drawn
   without the graphics card), so press F3 to see the frame rate and pick what runs smoothly.
   The HUD, screens and menus look the same at every resolution.
+  The 3D view is drawn entirely by the CPU (split over up to 8 cores); the graphics card only
+  scales the finished picture to the window. A faster graphics card won't help, but a faster
+  CPU with more cores will.
 - **Window size** sets the window to 960x540 up to 2560x1440. You can also drag the window's
   edges, and Dum remembers the size. F11 switches to fullscreen.
 
@@ -106,6 +109,18 @@ Under **Adventure** in the main menu you can pick the endless dungeon or a campa
 of levels (hand-made or random) with goals and story texts. The sample campaign is
 *The Sunken Crypt*. Make your own with `./build/dum_tool newcampaign <id>` and edit the text
 files. Everything is explained in **[docs/CAMPAIGNS.md](docs/CAMPAIGNS.md)**.
+
+## The Abyss (high scores)
+
+Choose **Adventure: The Abyss** in the main menu. It is the endless dungeon, but it starts at
+about Easy and every level down adds another 50% of level 1's monster count, health and
+damage (level 3 = 2x, level 5 = 3x, level 9 = 5x; to-hit also creeps up). XP and gold grow the
+same way, so you can keep up for a while. When the whole party dies you wake up halfway back
+up (die on level 9 and you're back on level 5) with everything you carry. The deepest level
+reached, the number of deaths and where you first died go on **High scores: The Abyss** in
+the main menu (`abyss_scores.txt` next to the saves). Levels don't collapse in The Abyss. The
+numbers are in `[difficulty abyss]` in `data/difficulty.txt` (`per_level = 0.5`).
+A dedicated server runs it with `--campaign abyss`.
 
 ## The town, recall and collapsed levels
 

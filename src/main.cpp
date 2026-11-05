@@ -28,6 +28,7 @@
 #include "client/keys.h"
 #include "client/renderer.h"
 #include "client/sound.h"
+#include "game/scores.h"
 #include "client/textures.h"
 #include "game/data.h"
 #include "net/net.h"
@@ -93,8 +94,8 @@ struct Settings {
     }
 };
 
-enum class Screen { Main, Class, Address, Name, HostChoice, Controls, Options, Playing };
-enum MenuId { M_CONTINUE, M_NEW, M_HOST, M_JOIN, M_NAME, M_ADVENTURE, M_DIFFICULTY, M_OPTIONS, M_CONTROLS, M_QUIT };
+enum class Screen { Main, Class, Address, Name, HostChoice, Controls, Options, Scores, Playing };
+enum MenuId { M_CONTINUE, M_NEW, M_HOST, M_JOIN, M_NAME, M_ADVENTURE, M_DIFFICULTY, M_SCORES, M_OPTIONS, M_CONTROLS, M_QUIT };
 enum OptId { O_SPEED, O_TURN, O_MOUSE, O_AIM, O_FACE, O_QUICK, O_RES, O_WINDOW, O_VOLUME, O_FULLSCREEN, O_COUNT };
 // Resolutions of the 3D view (the HUD and menus always look the same) and window sizes.
 const int kRes[][2] = {{640, 360}, {960, 540}, {1280, 720}, {1600, 900}, {1920, 1080}};
@@ -119,6 +120,16 @@ struct App {
     bool loadSave = false;   // continue from the save file
     int bindSlot = -1;       // Controls: waiting for a key for this slot (0/1)
     std::string savePath(Mode m) const { return set.dir + (m == Mode::Single ? "single.sav" : "coop.sav"); }
+    std::string scorePath() const { return set.dir + "abyss_scores.txt"; }
+    bool abyssChosen() const { return set.adventure == "abyss"; }
+    // Difficulty menu: step to the next one that isn't hidden (The Abyss has its own).
+    void cycleDifficulty(int d) {
+        int n = numDifficulties();
+        for (int i = 0; i < n; i++) {
+            set.difficulty = (set.difficulty + d + n) % n;
+            if (!difficultyRules(set.difficulty).hidden) break;
+        }
+    }
     std::unique_ptr<Server> server;
     std::shared_ptr<ServerNet> serverNet;
     std::unique_ptr<Client> client;
@@ -146,7 +157,8 @@ struct App {
             if (loadSave && !server->loadGame(savePath(mode), err)) { server.reset(); return false; }
             int ci = gData.findCampaign(set.adventure);
             if (!loadSave && ci >= 0) server->startCampaign(ci);
-            if (!set.dir.empty()) server->setSavePath(savePath(mode));
+            if (!loadSave && abyssChosen() && !server->startAbyss()) { err = "data/difficulty.txt has no [difficulty abyss]"; server.reset(); return false; }
+            if (!set.dir.empty()) { server->setSavePath(savePath(mode)); server->setScorePath(scorePath()); }
             server->setAdoptAnyCharacter(mode == Mode::Single);
         } else {
             if (!cnet->connect(set.address, (uint16_t)set.port, err)) return false;
@@ -183,15 +195,19 @@ struct App {
         if (si.ok && !si.chars.empty()) {
             int c = gData.findClass(si.chars[0].cls);
             it.push_back({M_CONTINUE, "Continue: " + si.chars[0].name + " the " + (c >= 0 ? gData.classes[c].name : "?") +
-                                          ", level " + std::to_string(si.chars[0].level) + ", depth " + std::to_string(si.depth)});
+                                          ", level " + std::to_string(si.chars[0].level) + ", depth " + std::to_string(si.depth) +
+                                          (difficultyRules(si.difficulty).hidden ? " (Abyss)" : "")});
         }
         it.push_back({M_NEW, "New single player game"});
         it.push_back({M_HOST, "Host co-op game"});
         it.push_back({M_JOIN, "Join co-op game"});
         it.push_back({M_NAME, "Name: " + set.name});
         int ci = gData.findCampaign(set.adventure);
-        it.push_back({M_ADVENTURE, "Adventure: " + (ci < 0 ? std::string("Endless dungeon") : gData.campaigns[ci].name) + "  (Left/Right)"});
-        it.push_back({M_DIFFICULTY, std::string("Difficulty: ") + difficultyRules(set.difficulty).name + "  (Left/Right)"});
+        std::string adv = abyssChosen() ? "The Abyss (high score)" : ci < 0 ? std::string("Endless dungeon") : gData.campaigns[ci].name;
+        it.push_back({M_ADVENTURE, "Adventure: " + adv + "  (Left/Right)"});
+        if (abyssChosen()) it.push_back({M_DIFFICULTY, "Difficulty: grows with every level"});
+        else it.push_back({M_DIFFICULTY, std::string("Difficulty: ") + difficultyRules(set.difficulty).name + "  (Left/Right)"});
+        it.push_back({M_SCORES, "High scores: The Abyss"});
         (void)0;
         it.push_back({M_OPTIONS, "Options (game speed, aiming, sound...)"});
         it.push_back({M_CONTROLS, "Controls"});
@@ -309,6 +325,10 @@ struct App {
             }
             return;
         }
+        if (screen == Screen::Scores) {
+            if (k == SDLK_ESCAPE || k == SDLK_RETURN || k == SDLK_SPACE || k == SDLK_KP_ENTER) { screen = Screen::Main; sel = 0; }
+            return;
+        }
         if (screen == Screen::HostChoice) {
             if (k == SDLK_UP || k == SDLK_w || k == SDLK_DOWN || k == SDLK_s) sel = 1 - sel;
             else if (k == SDLK_ESCAPE) { screen = Screen::Main; sel = 0; }
@@ -328,7 +348,7 @@ struct App {
         else if (k == SDLK_LEFT || k == SDLK_RIGHT) {
             int d = k == SDLK_LEFT ? -1 : 1;
             if (id == M_ADVENTURE) cycleAdventure(d);
-            if (id == M_DIFFICULTY) set.difficulty = (set.difficulty + d + numDifficulties()) % numDifficulties();
+            if (id == M_DIFFICULTY && !abyssChosen()) cycleDifficulty(d);
             set.save();
         } else if (k == SDLK_ESCAPE) {
             running = false;
@@ -345,7 +365,8 @@ struct App {
                     break;
                 case M_JOIN: mode = Mode::Join; screen = Screen::Address; editBuf = set.address; SDL_StartTextInput(); break;
                 case M_NAME: screen = Screen::Name; editBuf = set.name; SDL_StartTextInput(); break;
-                case M_DIFFICULTY: set.difficulty = (set.difficulty + 1) % numDifficulties(); set.save(); break;
+                case M_DIFFICULTY: if (!abyssChosen()) cycleDifficulty(1); set.save(); break;
+                case M_SCORES: screen = Screen::Scores; sel = 0; break;
                 case M_ADVENTURE: cycleAdventure(1); set.save(); break;
                 case M_CONTROLS: screen = Screen::Controls; sel = 0; break;
                 case M_OPTIONS: screen = Screen::Options; sel = 0; break;
@@ -356,10 +377,10 @@ struct App {
     }
 
     void cycleAdventure(int d) {
-        int n = (int)gData.campaigns.size() + 1;  // 0 = endless
-        int cur = gData.findCampaign(set.adventure) + 1;
+        int n = (int)gData.campaigns.size() + 2;  // 0 = endless, 1 = The Abyss, then campaigns
+        int cur = abyssChosen() ? 1 : gData.findCampaign(set.adventure) < 0 ? 0 : gData.findCampaign(set.adventure) + 2;
         cur = (cur + d + n) % n;
-        set.adventure = cur == 0 ? "" : gData.campaigns[cur - 1].id;
+        set.adventure = cur == 0 ? "" : cur == 1 ? "abyss" : gData.campaigns[cur - 2].id;
     }
 
     void toggleFullscreen() {
@@ -461,6 +482,27 @@ struct App {
             R.text((R.W - R.textW(h)) / 2, cy + 8, h, 0xFF908070);
             R.text((R.W - R.textW("Mouse: left = attack, right = cast, wheel = select spell")) / 2, cy + 20,
                    "Mouse: left = attack, right = cast, wheel = select spell", 0xFF908070);
+        } else if (screen == Screen::Scores) {
+            R.text((R.W - R.textW("The Abyss - deepest runs", 2)) / 2, y - 8, "The Abyss - deepest runs", 0xFFD0C8B8, 2);
+            y += 16;
+            auto scores = loadAbyssScores(scorePath());
+            int lx = R.W / 2 - 300;
+            R.text(lx, y, "  #  Level  Deaths  1st death  Char lvl  Date        Party", 0xFF908070);
+            y += 12;
+            if (scores.empty()) {
+                std::string e = "No runs yet. Choose Adventure: The Abyss and start a new game.";
+                R.text((R.W - R.textW(e)) / 2, y + 10, e, 0xFFB0A890);
+            }
+            for (size_t i = 0; i < scores.size() && i < 15; i++) {
+                const AbyssScore& sc = scores[i];
+                char buf[96];
+                std::snprintf(buf, sizeof buf, "%3d  %5d  %6d  %9s  %8d  %s  ", (int)i + 1, sc.deepest, sc.deaths,
+                              sc.firstDeath ? std::to_string(sc.firstDeath).c_str() : "-", sc.level, sc.date.c_str());
+                R.text(lx, y, buf + sc.party.substr(0, 40), i == 0 ? 0xFFFFE080 : 0xFFD0C8B8);
+                y += 11;
+            }
+            std::string h = "Score = deepest level reached. Esc: back";
+            R.text((R.W - R.textW(h)) / 2, R.H - 30, h, 0xFF908070);
         } else if (screen == Screen::HostChoice) {
             SaveInfo si = Server::peekSave(savePath(Mode::Host));
             std::string party;
@@ -548,7 +590,8 @@ struct App {
             }
             if (sel >= 0 && sel < (int)items.size() && items[sel].first == M_ADVENTURE) {
                 int ci = gData.findCampaign(set.adventure);
-                std::string d = ci < 0 ? "Descend forever. Bosses wait on levels 3, 6, 9, 12, 15 and 20." : gData.campaigns[ci].desc;
+                std::string d = abyssChosen() ? "Starts easy, every level 50% harder. Dying sends you halfway back up. How deep can you go?"
+                                : ci < 0 ? "Descend forever. Bosses wait on levels 3, 6, 9, 12, 15 and 20." : gData.campaigns[ci].desc;
                 R.text((R.W - R.textW(d)) / 2, R.H - 28, d.substr(0, 104), 0xFFB0A890);
             }
         }
@@ -600,7 +643,9 @@ int runDedicated(uint16_t port, uint32_t seed, int difficulty, const std::string
     if (!seed) seed = (uint32_t)std::chrono::steady_clock::now().time_since_epoch().count();
     Server server(net, seed);
     server.setDifficulty(difficulty);
-    if (!campaign.empty()) {
+    if (campaign == "abyss") {
+        if (!server.startAbyss()) { std::fprintf(stderr, "dum: data/difficulty.txt has no [difficulty abyss]\n"); return 1; }
+    } else if (!campaign.empty()) {
         int ci = gData.findCampaign(campaign);
         if (ci < 0) { std::fprintf(stderr, "dum: no campaign '%s'\n", campaign.c_str()); return 1; }
         server.startCampaign(ci);
@@ -610,6 +655,7 @@ int runDedicated(uint16_t port, uint32_t seed, int difficulty, const std::string
         std::printf("Continuing %s\n", savePath.c_str());
     }
     server.setSavePath(savePath);
+    server.setScorePath("abyss_scores.txt");
     std::signal(SIGINT, [](int) { gStop = 1; });
     std::signal(SIGTERM, [](int) { gStop = 1; });
     std::printf("Dum dedicated server on UDP port %u, %s, saving to %s (Ctrl+C to stop)\n", port,

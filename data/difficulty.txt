@@ -9,6 +9,10 @@
 # respawn:       seconds until a dead player gets back up (while someone lives)
 # party_wipe:    restart = the whole party dead starts a new game; revive = everyone gets up
 # xp / gold:     multipliers for experience and gold found
+# monster_count: multiplier for the number of monster groups
+# per_level:     each dungeon level below the first adds this much (0.5 = +50%) of the base
+#                monster count, health, damage, xp and gold; monster to-hit +1 every 2 levels
+# hidden = yes:  not shown in the difficulty menu (used by The Abyss)
 
 [difficulty story]
 name = Story
@@ -73,3 +77,22 @@ fuel = 1.5
 respawn = 30
 xp = 1.25
 gold = 1.25
+
+# The Abyss (Adventure: The Abyss): starts like Easy and every level is 50% harder than the
+# first. Death sends the party back to half the depth. The deepest level goes on the high
+# score list.
+[difficulty abyss]
+name = The Abyss
+desc = Starts easy; every level down adds 50% more, stronger monsters.
+hidden = yes
+per_level = 0.5
+monster_damage = 0.6
+monster_hp = 0.75
+monster_tohit = -2
+alertness = 0.8
+monster_speed = 0.9
+extra_groups = -2
+hunger = 0.7
+fuel = 0.7
+respawn = 8
+party_wipe = revive

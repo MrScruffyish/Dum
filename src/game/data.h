@@ -149,6 +149,21 @@ struct DifficultyRules {
     float respawnTime = 12;   // seconds until a dead player returns
     bool wipeRestarts = true; // whole party dead: start over (else revive at the stairs)
     float xp = 1, gold = 1;
+    float monsterCount = 1;   // multiplier for the number of monster groups
+    // The Abyss: every dungeon level below the first adds per_level (e.g. 0.5 = +50%) of the
+    // base monster count, health, damage, xp and gold. Hidden = not in the difficulty menu.
+    float perLevel = 0;
+    bool hidden = false;
+    // These rules as they apply on dungeon level 'depth' (only differs when perLevel > 0).
+    DifficultyRules atDepth(int depth) const {
+        DifficultyRules r = *this;
+        if (perLevel <= 0 || depth <= 1) return r;
+        float f = 1 + perLevel * (depth - 1);
+        r.monsterCount *= f; r.monsterHp *= f; r.monsterDamage *= f;
+        r.xp *= f; r.gold *= f;
+        r.monsterToHit += (depth - 1) / 2;
+        return r;
+    }
 };
 
 struct GameData {

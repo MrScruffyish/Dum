@@ -229,12 +229,30 @@ void Client::handleMessage(const std::vector<uint8_t>& data) {
 
 void Client::openUi(Ui u) {
     ui_ = (ui_ == u) ? Ui::None : u;
+    invPick_ = -1;
     if (ui_ == Ui::Chat) { chat_.clear(); SDL_StartTextInput(); }
     else SDL_StopTextInput();
     if (ui_ == Ui::Menu) menuSel_ = 0;
 }
 
 void Client::quickUse(ItemKind kind) {
+    if (kind == ItemKind::Food) {
+        // Eat what fills you best without going to waste: the biggest food that still fits
+        // in your stomach, or else the smallest one (an apple before a ration when nearly full).
+        float room = FOOD_MAX - me_.food;
+        int best = -1, bestFit = -1;
+        for (int i = 0; i < INV_SIZE; i++) {
+            const ItemStack& s = me_.inv[i];
+            if (s.empty() || s.d().kind != ItemKind::Food) continue;
+            int f = s.d().food;
+            if (best < 0 || f < me_.inv[best].d().food) best = i;
+            if (f <= room && (bestFit < 0 || f > me_.inv[bestFit].d().food)) bestFit = i;
+        }
+        if (bestFit >= 0) best = bestFit;
+        if (best >= 0) action(A_INV_USE, best);
+        else addLog("You have nothing to eat!", UI_DIM);
+        return;
+    }
     for (int i = 0; i < INV_SIZE; i++) {
         const ItemStack& s = me_.inv[i];
         if (s.empty() || s.d().kind != kind) continue;
@@ -242,7 +260,7 @@ void Client::quickUse(ItemKind kind) {
         action(A_INV_USE, i);
         return;
     }
-    addLog(kind == ItemKind::Food ? "You have nothing to eat!" : "You have no healing potions!", UI_DIM);
+    addLog("You have no healing potions!", UI_DIM);
 }
 
 int Client::nearestPlayerId(float maxDist) const {
@@ -256,21 +274,90 @@ int Client::nearestPlayerId(float maxDist) const {
     return best;
 }
 
+bool Client::invFits(int packSlot, int equipSlot) const {
+    const ItemStack& s = me_.inv[packSlot];
+    return !s.empty() && equipSlotFor(s.d()) == equipSlot;
+}
+
+// Move the cursor; while replacing equipment it only stops on pack items that fit.
+void Client::invStep(int dir) {
+    if (invPick_ < 0) {
+        int rows = EQ_COUNT + INV_SIZE;
+        invSel_ = (invSel_ + rows + dir) % rows;
+        return;
+    }
+    int cur = invSel_ - EQ_COUNT;
+    for (int n = 1; n <= INV_SIZE; n++) {
+        int i = ((cur + dir * n) % INV_SIZE + INV_SIZE) % INV_SIZE;
+        if (invFits(i, invPick_)) { invSel_ = EQ_COUNT + i; return; }
+    }
+}
+
+// What Enter does with this pack item, for the hint line ("wear (replaces Leather Armor)").
+std::string Client::invUseLabel(const ItemStack& s) const {
+    if (s.empty()) return "";
+    const ItemDef& d = s.d();
+    int eq = equipSlotFor(d);
+    if (eq >= 0) {
+        const ItemStack& cur = me_.equip[eq];
+        if (d.id == "torch" && !cur.empty() && cur.def == s.def) return "add to your burning torch (combine)";
+        std::string verb = d.kind == ItemKind::Weapon ? "wield" : d.kind == ItemKind::Light ? "hold" : d.kind == ItemKind::Ring ? "put on" : "wear";
+        return cur.empty() ? verb : verb + " (replaces " + cur.d().name + ")";
+    }
+    switch (d.kind) {
+        case ItemKind::Food: return "eat";
+        case ItemKind::Potion: return "quaff";
+        case ItemKind::Scroll: return "read";
+        case ItemKind::Fuel: return "refuel your lantern";
+        case ItemKind::Wand: return "aim";
+        case ItemKind::Rod: return "zap";
+        case ItemKind::Quest: return "examine";
+        default: return "use";
+    }
+}
+
 void Client::invAction(SDL_Keycode k) {
     int rows = EQ_COUNT + INV_SIZE;
-    if (k == SDLK_UP || k == SDLK_w) invSel_ = (invSel_ + rows - 1) % rows;
-    else if (k == SDLK_DOWN || k == SDLK_s) invSel_ = (invSel_ + 1) % rows;
+    bool enter = k == SDLK_RETURN || k == SDLK_e || k == SDLK_SPACE || k == SDLK_KP_ENTER;
+    if (invPick_ >= 0) {
+        // Choosing a replacement for equipment slot invPick_.
+        if (k == SDLK_UP || k == SDLK_w) invStep(-1);
+        else if (k == SDLK_DOWN || k == SDLK_s || k == SDLK_TAB) invStep(1);
+        else if (enter) {
+            int slot = invSel_ - EQ_COUNT;
+            if (slot >= 0 && invFits(slot, invPick_)) action(A_INV_USE, slot);
+            invSel_ = invPick_;
+            invPick_ = -1;
+        } else if (k == SDLK_BACKSPACE || k == SDLK_LEFT || k == SDLK_ESCAPE) {
+            invSel_ = invPick_;
+            invPick_ = -1;
+        } else if (k == SDLK_u || k == SDLK_t) {
+            action(A_UNEQUIP, invPick_);
+            invSel_ = invPick_;
+            invPick_ = -1;
+        }
+        return;
+    }
+    if (k == SDLK_UP || k == SDLK_w) invStep(-1);
+    else if (k == SDLK_DOWN || k == SDLK_s) invStep(1);
     else if (k == SDLK_PAGEUP) invSel_ = std::max(0, invSel_ - 5);
     else if (k == SDLK_PAGEDOWN) invSel_ = std::min(rows - 1, invSel_ + 5);
     bool equipRow = invSel_ < EQ_COUNT;
     int slot = equipRow ? invSel_ : invSel_ - EQ_COUNT;
-    if (k == SDLK_RETURN || k == SDLK_e || k == SDLK_SPACE || k == SDLK_KP_ENTER) {
-        if (equipRow) action(A_UNEQUIP, slot);
-        else action(A_INV_USE, slot);
+    if (enter) {
+        if (equipRow) {
+            // Replace: jump to the first pack item that fits this slot. Nothing fits -> take it off.
+            int first = -1;
+            for (int i = 0; i < INV_SIZE && first < 0; i++)
+                if (invFits(i, slot)) first = i;
+            if (first >= 0) { invPick_ = slot; invSel_ = EQ_COUNT + first; }
+            else if (!me_.equip[slot].empty()) action(A_UNEQUIP, slot);
+            else addLog(std::string("You have nothing in your pack to use as ") + kEquipNames[slot] + ".", UI_DIM);
+        } else action(A_INV_USE, slot);
+    } else if ((k == SDLK_u || k == SDLK_t) && equipRow) {
+        action(A_UNEQUIP, slot);
     } else if (k == SDLK_d && !equipRow) {
         action(A_INV_DROP, slot, (SDL_GetModState() & KMOD_SHIFT) ? 1 : 0);
-    } else if (k == SDLK_u && equipRow) {
-        action(A_UNEQUIP, slot);
     } else if (k == SDLK_g && !equipRow) {
         int pid = nearestPlayerId(3.0f);
         if (!pid) addLog("Nobody is close enough to give anything to.", UI_DIM);
@@ -290,6 +377,8 @@ void Client::event(const SDL_Event& e) {
     if (ui_ == Ui::Inventory && e.type == SDL_MOUSEBUTTONDOWN) {
         int row = invRowAt(e.button.x, e.button.y);
         if (row >= 0) {
+            // While choosing a replacement, clicking anything that doesn't fit backs out.
+            if (invPick_ >= 0 && (row < EQ_COUNT || !invFits(row - EQ_COUNT, invPick_))) invPick_ = -1;
             invSel_ = row;
             if (e.button.clicks >= 2 || e.button.button == SDL_BUTTON_RIGHT) invAction(SDLK_RETURN);
         }
@@ -372,7 +461,8 @@ void Client::event(const SDL_Event& e) {
         return;
     }
     if (k == SDLK_ESCAPE) {
-        if (ui_ != Ui::None) ui_ = Ui::None;
+        if (ui_ == Ui::Inventory && invPick_ >= 0) invAction(k);   // back out of choosing a replacement
+        else if (ui_ != Ui::None) ui_ = Ui::None;
         else openUi(Ui::Menu);
         return;
     }
@@ -1019,21 +1109,38 @@ void Client::drawInventory(Renderer& r) {
     int w = 420, h = 300;
     int x = (r.W - w) / 2, y = (r.H - 44 - h) / 2;
     invX_ = x; invY_ = y; invW_ = w;
+    // The pack may have changed under us (item used up, picked up...): keep the replace mode valid.
+    if (invPick_ >= 0 && (invSel_ < EQ_COUNT || !invFits(invSel_ - EQ_COUNT, invPick_))) {
+        invStep(1);
+        if (invSel_ < EQ_COUNT || !invFits(invSel_ - EQ_COUNT, invPick_)) { invSel_ = invPick_; invPick_ = -1; }
+    }
     panel(r, x, y, w, h, "Inventory - " + std::to_string(me_.gold) + " gold");
+    // Which equipment slot is in focus: the one being replaced, the selected one, or the one the
+    // selected pack item would go into. Pack items that fit it are marked green.
+    bool equipRow = invSel_ < EQ_COUNT;
+    const ItemStack& selStack = equipRow ? me_.equip[invSel_] : me_.inv[invSel_ - EQ_COUNT];
+    int focusEq = invPick_ >= 0 ? invPick_ : equipRow ? invSel_ : (selStack.empty() ? -1 : equipSlotFor(selStack.d()));
+    const uint32_t FIT = 0xFF80E080, HILITE = 0xFF4A3A20, TARGET = 0xFF24402A;
     int ry = y + 20;
     auto row = [&](int idx, const std::string& label, const ItemStack& s) {
+        int pack = idx - EQ_COUNT;
         bool sel = idx == invSel_;
-        if (sel) r.fill(x + 6, ry - 1, w - 12, 10, 0xFF4A3A20);
+        bool fits = focusEq >= 0 && (equipRow || invPick_ >= 0) && invFits(pack, focusEq);
+        bool dim = invPick_ >= 0 && !fits;
+        if (sel) r.fill(x + 6, ry - 1, w - 12, 10, HILITE);
+        if (fits) r.fill(x + 6, ry - 1, 2, 10, FIT);
         r.text(x + 10, ry, label, UI_DIM);
-        r.text(x + 34, ry, itemName(s).substr(0, 63), s.empty() ? 0xFF605850 : s.d().artifact ? 0xFFFFC040 : (sel ? 0xFFFFFFFF : UI_TEXT));
+        uint32_t c = s.empty() || dim ? 0xFF605850 : s.d().artifact ? 0xFFFFC040 : sel ? 0xFFFFFFFF : fits ? FIT : UI_TEXT;
+        r.text(x + 34, ry, itemName(s).substr(0, 63), c);
         ry += 10;
     };
     // Equipment in two columns, then the pack.
     for (int i = 0; i < EQ_COUNT; i++) {
         int col = i / 3, rowi = i % 3;
         int ex = x + 10 + col * 205, ey = y + 20 + rowi * 10;
-        bool sel = i == invSel_;
-        if (sel) r.fill(ex - 4, ey - 1, 202, 10, 0xFF4A3A20);
+        bool sel = i == invSel_ || i == invPick_;
+        if (sel) r.fill(ex - 4, ey - 1, 202, 10, HILITE);
+        else if (i == focusEq) r.fill(ex - 4, ey - 1, 202, 10, TARGET);   // where the selected item would go
         r.text(ex, ey, kEquipNames[i], UI_DIM);
         const ItemStack& es = me_.equip[i];
         uint32_t c = es.empty() ? 0xFF605850 : es.d().artifact ? 0xFFFFC040 : (sel ? 0xFFFFFFFF : UI_TEXT);
@@ -1045,7 +1152,7 @@ void Client::drawInventory(Renderer& r) {
         row(EQ_COUNT + i, lbl, me_.inv[i]);
     }
     // Description of the selected item
-    const ItemStack& s = invSel_ < EQ_COUNT ? me_.equip[invSel_] : me_.inv[invSel_ - EQ_COUNT];
+    const ItemStack& s = selStack;
     int dy = y + h - 28;
     if (!s.empty()) {
         const ItemDef& d = s.d();
@@ -1059,8 +1166,24 @@ void Client::drawInventory(Renderer& r) {
                    ". Fail " + std::to_string(me_.deviceFail(d)) + "%. " + gData.spells[d.spell].desc;
         r.text(x + 10, dy, info.substr(0, 66), 0xFFC0B8A0);
     }
-    r.text(x + 10, dy + 12, invSel_ < EQ_COUNT ? "Enter/double-click: take off      Esc/I: close"
-                                               : "Enter/double-click: use/wear  D: drop  G: give  Esc: close", UI_DIM);
+    // The key hint says exactly what Enter will do with the selected row.
+    std::string hint;
+    if (invPick_ >= 0) {
+        std::string verb = invUseLabel(s);
+        verb = verb.substr(0, verb.find(" ("));
+        hint = std::string("W/S choose  Enter: ") + verb + "  U: take off  Esc: back";
+    } else if (equipRow) {
+        bool any = false;
+        for (int i = 0; i < INV_SIZE; i++) any |= invFits(i, invSel_);
+        if (any) hint = "Enter: replace with a green item   U: take off   Esc: close";
+        else if (!s.empty()) hint = "Enter/U: take off (nothing in your pack fits)   Esc: close";
+        else hint = "Nothing in your pack fits here      Esc: close";
+    } else if (!s.empty()) {
+        hint = "Enter: " + invUseLabel(s) + "  D: drop  G: give";
+    } else {
+        hint = "W/S: select   Enter: use/wear/eat   Esc: close";
+    }
+    r.text(x + 10, dy + 12, hint.substr(0, 68), UI_DIM);
 }
 
 void Client::drawCharacter(Renderer& r) {
@@ -1171,11 +1294,13 @@ void Client::drawHelp(Renderer& r) {
         "the rest: d20 + skill vs armor.",
         "",
         "Walk over items to pick them up.",
-        "Inventory: Enter/double-click to",
-        "use or wield, D drop, G give.",
+        "Inventory: Enter uses, eats or",
+        "wears the item. On a worn slot,",
+        "Enter picks a replacement.",
         "",
         "Keep your light burning and your",
-        "belly full. Torches burn out.",
+        "belly full. Torches burn out:",
+        "use a spare one to combine them.",
         "Sleeping monsters can be snuck",
         "past - or sneak-attacked.",
         "Walk into doors to open them.",

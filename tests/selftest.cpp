@@ -11,6 +11,7 @@
 #include "game/state.h"
 #include "net/net.h"
 #include "server/server.h"
+#include "game/scores.h"
 
 static int failures = 0;
 #define CHECK(c, ...) do { if (!(c)) { std::printf("FAIL: " __VA_ARGS__); std::printf("\n"); failures++; } } while (0)
@@ -291,6 +292,32 @@ int main(int argc, char** argv) {
         CHECK(!s4.debugArtifactInPlay("art_frostbite"), "artifact left on a level did not return to the pool");
         CHECK(s4.debugArtifactInPlay("art_phial"), "carried artifact was lost");
         std::printf("artifacts ok\n");
+    }
+    {   // The Abyss: harder every level, a wipe sends the party halfway back up, scores are kept.
+        auto na = std::make_shared<ServerNet>();
+        Bot b;
+        na->attachLoopback(b.pipe);
+        Server sa(na, 77);
+        std::string scores = "selftest_abyss_scores.txt";
+        std::remove(scores.c_str());
+        sa.setScorePath(scores);
+        CHECK(sa.startAbyss(), "no abyss difficulty");
+        b.hello(0);
+        for (int t = 0; t < 5; t++) { sa.tick(); b.poll(); }
+        const DifficultyRules& base = difficultyRules(sa.difficulty());
+        CHECK(base.hidden && base.atDepth(5).monsterHp > base.monsterHp * 2.9f, "abyss scaling");
+        sa.debugGoto(9);
+        PlayerState* ps = sa.debugPlayer(b.id);
+        ps->hp = 0;
+        ps->dead = true;
+        ps->respawnT = 100;   // as when killed (8 s in the Abyss)
+        for (int t = 0; t < 30 * 8; t++) { sa.tick(); b.poll(); }
+        CHECK(sa.map().depth == 5, "abyss wipe on 9 went to depth %d (want 5)", sa.map().depth);
+        CHECK(!sa.debugPlayer(b.id)->dead, "abyss: party not revived");
+        auto list = loadAbyssScores(scores);
+        CHECK(list.size() == 1 && list[0].deepest == 9 && list[0].deaths == 1 && list[0].firstDeath == 9, "abyss score not recorded");
+        std::remove(scores.c_str());
+        std::printf("abyss ok\n");
     }
     {   // Warrior abilities, wands and rods, quick slots (and saving them).
         auto n7 = std::make_shared<ServerNet>();
