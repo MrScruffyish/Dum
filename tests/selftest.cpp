@@ -17,6 +17,12 @@ static int failures = 0;
 #define CHECK(c, ...) do { if (!(c)) { std::printf("FAIL: " __VA_ARGS__); std::printf("\n"); failures++; } } while (0)
 
 // A bot that connects through a loopback pipe, walks around and attacks.
+// The data file checksums every hello carries. wrong = a file to pretend is different.
+void dataChecksums(Writer& w, const std::string& wrong = "") {
+    w.u8((uint8_t)gData.shared.size());
+    for (auto& sf : gData.shared) { w.str(sf.name); w.u32(sf.name == wrong ? sf.hash ^ 1u : sf.hash); }
+}
+
 struct Bot {
     std::shared_ptr<LoopbackPipe> pipe = std::make_shared<LoopbackPipe>();
     ClientNet net;
@@ -35,6 +41,7 @@ struct Bot {
         w.u16(PROTOCOL_VERSION);
         w.str("Bot" + std::to_string(cls));
         w.u8((uint8_t)cls);
+        dataChecksums(w);
         net.send(w.buf, true);
     }
     void action(ActionId a, int x = 0, int y = 0) {
@@ -214,6 +221,7 @@ int main(int argc, char** argv) {
         std::printf("auto-pickup ok\n");
     }
     bool sentHello[2] = {false, false};
+    int gotData[2] = {0, 0};
     uint16_t remoteIds[2] = {0, 0};
     int remoteSnaps[2] = {0, 0};
     int ticks = 30 * 180;
@@ -229,12 +237,32 @@ int main(int argc, char** argv) {
                 if (e.type == NetEvent::Connect && !sentHello[i]) {
                     Writer w;
                     w.u8(C_HELLO); w.u16(PROTOCOL_VERSION); w.str("Remote" + std::to_string(i)); w.u8((uint8_t)(i + 2));
+                    dataChecksums(w, i == 0 ? "items.txt" : "");   // Remote0 pretends its items.txt differs
                     remote[i].send(w.buf, true);
                     sentHello[i] = true;
                 } else if (e.type == NetEvent::Data) {
                     Reader r(e.data);
                     uint8_t ty = r.u8();
                     if (ty == S_WELCOME) remoteIds[i] = r.u16();
+                    if (ty == S_DATA) {
+                        // The host sends its files and which differ; "switch" and say hello again.
+                        int n = r.u8();
+                        bool sameText = true;
+                        for (int f = 0; f < n && r.ok; f++) {
+                            std::string name = r.str();
+                            uint32_t len = r.u32();
+                            std::string text((const char*)r.p + r.pos, std::min<size_t>(len, r.n - r.pos));
+                            r.pos += len;
+                            for (auto& sf : gData.shared) if (sf.name == name && sf.text != text) sameText = false;
+                        }
+                        std::string first = r.u8() ? r.str() : "";
+                        CHECK(n == (int)gData.shared.size() && sameText && first == "items.txt", "S_DATA: %d files, differing '%s'", n, first.c_str());
+                        gotData[i]++;
+                        Writer w;
+                        w.u8(C_HELLO); w.u16(PROTOCOL_VERSION); w.str("Remote" + std::to_string(i)); w.u8((uint8_t)(i + 2));
+                        dataChecksums(w);
+                        remote[i].send(w.buf, true);
+                    }
                     if (ty == S_SNAPSHOT) remoteSnaps[i]++;
                 }
             }
@@ -593,6 +621,7 @@ int main(int argc, char** argv) {
     CHECK(bots[0].id != 0, "bot got no welcome");
     CHECK(bots[0].snapshots > 100, "bot got few snapshots: %d", bots[0].snapshots);
     CHECK(remoteIds[0] && remoteIds[1], "remote players did not join (%d %d)", remoteIds[0], remoteIds[1]);
+    CHECK(gotData[0] == 1 && gotData[1] == 0, "data check: S_DATA sent %d/%d times (want 1/0)", gotData[0], gotData[1]);
     CHECK(remoteSnaps[0] > 50, "remote got few snapshots: %d", remoteSnaps[0]);
     CHECK(server.playerCount() == 3, "player count %d", server.playerCount());
     CHECK(maxDepth >= 3, "level changes did not happen (max depth %d)", maxDepth);
@@ -620,6 +649,7 @@ int main(int argc, char** argv) {
         CHECK(s2.floorItemCount() == server.floorItemCount(), "loaded items differ (%d vs %d)", s2.floorItemCount(), server.floorItemCount());
         Writer w;
         w.u8(C_HELLO); w.u16(PROTOCOL_VERSION); w.str("Bot0"); w.u8(4);  // other class requested: save wins
+        dataChecksums(w);
         again.net.send(w.buf, true);
         for (int t = 0; t < 10; t++) { s2.tick(); again.poll(); }
         CHECK(again.st.level == bots[0].st.level && again.st.cls == bots[0].st.cls, "restored character: level %d/%d class %d/%d",

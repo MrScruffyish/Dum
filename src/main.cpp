@@ -5,7 +5,8 @@
 //   dum --connect <address>     join a co-op game
 //   dum --dedicated             run a server without a window
 //   dum --continue              continue the saved single player game
-//   dum --export-art            write all generated art to data/gfx/*.png for editing
+//   dum --export-art [pattern] [--out DIR] [--scale N] [--anim] [--force]
+//                               write the generated art as PNGs (default: all, to data/gfx/)
 //   options: --name <n> --class <warrior|priest|wizard|rogue|ranger> --port <p>
 //            --res <WxH> (3D view resolution, default from Options) --window <WxH> --fullscreen --seed <n>
 //            --gpu / --cpu (renderer, default from Options)
@@ -116,6 +117,8 @@ struct App {
     SDL_Window* win = nullptr;
     SDL_Renderer* sdlr = nullptr;            // CPU renderer: SDL shows our pictures
     std::unique_ptr<GpuRenderer> gpu;        // GPU renderer (then sdlr is null)
+    std::string dataDir;                     // our own data folder
+    bool usingHostData = false;              // co-op: playing with the host's data files
     std::string gpuInfo;
     SDL_Texture* tex = nullptr;
     SDL_Texture* uiTex = nullptr;   // HUD/menu layer when the 3D view is not 640x360
@@ -181,9 +184,47 @@ struct App {
         client->autoFace = set.autoFace;
         client->quickCast = set.quickCast;
         client->animate = set.animate;
+        if (mode == Mode::Join)
+            client->onHostData = [this](const std::vector<GameData::SharedFile>& f, std::string& e) { return useHostData(f, e); };
         if (mode == Mode::Host)
             status = "Hosting on UDP port " + std::to_string(set.port) + ". Friends join with: dum --connect <your-ip>";
         screen = Screen::Playing;
+        return true;
+    }
+
+    // Load game data from dir (ours, or the host's copy) and rebuild the art to match.
+    bool switchData(const std::string& dir, std::string& err) {
+        GameData nd;
+        if (!nd.load(dir, err)) return false;
+        gData = std::move(nd);
+        assets.build();
+        assets.loadOverrides(dataDir);   // our own pictures still apply where the names match
+        if (gpu) gpu->dropTextures();
+        return true;
+    }
+
+    // Co-op: the host's data files differ from ours. Save them in a folder of their own (ours
+    // stay untouched) and play with them until we leave the game.
+    bool useHostData(const std::vector<GameData::SharedFile>& files, std::string& err) {
+        std::string dir = (set.dir.empty() ? std::string("./") : set.dir) + "hostdata";
+#ifdef _WIN32
+        std::string cmd = "mkdir \"" + dir + "\" 2>nul";
+#else
+        std::string cmd = "mkdir -p '" + dir + "'";
+#endif
+        if (std::system(cmd.c_str()) != 0) {}   // may already exist
+        for (auto& f : files) {
+            if (f.name.find('/') != std::string::npos || f.name.find('\\') != std::string::npos || f.name.find("..") != std::string::npos ||
+                f.name.size() < 5 || f.name.substr(f.name.size() - 4) != ".txt") {
+                err = "unexpected file name from the host: " + f.name;
+                return false;
+            }
+            std::ofstream o(dir + "/" + f.name, std::ios::binary | std::ios::trunc);
+            if (!o || !o.write(f.text.data(), (std::streamsize)f.text.size())) { err = "cannot write " + dir + "/" + f.name; return false; }
+        }
+        if (!switchData(dir, err)) { err = "the host's data doesn't load: " + err; std::string e2; switchData(dataDir, e2); return false; }
+        usingHostData = true;
+        std::printf("Using the host's data files (saved in %s)\n", dir.c_str());
         return true;
     }
 
@@ -192,6 +233,11 @@ struct App {
         client.reset();
         server.reset();
         serverNet.reset();
+        if (usingHostData) {   // back to our own data files
+            std::string err;
+            if (!switchData(dataDir, err)) std::fprintf(stderr, "dum: reloading %s: %s\n", dataDir.c_str(), err.c_str());
+            usingHostData = false;
+        }
         SDL_SetRelativeMouseMode(SDL_FALSE);
         screen = Screen::Main;
         sel = 0;
@@ -782,7 +828,8 @@ int main(int argc, char** argv) {
     if (opt.count("help")) {
         std::printf("Usage: dum [--continue | --host | --connect <addr> | --dedicated [--save FILE]]\n"
                     "           [--name N] [--class C] [--difficulty easy|normal|hard] [--port P]\n"
-                    "           [--res WxH] [--window WxH] [--fullscreen] [--seed N] [--export-art]\n");
+                    "           [--res WxH] [--window WxH] [--fullscreen] [--seed N]\n"
+                    "       dum --export-art [\"monster_*\"] [--out DIR] [--scale 4] [--anim] [--force]\n");
         return 0;
     }
 
@@ -810,19 +857,33 @@ int main(int argc, char** argv) {
     IMG_Init(IMG_INIT_PNG);
 
     App app;
+    app.dataDir = dataDir;
     app.set.load();
+    // --export-art [pattern] [--out DIR] [--scale N] [--anim] [--force]: write the generated
+    // pictures as PNGs, as starting points for your own art (see docs/ART_AND_SOUND.md).
     if (opt.count("export-art")) {
-        app.assets.build();
-        std::string dir = dataDir + "/gfx";
+        app.assets.build();   // the built-in art only, not your replacements
+        Assets::ExportOptions eo;
+        if (opt["export-art"] != "1") eo.pattern = opt["export-art"];
+        if (opt.count("scale")) eo.scale = std::atoi(opt["scale"].c_str());
+        eo.anim = opt.count("anim") > 0;
+        eo.force = opt.count("force") > 0;
+        std::string dir = opt.count("out") ? opt["out"] : dataDir + "/gfx";
 #ifdef _WIN32
         std::string cmd = "mkdir \"" + dir + "\" 2>nul";
 #else
         std::string cmd = "mkdir -p '" + dir + "'";
 #endif
-        if (std::system(cmd.c_str()) != 0) std::printf("note: could not create %s\n", dir.c_str());
-        int n = app.assets.exportPngs(dir);
-        std::printf("Wrote %d PNG files to %s\nEdit any of them; Dum uses them instead of the built-in art.\n"
-                    "Delete a file to get the generated picture back.\n", n, dir.c_str());
+        if (std::system(cmd.c_str()) != 0) {}   // may already exist
+        Assets::ExportResult er = app.assets.exportPngs(dir, eo);
+        std::printf("Wrote %d PNG files to %s", er.written, dir.c_str());
+        if (er.kept) std::printf(" (%d already there were left alone; --force overwrites them)", er.kept);
+        std::printf(".\n");
+        if (er.written + er.kept == 0) std::printf("Nothing matched '%s'. Try \"monster_*\", \"item_*\" or dum_tool ids.\n", eo.pattern.c_str());
+        if (!opt.count("out"))
+            std::printf("Files in %s replace the built-in art. Delete a file to get the generated picture back.\n", dir.c_str());
+        else
+            std::printf("These are templates: copy the ones you finish into data/gfx/ to use them.\n");
         IMG_Quit();
         SDL_Quit();
         return 0;

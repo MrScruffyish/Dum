@@ -1298,17 +1298,37 @@ void Assets::loadOverrides(const std::string& dataDir) {
     if (loadedAny) buildWalkFrames(series);
 }
 
-int Assets::exportPngs(const std::string& dir) {
-    int n = 0;
+namespace {
+// Simple wildcard match: * matches any text (also none), everything else matches itself.
+bool wildcard(const char* p, const char* s) {
+    if (!*p) return !*s;
+    if (*p == '*') return wildcard(p + 1, s) || (*s && wildcard(p, s + 1));
+    return *s && (*p == *s) && wildcard(p + 1, s + 1);
+}
+bool fileExists(const std::string& path) {
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (f) std::fclose(f);
+    return f != nullptr;
+}
+}  // namespace
+
+Assets::ExportResult Assets::exportPngs(const std::string& dir, const ExportOptions& o) {
+    ExportResult r;
+    int k = std::max(1, std::min(16, o.scale));
     for (auto& [name, tex] : namedTextures()) {
-        SDL_Surface* s = SDL_CreateRGBSurfaceWithFormat(0, tex->w, tex->h, 32, SDL_PIXELFORMAT_ARGB8888);
-        if (!s) continue;
-        for (int y = 0; y < tex->h; y++)
-            std::memcpy((uint8_t*)s->pixels + y * s->pitch, &tex->px[y * tex->w], tex->w * 4);
+        if (!wildcard(o.pattern.c_str(), name.c_str())) continue;
+        if (!o.anim && isAnimFrame(name)) continue;
         std::string path = dir + "/" + name + ".png";
-        if (IMG_SavePNG(s, path.c_str()) == 0) n++;
-        else std::printf("could not write %s: %s\n", path.c_str(), IMG_GetError());
+        if (!o.force && fileExists(path)) { r.kept++; continue; }
+        SDL_Surface* s = SDL_CreateRGBSurfaceWithFormat(0, tex->w * k, tex->h * k, 32, SDL_PIXELFORMAT_ARGB8888);
+        if (!s) { r.failed++; continue; }
+        for (int y = 0; y < tex->h * k; y++) {
+            uint32_t* row = (uint32_t*)((uint8_t*)s->pixels + y * s->pitch);
+            for (int x = 0; x < tex->w * k; x++) row[x] = tex->px[(y / k) * tex->w + x / k];
+        }
+        if (IMG_SavePNG(s, path.c_str()) == 0) r.written++;
+        else { r.failed++; std::printf("could not write %s: %s\n", path.c_str(), IMG_GetError()); }
         SDL_FreeSurface(s);
     }
-    return n;
+    return r;
 }

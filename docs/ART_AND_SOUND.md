@@ -6,19 +6,42 @@ your own PNG or WAV file without touching or recompiling the code.
 
 ## Quick start
 
+Every picture the game generates can be written out as a PNG, as a starting point to paint
+over or to see the size and position things should have:
+
 ```sh
-./build/dum --export-art        # writes every picture to data/gfx/*.png
+./build/dum --export-art "monster_*" --out art --scale 4
 ```
 
-1. Open a file in `data/gfx/`, for example `monster_goblin.png`, in GIMP, Aseprite, Krita
-   or any other paint program.
-2. Paint over it, or replace it with a new picture, and save it as PNG with the same name.
-3. Start the game. Your file is used instead of the generated picture.
-4. Delete the file to get the generated picture back.
+This writes every monster at 256x256 (4 times 64) into a folder `art/`. Then:
 
-Only the files you keep in `data/gfx/` override anything. A good habit is to export, then
-**delete the files you don't intend to change**. Otherwise a later improvement to the built-in
-art won't show up, because your exported copy wins.
+1. Open one, for example `art/monster_goblin.png`, in GIMP, Aseprite, Krita or any other
+   paint program.
+2. Paint over it, or draw something new on the same canvas (keep the feet on the bottom),
+   and save it as PNG with the same name.
+3. Copy the finished file into `data/gfx/`. Start the game: your picture is used instead
+   of the generated one. (`./build/dum --single --spawn goblin` shows it at once.)
+4. Delete it from `data/gfx/` to get the generated picture back.
+
+### `--export-art` options
+
+| Option | What it does |
+|--------|--------------|
+| `--export-art` | everything, at the generated size, straight into `data/gfx/` (where it **replaces** the built-in art at once) |
+| `--export-art "pattern"` | only names matching the pattern; `*` means any text: `"monster_*"`, `"item_*"`, `"monster_goblin*"`, `"wall_*"`, `"*sword*"`. Put it in quotes. |
+| `--out DIR` | write to another folder. **Recommended**: a work folder whose files don't affect the game until you copy them to `data/gfx/`. |
+| `--scale N` | enlarge N times with sharp pixels (2, 4, 8...), a bigger canvas to paint on. Pictures over 256 pixels are shrunk again when the game loads them, so draw as big as you like. |
+| `--anim` | also the walk and death animation frames (`_walk1`... `_die1`...). Left out by default (see below). |
+| `--force` | overwrite files that are already there. Without it, existing files are **never** touched, so you can't lose your work by exporting again. |
+
+Exporting always writes the game's own generated art, never your replacements. Names and
+ids: `./build/dum_tool ids` lists every monster, item, spell and class with its picture file
+name.
+
+Why export into a separate folder: only the files in `data/gfx/` change the game, and a file
+there wins over the built-in picture even when you haven't changed it. A later improvement
+to the built-in art then won't show up, because your unchanged copy wins. So keep only
+finished pictures in `data/gfx/`.
 
 ## Picture names and sizes
 
@@ -124,10 +147,10 @@ not speed.
   distance and torch light, and flashes monsters red when hit. Spell pictures are the
   exception: they glow and are never darkened.
 - **Bosses** get a crown added to the generated picture. Your own picture is used as-is.
-- **Exported frames:** `--export-art` also writes the generated walk and death frames. If you
-  then change only the standing picture, delete that monster's exported `_walk`/`_die`
-  files, or they will keep showing the old look while it moves. Without them the game makes
-  new frames from your picture.
+- **Exported frames:** `--export-art --anim` also writes the generated walk and death frames.
+  If you put those in `data/gfx/` and then change only the standing picture, the old frames
+  keep showing the old look while it moves. Delete them, and the game makes new frames from
+  your picture. That's why they aren't exported unless you ask.
 - Keep a dark 1-pixel outline around sprites. It reads much better in dark corridors.
 
 ### Style tips

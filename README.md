@@ -180,6 +180,11 @@ Attacks roll a d20 plus your skill and modifiers against the monster's armor cla
   starts over.
 - Kills give full XP to everyone. Drop items with D or hand them over with G (the ally must
   be within 3 steps).
+- **Different data files?** Everyone plays with the host's monsters, items, spells, classes
+  and shops. If a joining player's files differ (a different version, or the host's own
+  content), the host sends its files automatically, and the joining player uses them for
+  that game without their own files being changed. Pictures and sounds stay each player's
+  own. Details in [docs/MODDING.md](docs/MODDING.md#checking-and-testing-your-changes).
 
 ## Modding
 
@@ -194,8 +199,9 @@ or in its parent directory, so `build/dum` uses the repository's `data/` directl
   monsters, items, spells, classes and shops, with examples: [docs/MODDING.md](docs/MODDING.md).**
   `./build/dum_tool ids` lists every id (and its picture file name), and
   `./build/dum_tool check` finds mistakes in your files.
-- **Art:** run `./build/dum --export-art` to write every picture to `data/gfx/*.png`. Edit
-  any of them and the game will use your file instead of the generated one. Delete a file to
+- **Art:** run `./build/dum --export-art "monster_*" --out art --scale 4` to write the
+  generated pictures as big PNG templates to paint over, then put finished ones in
+  `data/gfx/` and the game uses them instead of the generated ones. Delete a file to
   get the generated picture back. Wall, floor and door textures must be power-of-two sizes
   (64x64, 128x128...). Sprites can be any size, and transparent pixels are see-through.
   Names: `wall_brick`, `floor_stone`, `monster_goblin`, `monster_goblin_attack`,
@@ -216,13 +222,22 @@ or in its parent directory, so `build/dum` uses the repository's `data/` directl
 --save FILE           dedicated server: save file (default dum-server.sav)
 --seed N              fixed dungeon seed
 --res WxH             internal resolution (default 640x360)
+--gpu / --cpu         renderer for this run
+--campaign abyss      start The Abyss (also for --dedicated)
+--level N             start at character level N
+--class C             class for --single / --host / --connect
 --spawn goblin,orc    spawn monsters in front of you (single player / host) [--awake]
 --depth N             jump to dungeon level N at start
 --give id,id          put items in your pack (ids from data/items.txt)
 --auto explore,fight  start auto-explore / travel / auto-fight (for testing)
 --screenshot f.png    run headless-capable for --frames N frames, save a screenshot, exit
-                      (--turn RAD, --ui inventory|map|character|quests|help)
+                      (--turn RAD, --ui inventory|map|character|quests|help,
+                      --ui inventory:N selects row N, inventory:N! presses Enter on it)
+--export-art [PAT]    write generated art as PNGs (--out DIR --scale N --anim --force)
 ```
+
+`./build/dum_tool ids` lists ids and picture names, and `./build/dum_tool check` checks
+the data files.
 
 `./build/dum_selftest` runs a headless test: it generates hundreds of dungeons and runs a
 3-minute game with three bots, one local and two over real UDP.
@@ -237,6 +252,7 @@ src/client   renderers (CPU: renderer.cpp, GPU/OpenGL: gpu.cpp), procedural art,
 src/net      ENet + in-process loopback transport
 src/tools    dum_tool: generate/check maps and campaigns
 data/        game content
+docs/        guides: MODDING, ART_AND_SOUND, CAMPAIGNS, BALANCING, INTERNALS (how the code works)
 third_party/ ENet (MIT)
 ```
 

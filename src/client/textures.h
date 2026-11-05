@@ -58,8 +58,15 @@ struct Assets {
     void buildWalkFrames(const std::vector<std::string>& keep = {});
     // Replace generated art with PNGs from data/gfx/<name>.png if present.
     void loadOverrides(const std::string& dataDir);
-    // Write all current art as PNGs (dum --export-art) so it can be edited.
-    int exportPngs(const std::string& dir);
+    // Write the current art as PNGs (dum --export-art) as starting points for your own.
+    struct ExportOptions {
+        std::string pattern = "*";   // names to write, * = any text ("monster_*", "item_*sword*")
+        int scale = 1;               // enlarge (sharp pixels) to paint over at a bigger size
+        bool anim = false;           // also the walk/death frames (_walk1.png, _die1.png...)
+        bool force = false;          // overwrite files that are already there
+    };
+    struct ExportResult { int written = 0, kept = 0, failed = 0; };
+    ExportResult exportPngs(const std::string& dir, const ExportOptions& o);
     std::vector<std::pair<std::string, Texture*>> namedTextures();
 };
 

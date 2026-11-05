@@ -57,8 +57,11 @@ Monsters (data/monsters.txt)            depth  picture
 ```
 
 You can also search the file in your editor for the name you see in the game
-(`grep -n "goblin" data/monsters.txt`), or run `./build/dum --export-art` and look at the
-file names in `data/gfx/`. On Windows, use `dum_tool.exe` the same way.
+(`grep -n "goblin" data/monsters.txt`). On Windows, use `dum_tool.exe` the same way.
+
+**Starting pictures:** `./build/dum --export-art "monster_*" --out art --scale 4` writes the
+generated picture of every monster (or `"item_*"` for items) as a 256x256 PNG to paint over.
+See [ART_AND_SOUND.md](ART_AND_SOUND.md#quick-start).
 
 ## Checking and testing your changes
 
@@ -84,10 +87,23 @@ To try things out quickly, the game has test options:
 
 They can be combined. `--single` skips the menu and starts a new single player game.
 
-**Saves and co-op:** saves store things by id, so renaming an id makes saved games lose
-those things (they are dropped, not crashed on). In co-op, **every player must have the
-same data files**. The game sends monsters and items by number, so different files show
-the wrong things or worse. Copy your whole `data/` folder to your friends.
+**Saves:** saves store things by id, so renaming an id makes saved games lose those things
+(they are dropped, not crashed on).
+
+**Co-op:** everyone in a game must play with the same data files, because monsters and
+items are sent over the network by number. Dum takes care of this by itself. When you
+join, your game sends a checksum of each data file (`spells.txt`, `items.txt`,
+`monsters.txt`, `classes.txt`, `stores.txt`, `difficulty.txt`). If any differ from the
+host's, the host sends its files and your game uses them for that game. You see a message
+saying so. Your own files are not changed: the host's copies are kept in a `hostdata`
+folder next to your saves, and your own data comes back when you leave the game. So only
+the **host** needs your new monsters and items. Two things don't travel:
+
+- **Pictures and sounds** stay each player's own. Without the host's PNGs you see the
+  generated picture of a new monster (from its `sprite` and colors), which is fine for
+  playing. To see the same art, copy the host's `data/gfx/` folder.
+- **A new class** can only be chosen by players who have it in their own `classes.txt`,
+  because the class is picked before joining.
 
 ## A new monster
 

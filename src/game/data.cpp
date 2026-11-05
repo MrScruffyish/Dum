@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <iterator>
 #include <set>
 #include <sstream>
 #include <sys/stat.h>
@@ -149,8 +150,32 @@ int GameData::findDifficulty(const std::string& id) const { return findIn(diffic
 int GameData::findHandMap(const std::string& id) const { return findIn(handMaps, id); }
 int GameData::findCampaign(const std::string& id) const { return findIn(campaigns, id); }
 
+const std::vector<std::string>& GameData::sharedNames() {
+    static const std::vector<std::string> n = {"spells.txt", "items.txt", "monsters.txt", "classes.txt", "stores.txt", "difficulty.txt"};
+    return n;
+}
+
+uint32_t GameData::textHash(const std::string& text) {
+    uint32_t h = 2166136261u;   // FNV-1a
+    for (char c : text) {
+        if (c == '\r') continue;
+        h ^= (uint8_t)c;
+        h *= 16777619u;
+    }
+    return h;
+}
+
 bool GameData::load(const std::string& dataDir, std::string& err) {
     dir = dataDir;
+    shared.clear();
+    for (auto& n : sharedNames()) {
+        std::ifstream f(dataDir + "/" + n, std::ios::binary);
+        SharedFile sf;
+        sf.name = n;
+        if (f) sf.text.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
+        sf.hash = textHash(sf.text);
+        shared.push_back(std::move(sf));
+    }
     std::vector<Section> secs;
     for (const char* name : {"spells.txt", "items.txt", "monsters.txt", "classes.txt", "stores.txt"})
         if (!readFile(dataDir + "/" + name, secs, err)) return false;

@@ -76,12 +76,42 @@ void Client::handleMessage(const std::vector<uint8_t>& data) {
             difficulty_ = r.u8();
             action(A_SET_AIM, strongAim ? 1 : 0);
             log_.clear();
+            if (!hostDataNote.empty()) addLog(hostDataNote, UI_HI);
             action(A_SET_AUTOPICKUP, autoPickup ? 1 : 0);
             break;
         case S_REJECT:
             error = r.str();
             leave = true;
             break;
+        case S_DATA: {
+            // Our data files differ from the host's: play with theirs (for this game only).
+            std::vector<GameData::SharedFile> files;
+            int n = r.u8();
+            for (int i = 0; i < n && r.ok; i++) {
+                GameData::SharedFile f;
+                f.name = r.str();
+                uint32_t len = r.u32();
+                if (!r.need(len)) break;
+                f.text.assign((const char*)r.p + r.pos, len);
+                r.pos += len;
+                files.push_back(std::move(f));
+            }
+            std::string differ;
+            int m = r.u8();
+            for (int i = 0; i < m && r.ok; i++) differ += (differ.empty() ? "" : ", ") + r.str();
+            std::string err = "no way to switch data files";
+            if (!r.ok) err = "bad data from the host";
+            else if (hostDataTries_++ == 0 && onHostData && onHostData(files, err)) {
+                hostDataNote = m == 1 ? "Your " + differ + " differs from the host's: using theirs for this game."
+                                      : "Your game data differs from the host's: using theirs for this game.";
+                std::printf("Data files that differ from the host's: %s\n", differ.c_str());
+                sendHello();
+                break;
+            }
+            error = "Your game data differs from the host's (" + differ + ") and could not be switched: " + err;
+            leave = true;
+            break;
+        }
         case S_LEVEL: {
             if (!map_.deserialize(r)) { error = "bad level data"; leave = true; return; }
             haveLevel_ = true;
@@ -628,21 +658,25 @@ void Client::move(float dt) {
     }
 }
 
+void Client::sendHello() {
+    Writer w;
+    w.u8(C_HELLO);
+    w.u16(PROTOCOL_VERSION);
+    w.str(name_);
+    w.u8((uint8_t)cls_);
+    w.u8((uint8_t)gData.shared.size());   // our data files' checksums: the host checks they match
+    for (auto& sf : gData.shared) { w.str(sf.name); w.u32(sf.hash); }
+    send(w, true);
+    helloSent_ = true;
+}
+
 void Client::update(float dt) {
     time_ += dt;
     std::vector<NetEvent> evs;
     net_->poll(evs);
     for (auto& e : evs) {
         if (e.type == NetEvent::Connect) {
-            if (!helloSent_) {
-                Writer w;
-                w.u8(C_HELLO);
-                w.u16(PROTOCOL_VERSION);
-                w.str(name_);
-                w.u8((uint8_t)cls_);
-                send(w, true);
-                helloSent_ = true;
-            }
+            if (!helloSent_) sendHello();
         } else if (e.type == NetEvent::Disconnect) {
             if (error.empty()) error = "Disconnected from server.";
             leave = true;

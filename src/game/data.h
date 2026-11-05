@@ -176,6 +176,13 @@ struct GameData {
     std::vector<MonsterDef> monsters;
     std::vector<SpellDef> spells;
     std::string dir;
+    // The data files every co-op player must have the same as the host (they define what the
+    // numbers sent over the network mean), as loaded, with a checksum of each.
+    struct SharedFile { std::string name, text; uint32_t hash = 0; };
+    std::vector<SharedFile> shared;
+    static const std::vector<std::string>& sharedNames();
+    // Checksum used for comparing data files (line endings don't count: \r is skipped).
+    static uint32_t textHash(const std::string& text);
 
     bool load(const std::string& dataDir, std::string& err);
     int findItem(const std::string& id) const;
