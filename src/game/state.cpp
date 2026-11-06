@@ -1,7 +1,7 @@
 // Dum - shared state serialization and rule helpers.
 #include "game/state.h"
 
-const char* kEquipNames[EQ_COUNT] = {"Weapon", "Armor", "Light", "Helm", "Ring", "Ring", "Amulet"};
+const char* kEquipNames[EQ_COUNT] = {"Weapon", "Armor", "Light", "Helm", "Ring", "Ring", "Amulet", "Quiver"};
 
 bool fitsSlot(const ItemDef& d, int slot) {
     int s = equipSlotFor(d);
@@ -16,6 +16,7 @@ int equipSlotFor(const ItemDef& d) {
         case ItemKind::Helm: return EQ_HELM;
         case ItemKind::Ring: return EQ_RING;
         case ItemKind::Amulet: return EQ_AMULET;
+        case ItemKind::Ammo: return EQ_QUIVER;
         default: return -1;
     }
 }

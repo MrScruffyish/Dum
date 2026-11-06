@@ -372,6 +372,9 @@ int main(int argc, char** argv) {
         if (ci >= 0) {
             items[ci].item.fuel = CH_TREASURE;
             Vec2 cp = items[ci].pos;
+            // Nothing else lying around, so E opens the chest and doesn't pick something up.
+            for (size_t i = items.size(); i-- > 0;)
+                if ((int)i != ci && dist(items[i].pos, cp) < 2.0f) { items.erase(items.begin() + i); if ((int)i < ci) ci--; }
             int before = (int)items.size();
             sk.debugMovePlayer(b.id, cp + Vec2(-0.7f, 0));
             sk.debugFace(b.id, 0);
@@ -448,6 +451,54 @@ int main(int argc, char** argv) {
         for (int t = 0; t < 3; t++) { sr.tick(); b.poll(); }
         CHECK(sr.floorItemCount() == before, "full pack: scroll on the floor was not read (%d items, want %d)", sr.floorItemCount(), before);
         std::printf("torch stacks, two rings, reading from the floor ok\n");
+    }
+    {   // Ammo: the quiver fills at the start, shots use it up, some land on the floor;
+        // with the option off nothing is used.
+        for (int rule = 1; rule >= 0; rule--) {
+            auto na = std::make_shared<ServerNet>();
+            Bot b;
+            na->attachLoopback(b.pipe);
+            Server sa(na, 7);
+            sa.setAmmoRule(rule != 0);
+            b.hello(4);   // ranger: short bow
+            for (int t = 0; t < 5; t++) { sa.tick(); b.poll(); }
+            PlayerState* ps = sa.debugPlayer(b.id);
+            CHECK(ps->weapon() && ps->weapon()->ammo == AMMO_ARROWS, "ranger's bow doesn't shoot arrows");
+            auto arrows = [&]() {   // loaded + spare
+                int n = ps->equip[EQ_QUIVER].empty() ? 0 : ps->equip[EQ_QUIVER].count;
+                for (auto& it : ps->inv) if (!it.empty() && it.d().kind == ItemKind::Ammo) n += it.count;
+                return n;
+            };
+            int start = arrows();
+            CHECK(rule ? start == 40 : start == 0, "ranger starts with %d arrows (rule %d)", start, rule);
+            sa.debugGoto(0);   // the town: no monsters to interrupt the target practice
+            int itemsBefore = sa.floorItemCount();
+            for (int shot = 0; shot < 12; shot++) {
+                b.action(A_ATTACK);
+                for (int t = 0; t < 40; t++) { sa.tick(); b.poll(); }
+            }
+            if (rule) {
+                CHECK(arrows() < start && arrows() >= start - 12, "arrows %d -> %d after 12 shots", start, arrows());
+                CHECK(sa.floorItemCount() > itemsBefore, "no arrows landed on the floor");
+                // Steel arrows in the pack get loaded when the quiver runs dry.
+                ps->equip[EQ_QUIVER] = ItemStack();
+                for (auto& it : ps->inv) if (!it.empty() && it.d().kind == ItemKind::Ammo) it = ItemStack();
+                sa.debugGive(b.id, "steel_arrows");
+                b.action(A_ATTACK);
+                for (int t = 0; t < 3; t++) { sa.tick(); b.poll(); }
+                CHECK(!ps->equip[EQ_QUIVER].empty() && ps->equip[EQ_QUIVER].d().id == "steel_arrows" && ps->equip[EQ_QUIVER].count == 14,
+                      "reloading from the pack");
+                ps->equip[EQ_QUIVER] = ItemStack();
+                for (int t = 0; t < 40; t++) { sa.tick(); b.poll(); }
+                int itemsNow = sa.floorItemCount();
+                b.action(A_ATTACK);
+                for (int t = 0; t < 40; t++) { sa.tick(); b.poll(); }
+                CHECK(arrows() == 0 && sa.floorItemCount() == itemsNow, "shot with an empty quiver");
+            } else {
+                CHECK(arrows() == 0 && sa.floorItemCount() == itemsBefore, "ammo used or dropped with the option off");
+            }
+        }
+        std::printf("ammo ok\n");
     }
     {   // Joining with different data files: refused, told which files, and nothing is sent.
         auto nd = std::make_shared<ServerNet>();

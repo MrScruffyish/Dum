@@ -8,7 +8,7 @@
 #include "common/serialize.h"
 #include "game/data.h"
 
-constexpr uint16_t PROTOCOL_VERSION = 9;   // 8: data file checksums in C_HELLO; 9: second ring, key ring
+constexpr uint16_t PROTOCOL_VERSION = 10;  // 8: data file checksums in C_HELLO; 9: second ring, key ring; 10: quiver slot, ammo rule
 constexpr uint16_t DEFAULT_PORT = 27666;
 constexpr float TICK_DT = 1.0f / 30.0f;
 constexpr int INV_SIZE = 20;
@@ -25,7 +25,7 @@ enum MsgType : uint8_t {
     C_ACTION,      // u8 action, i32 a, i32 b
     C_CHAT,        // str text
     // server -> client
-    S_WELCOME = 20,  // u16 your player id, u8 difficulty
+    S_WELCOME = 20,  // u16 your player id, u8 difficulty, u8 rules (1 = ammo is used up)
     S_REJECT,        // str reason
     S_LEVEL,         // map
     S_TILE,          // u16 x, u16 y, u8 tile
@@ -85,8 +85,9 @@ struct EntSnap {
     void read(Reader& r);
 };
 
-// Two ring fingers. (Saves before version 10 had one ring, then the amulet.)
-enum EquipSlot { EQ_WEAPON, EQ_ARMOR, EQ_LIGHT, EQ_HELM, EQ_RING, EQ_RING2, EQ_AMULET, EQ_COUNT };
+// Two ring fingers and a quiver (the loaded arrows/bolts/pebbles). (Saves before version 10
+// had one ring then the amulet; before 11 no quiver.)
+enum EquipSlot { EQ_WEAPON, EQ_ARMOR, EQ_LIGHT, EQ_HELM, EQ_RING, EQ_RING2, EQ_AMULET, EQ_QUIVER, EQ_COUNT };
 // Which equipment slot an item goes into (-1 = not wearable).
 int equipSlotFor(const ItemDef& d);
 // Can this item be worn in that slot? (a ring fits either ring slot)
@@ -136,7 +137,8 @@ struct PlayerState {
     int mod(int s) const { return statMod(stat(s)); }
     template <class F> int equipSum(F f) const {
         int t = 0;
-        for (auto& e : equip) if (!e.empty()) t += f(e.d());
+        for (int i = 0; i < EQ_COUNT; i++)   // (the quiver's bonuses count only for shots)
+            if (i != EQ_QUIVER && !equip[i].empty()) t += f(equip[i].d());
         return t;
     }
     int toHitBonus() const { return equipSum([](const ItemDef& d) { return d.toHit; }); }
@@ -148,8 +150,8 @@ struct PlayerState {
     int regenBonus() const { return equipSum([](const ItemDef& d) { return d.regen; }); }
     bool resists(Element e) const {
         if (resistT > 0 && (e == Element::Fire || e == Element::Cold || e == Element::Poison)) return true;
-        for (auto& it : equip)
-            if (!it.empty()) for (Element r : it.d().resist) if (r == e) return true;
+        for (int i = 0; i < EQ_COUNT; i++)
+            if (i != EQ_QUIVER && !equip[i].empty()) for (Element r : equip[i].d().resist) if (r == e) return true;
         return false;
     }
     Element weaponBrand() const { return equip[EQ_WEAPON].empty() ? Element::Physical : equip[EQ_WEAPON].d().brand; }

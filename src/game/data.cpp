@@ -250,7 +250,7 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
             {"food", ItemKind::Food}, {"potion", ItemKind::Potion}, {"scroll", ItemKind::Scroll},
             {"fuel", ItemKind::Fuel}, {"gold", ItemKind::Gold}, {"quest", ItemKind::Quest},
             {"helm", ItemKind::Helm}, {"ring", ItemKind::Ring}, {"amulet", ItemKind::Amulet},
-            {"wand", ItemKind::Wand}, {"rod", ItemKind::Rod}, {"chest", ItemKind::Chest}, {"key", ItemKind::Key}};
+            {"wand", ItemKind::Wand}, {"rod", ItemKind::Rod}, {"chest", ItemKind::Chest}, {"key", ItemKind::Key}, {"ammo", ItemKind::Ammo}};
         if (!kinds.count(k)) { err = where(s) + "unknown item kind " + k; return false; }
         d.kind = kinds.at(k);
         d.color = g.color("color", 0xFFC0C0C0);
@@ -290,6 +290,14 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
         d.slowDigest = g.i("slowdigest", 0);
         d.regen = g.i("regen", 0);
         d.artifact = g.b("artifact", false);
+        d.bundle = std::max(1, g.i("bundle", 1));
+        if (g.has("ammo")) {
+            std::string a = g.str("ammo");
+            for (int k = 0; k < AMMO_COUNT; k++)
+                if (a == ammoName(k) || a == std::string(ammoName(k)).substr(std::string(ammoName(k)).rfind(' ') + 1)) d.ammo = k;
+            if (d.ammo < 0) { err = where(s) + "unknown ammo " + a + " (arrows, bolts, pebbles)"; return false; }
+        }
+        if (d.ranged && d.kind == ItemKind::Weapon && d.ammo < 0) d.ammo = AMMO_ARROWS;   // bows by default
         if (g.has("keycolor")) {
             std::string kc = g.str("keycolor");
             for (int c = 0; c < KEY_COUNT; c++)

@@ -860,6 +860,19 @@ Texture itemSprite(const std::string& s, uint32_t col, int seed) {
             fillRect(t, 14, 16, 17, 21, gold);                           // lock
             t.set(15, 18, 0xFF101010); t.set(15, 19, 0xFF101010);
         }
+    } else if (s == "arrows" || s == "bolts") {
+        // A bundle: three shafts with heads and fletching (bolts: short, thick, grey heads).
+        bool bolts = s == "bolts";
+        for (int k = 0; k < 3; k++) {
+            float y0 = 12 + k * 4;
+            line(t, bolts ? 8 : 3, y0 + 6, bolts ? 22 : 26, y0 - 6, bolts ? 3 : 2, bolts ? 0xFF6A5030 : col);
+            fillCircle(t, bolts ? 23 : 27, y0 - 7, bolts ? 2.5f : 2, bolts ? 0xFF6A6E78 : 0xFFC8CCD8);
+            fillCircle(t, bolts ? 8 : 4, y0 + 6, 2, 0xFFE0E0E0);
+        }
+        fillRect(t, 11, 15, 20, 17, 0xFF5A3A20);   // binding
+    } else if (s == "pebbles") {
+        const float px[5] = {10, 17, 23, 13, 20}, py[5] = {22, 21, 23, 26, 26};
+        for (int k = 0; k < 5; k++) fillCircle(t, px[k], py[k], 3.2f, colMul(col, 0.85f + 0.08f * k));
     } else if (s == "key") {
         // A big old key in the key's colour: ring, shaft, teeth.
         fillCircle(t, 9, 16, 5.5f, col);
@@ -1189,6 +1202,13 @@ void Assets::build() {
     line(arrow, 4, 16, 26, 16, 2, 0xFF9A7A50);
     fillTri(arrow, Vec2(26, 12), Vec2(31, 16), Vec2(26, 20), 0xFFC8CCD8);
     fillTri(arrow, Vec2(2, 12), Vec2(7, 16), Vec2(2, 20), 0xFFE0E0E0);
+    bolt = Texture(32, 32);   // shorter and thicker than an arrow, dark iron head
+    line(bolt, 8, 16, 24, 16, 3, 0xFF7A6040);
+    fillTri(bolt, Vec2(23, 12), Vec2(30, 16), Vec2(23, 20), 0xFF6A6E78);
+    fillRect(bolt, 6, 13, 9, 19, 0xFF404448);
+    pebble = Texture(32, 32);
+    fillCircle(pebble, 16, 16, 6, 0xFF9A9490);
+    fillCircle(pebble, 14, 14, 2.5f, 0xFFC0BAB4);
     blood = Texture(32, 32);
     Rng r(9);
     for (int i = 0; i < 12; i++) fillEllipse(blood, 6 + r.frand() * 20, 26 + r.frand() * 5, 2 + r.frand() * 5, 1 + r.frand() * 2, colMul(0xFF801010, 0.6f + r.frand() * 0.5f));
@@ -1233,6 +1253,8 @@ std::vector<std::pair<std::string, Texture*>> Assets::namedTextures() {
     v.push_back({"stairs_up", &stairsUp});
     v.push_back({"stairs_up_ceiling", &stairsUpCeil});
     v.push_back({"arrow", &arrow});
+    v.push_back({"bolt", &bolt});
+    v.push_back({"pebble", &pebble});
     static const char* vmNames[VM_COUNT] = {"fist", "dagger", "sword", "mace", "axe", "staff", "bow", "spear"};
     for (int i = 0; i < VM_COUNT; i++) v.push_back({std::string("hand_") + vmNames[i], &viewmodels[i]});
     for (size_t i = 0; i < gData.monsters.size(); i++) {

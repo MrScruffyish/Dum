@@ -127,4 +127,4 @@ caststat = wis
 color = 40a040
 device = 3
 spells = detect_monsters, light:3, heal:6, satisfy_hunger:8, resist_elements:12, frost_bolt:14, haste_self:20
-items = short_bow, dagger, leather_armor, torch, torch, ration, ration, ration, potion_heal, scroll_recall
+items = short_bow, arrows, arrows, dagger, leather_armor, torch, torch, ration, ration, ration, potion_heal, scroll_recall

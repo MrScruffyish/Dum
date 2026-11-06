@@ -184,7 +184,8 @@ rarity = 2
 value = 90
 ```
 
-Bows and slings: `ranged = yes` plus `range` (tiles). Light, quick weapons:
+Bows, crossbows and slings: `ranged = yes` plus `range` (tiles), and `ammo = arrows`,
+`bolts` or `pebbles` for what they shoot (bows shoot arrows if you leave it out). Light, quick weapons:
 `finesse = yes` (uses DEX instead of STR). Magic weapons: `brand = fire` (or `cold`,
 `holy`, `poison`), and bonuses like `todam = 2`. Staves: `spellpower = 2`.
 
@@ -237,6 +238,26 @@ and `fuel` (seconds), or `everburning = yes`. A wand uses `spell` and `charges =
 rod uses `spell` and `recharge = 20` (seconds).
 
 **Unique artifacts:** `artifact = yes` (only one per game, never in shops).
+
+**Ammunition:** `kind = ammo`, `ammo = arrows` (or `bolts`, `pebbles`), `bundle = 20` (how
+many come together, bought or found), `stack = 99`. Give it `tohit`, `todam` and a `brand`
+(fire, cold, holy, poison): they are added to the weapon's own for every shot.
+
+```ini
+[item frost_bolts]
+name = Frost Bolts
+kind = ammo
+ammo = bolts
+sprite = bolts
+color = 80c0ff
+todam = 2
+brand = cold
+bundle = 10
+stack = 99
+depth = 8
+rarity = 1
+value = 80
+```
 
 **Keys and chests:** `kind = key` with `keycolor = red` (or `blue`, `green`, `yellow`)
 opens doors with that colour of lock. The dungeon places the four keys `key_red`...

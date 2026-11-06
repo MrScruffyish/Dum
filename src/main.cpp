@@ -9,7 +9,7 @@
 //                               write the generated art as PNGs (default: all, to data/gfx/)
 //   options: --name <n> --class <warrior|priest|wizard|rogue|ranger> --port <p>
 //            --res <WxH> (3D view resolution, default from Options) --window <WxH> --fullscreen --seed <n>
-//            --gpu / --cpu (renderer, default from Options)
+//            --gpu / --cpu (renderer, default from Options), --no-ammo (dedicated: unlimited shots)
 //   developer: --spawn goblin,orc [--awake]   --screenshot out.png [--frames N] [--turn rad]
 #include <SDL.h>
 #include <SDL_image.h>
@@ -56,6 +56,7 @@ struct Settings {
     bool gpu = true;                    // draw the 3D view with OpenGL (else the CPU)
     bool smoothTex = false;             // GPU: smoothed textures instead of crisp pixels
     bool animate = true;                // monsters walk, flap and fall over
+    bool ammo = true;                   // bows, crossbows and slings use up arrows, bolts, pebbles
     int winW = 0, winH = 0;             // window size (0 = twice the classic resolution)
     KeyBinds keys;
     std::string path, dir;
@@ -89,6 +90,7 @@ struct Settings {
             else if (k == "renderer") gpu = v != "cpu";
             else if (k == "textures") smoothTex = v == "smooth";
             else if (k == "animation") animate = v != "0";
+            else if (k == "ammo") ammo = v != "0";
             else if (k == "window") std::sscanf(v.c_str(), "%dx%d", &winW, &winH);
             else if (k == "difficulty") { int d = gData.findDifficulty(v); if (d >= 0) difficulty = d; }
         }
@@ -100,13 +102,13 @@ struct Settings {
           << "\nmouse " << mouse << "\nvolume " << volume << "\nfullscreen " << (fullscreen ? 1 : 0) << "\nautopickup " << (autoPickup ? 1 : 0) << "\nadventure " << (adventure.empty() ? "-" : adventure) << "\ndifficulty " << difficultyRules(difficulty).id << "\ngamespeed " << gameSpeed << "\nturnspeed " << turnSpeed
           << "\nstrongaim " << (strongAim ? 1 : 0) << "\nautoface " << (autoFace ? 1 : 0) << "\nquickcast " << (quickCast ? 1 : 0)
           << "\nresolution " << renderW << "x" << renderH << "\nrenderer " << (gpu ? "gpu" : "cpu")
-          << "\ntextures " << (smoothTex ? "smooth" : "pixels") << "\nanimation " << (animate ? 1 : 0) << "\nwindow " << winW << "x" << winH << "\n" << keys.save();
+          << "\ntextures " << (smoothTex ? "smooth" : "pixels") << "\nanimation " << (animate ? 1 : 0) << "\nammo " << (ammo ? 1 : 0) << "\nwindow " << winW << "x" << winH << "\n" << keys.save();
     }
 };
 
 enum class Screen { Main, Class, Address, Name, HostChoice, Controls, Options, Scores, HostOnly, Playing };
 enum MenuId { M_CONTINUE, M_NEW, M_HOST, M_JOIN, M_NAME, M_ADVENTURE, M_DIFFICULTY, M_SCORES, M_OPTIONS, M_CONTROLS, M_QUIT };
-enum OptId { O_SPEED, O_TURN, O_MOUSE, O_AIM, O_FACE, O_QUICK, O_RENDERER, O_RES, O_TEXTURES, O_ANIM, O_WINDOW, O_VOLUME, O_FULLSCREEN, O_COUNT };
+enum OptId { O_SPEED, O_TURN, O_MOUSE, O_AIM, O_FACE, O_QUICK, O_AMMO, O_RENDERER, O_RES, O_TEXTURES, O_ANIM, O_WINDOW, O_VOLUME, O_FULLSCREEN, O_COUNT };
 // Resolutions of the 3D view (the HUD and menus always look the same) and window sizes.
 const int kRes[][2] = {{640, 360}, {960, 540}, {1280, 720}, {1600, 900}, {1920, 1080}};
 const int kWin[][2] = {{960, 540}, {1280, 720}, {1600, 900}, {1920, 1080}, {2560, 1440}};
@@ -167,6 +169,7 @@ struct App {
             uint32_t s = seed ? seed : (uint32_t)std::chrono::steady_clock::now().time_since_epoch().count();
             server = std::make_unique<Server>(serverNet, s);
             server->setDifficulty(set.difficulty);
+            server->setAmmoRule(set.ammo);
             if (loadSave && !server->loadGame(savePath(mode), err)) { server.reset(); return false; }
             int ci = gData.findCampaign(set.adventure);
             if (!loadSave && ci >= 0) server->startCampaign(ci);
@@ -355,6 +358,7 @@ struct App {
                         set.smoothTex = !set.smoothTex;
                         if (gpu) gpu->setSmooth(set.smoothTex);
                         break;
+                    case O_AMMO: set.ammo = !set.ammo; break;
                     case O_ANIM:
                         set.animate = !set.animate;
                         if (client) client->animate = set.animate;
@@ -510,6 +514,8 @@ struct App {
             help[O_FACE] = "With auto-fight (Q) you don't need to turn at all.";
             rows[O_QUICK] = std::string("Keys 1-9: ") + (set.quickCast ? "cast at once" : "select only");
             help[O_QUICK] = "Cast at once: one key press uses the spell, ability or wand.";
+            rows[O_AMMO] = std::string("Ammo for bows, crossbows, slings: ") + (set.ammo ? "used up" : "unlimited");
+            help[O_AMMO] = "Used up: shots need arrows, bolts or pebbles. For games you start or host.";
             rows[O_RENDERER] = std::string("Renderer: ") + (gpu ? "GPU (OpenGL)" : "CPU");
             help[O_RENDERER] = gpu ? gpuInfo.substr(0, 100) : "GPU: smooth at any window size. CPU: works everywhere.";
             rows[O_RES] = "Resolution: " + std::to_string(set.renderW) + "x" + std::to_string(set.renderH) + (set.renderW == 640 ? " (classic)" : "");
@@ -792,13 +798,14 @@ int parseDifficulty(const std::string& s) {
     return defaultDifficulty();
 }
 
-int runDedicated(uint16_t port, uint32_t seed, int difficulty, const std::string& savePath, const std::string& campaign) {
+int runDedicated(uint16_t port, uint32_t seed, int difficulty, const std::string& savePath, const std::string& campaign, bool opt_noAmmo) {
     auto net = std::make_shared<ServerNet>();
     std::string err;
     if (!net->listen(port, 8, err)) { std::fprintf(stderr, "dum: %s\n", err.c_str()); return 1; }
     if (!seed) seed = (uint32_t)std::chrono::steady_clock::now().time_since_epoch().count();
     Server server(net, seed);
     server.setDifficulty(difficulty);
+    server.setAmmoRule(!opt_noAmmo);
     if (campaign == "abyss") {
         if (!server.startAbyss()) { std::fprintf(stderr, "dum: data/difficulty.txt has no [difficulty abyss]\n"); return 1; }
     } else if (!campaign.empty()) {
@@ -859,7 +866,7 @@ int main(int argc, char** argv) {
     if (opt.count("dedicated")) {
         SDL_Init(0);
         int rc = runDedicated(port, seed, opt.count("difficulty") ? parseDifficulty(opt["difficulty"]) : defaultDifficulty(),
-                              opt.count("save") ? opt["save"] : "dum-server.sav", opt.count("campaign") ? opt["campaign"] : "");
+                              opt.count("save") ? opt["save"] : "dum-server.sav", opt.count("campaign") ? opt["campaign"] : "", opt.count("no-ammo") > 0);
         netShutdown();
         return rc;
     }

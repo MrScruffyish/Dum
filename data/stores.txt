@@ -26,7 +26,7 @@ buys = armor, helm
 name = Weaponsmith
 owner = Odo Sharp-Edge
 sign = long_sword
-items = dagger, rapier, short_sword, long_sword, spear, mace, flail, war_axe, great_sword, sling, short_bow, long_bow, light_crossbow
+items = dagger, rapier, short_sword, long_sword, spear, mace, flail, war_axe, great_sword, sling, short_bow, long_bow, light_crossbow, arrows, steel_arrows, bolts, pebbles, iron_shot
 buys = weapon
 
 [store alchemist]

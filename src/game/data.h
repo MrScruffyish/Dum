@@ -11,7 +11,13 @@
 enum StatId { STR, DEX, CON, INT, WIS, NUM_STATS };
 extern const char* kStatNames[NUM_STATS];
 
-enum class ItemKind : uint8_t { Weapon, Armor, Light, Food, Potion, Scroll, Fuel, Gold, Quest, Helm, Ring, Amulet, Wand, Rod, Chest, Key };
+enum class ItemKind : uint8_t { Weapon, Armor, Light, Food, Potion, Scroll, Fuel, Gold, Quest, Helm, Ring, Amulet, Wand, Rod, Chest, Key, Ammo };
+// What a bow, crossbow or sling shoots (when the Ammo option is on they are used up).
+enum AmmoKind : int8_t { AMMO_ARROWS = 0, AMMO_BOLTS, AMMO_PEBBLES, AMMO_COUNT };
+inline const char* ammoName(int a) {   // as in "37 arrows", "out of bolts"
+    static const char* n[AMMO_COUNT] = {"arrows", "crossbow bolts", "sling pebbles"};
+    return a >= 0 && a < AMMO_COUNT ? n[a] : "ammunition";
+}
 enum class Element : uint8_t { Physical, Arcane, Fire, Cold, Holy, Poison };
 enum class SpellType : uint8_t {
     Bolt, Ball, Nova, Heal, Bless, Light, Detect, Blink, Map, Recall,
@@ -70,6 +76,8 @@ struct ItemDef {
     Element brand = Element::Physical;  // weapons: damage element (fire, cold, holy...)
     bool artifact = false;    // unique: only one exists per game
     int keyColor = -1;        // keys: the KeyColor they open
+    int ammo = -1;            // ranged weapons: the AmmoKind they shoot; ammo items: which they are
+    int bundle = 1;           // ammo: how many come in one (bought or found)
     bool everburning = false; // light that never runs out
     int gainStat = -1;        // potion: permanently raises this stat
     bool restore = false;     // potion: restores drained stats

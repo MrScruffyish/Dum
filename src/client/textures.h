@@ -50,7 +50,7 @@ struct Assets {
     std::vector<Texture> items;                     // per item def
     std::vector<Texture> players, playersAttack;    // per class
     std::vector<Texture> spellOrbs;                 // per spell def
-    Texture arrow, corpse, blood;
+    Texture arrow, bolt, pebble, corpse, blood;   // missiles in flight: bow, crossbow, sling
     Texture viewmodels[VM_COUNT];
     Texture title;
     void build();

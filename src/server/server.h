@@ -28,6 +28,7 @@ struct SPlayer {
     float fuelAcc = 0;
     bool strongAim = false;
     float rodAcc = 0;          // rod recharge timer (tenths of seconds)
+    int lastAmmo = -1;         // item def last shot from the quiver (reloaded first)
 };
 
 struct Monster {
@@ -74,6 +75,9 @@ struct Projectile {
     Element elem = Element::Physical;
     bool sneak = false;
     int power = 0;             // spells: caster power (for sleep/fear effects)
+    int ammo = -1;             // AmmoKind shot (its picture)
+    int ammoDef = -1;          // the ammo item (can be picked up again when ammo is on)
+    bool recover = false;      // may land on the floor afterwards (Ammo option on)
 };
 
 struct Effect {
@@ -124,6 +128,9 @@ public:
         return true;
     }
     void setScorePath(const std::string& path) { scorePath_ = path; }
+    // Ammo option: bows, crossbows and slings use up arrows, bolts and pebbles.
+    void setAmmoRule(bool on) { ammoRule_ = on; }
+    bool ammoRule() const { return ammoRule_; }
     int campaign() const { return campaign_; }
     void setDifficulty(int d) { difficulty_ = clampi(d, 0, numDifficulties() - 1); }
     int difficulty() const { return difficulty_; }
@@ -228,6 +235,11 @@ private:
         return scaledRules_;
     }
     bool abyss() const { return difficultyRules(difficulty_).perLevel > 0; }
+    bool ammoRule_ = true;
+    int ammoItem(int kind) const;            // the item def of that AmmoKind (-1 if none)
+    void dropAmmo(int def, Vec2 pos);        // one shot landing on the floor (stacks with others)
+    void fillQuiver(PlayerState& s);         // a ranged weapon but no ammo for it anywhere: one bundle
+    bool reloadQuiver(SPlayer& p, int kind); // quiver empty or the wrong kind: load from the pack
     int abyssDeaths_ = 0;        // party wipes in this Abyss run
     int abyssFirstDeath_ = 0;    // depth of the first party wipe (0 = none yet)
     std::string scorePath_;

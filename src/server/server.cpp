@@ -269,11 +269,13 @@ void Server::onHello(int peer, Reader& r) {
     w.u8(S_WELCOME);
     w.u16((uint16_t)pid);
     w.u8((uint8_t)difficulty_);
+    w.u8(ammoRule_ ? 1 : 0);
     send(pid, w, true);
     sendLevel(pid);
     sendTeleport(p);
     sendRoster();
     sendQuests();
+    if (returning) { fillQuiver(p.st); p.dirty = true; }   // e.g. the Ammo option was turned on since
     if (returning)
         text(-1, COL_YELLOW, name + " the " + p.st.c().name + " (level " + std::to_string(p.st.level) + ") returns to the dungeon.");
     else
@@ -301,6 +303,14 @@ void Server::rollCharacter(SPlayer& p, int cls) {
     for (int it : c.startItems) {
         ItemStack st = makeItem(it);
         const ItemDef& d = gData.items[it];
+        if (d.kind == ItemKind::Ammo) {   // into the quiver (only when ammo is used up at all)
+            if (!ammoRule_) continue;
+            ItemStack& q = s.equip[EQ_QUIVER];
+            if (q.empty()) { q = st; continue; }
+            if (q.def == st.def) { q.count = std::min(d.maxStack, q.count + st.count); continue; }
+            if (slot < INV_SIZE) s.inv[slot++] = st;
+            continue;
+        }
         int eq = equipSlotFor(d);
         if (eq >= 0 && s.equip[eq].empty()) { s.equip[eq] = st; continue; }
         // stack with existing
@@ -356,6 +366,7 @@ ItemStack Server::makeItem(int def, int count) {
     s.count = count;
     const ItemDef& d = gData.items[def];
     s.fuel = d.kind == ItemKind::Light ? (d.everburning ? 1 : d.fuel) : 0;
+    if (d.kind == ItemKind::Ammo && count == 1) s.count = d.bundle;   // a bundle (a single shot is made by hand)
     if (d.kind == ItemKind::Wand) s.fuel = rng_.range(d.chargesMin, std::max(d.chargesMin, d.chargesMax));
     if (d.artifact) artifactsInPlay_.insert(def);
     return s;
@@ -416,11 +427,11 @@ int Server::pickItem(int depth) {
     }
     int total = 0;
     for (auto& it : gData.items)
-        if (it.rarity > 0 && it.depth <= depth + 1 && it.kind != ItemKind::Gold && !it.artifact) total += it.rarity;
+        if (it.rarity > 0 && it.depth <= depth + 1 && it.kind != ItemKind::Gold && !it.artifact && (ammoRule_ || it.kind != ItemKind::Ammo)) total += it.rarity;
     int r = rng_.range(1, std::max(1, total));
     for (size_t i = 0; i < gData.items.size(); i++) {
         auto& it = gData.items[i];
-        if (it.rarity <= 0 || it.depth > depth + 1 || it.kind == ItemKind::Gold || it.artifact) continue;
+        if (it.rarity <= 0 || it.depth > depth + 1 || it.kind == ItemKind::Gold || it.artifact || (!ammoRule_ && it.kind == ItemKind::Ammo)) continue;
         r -= it.rarity;
         if (r <= 0) return (int)i;
     }
@@ -510,6 +521,52 @@ void Server::populate(const std::vector<int>* pool) {
             text(-1, COL_ORANGE, "You sense a powerful presence on this level...");
         }
     }
+}
+
+// ------------------------------------------------------------------ ammo --
+
+bool Server::reloadQuiver(SPlayer& p, int kind) {
+    PlayerState& s = p.st;
+    ItemStack& q = s.equip[EQ_QUIVER];
+    if (!q.empty() && q.d().ammo == kind) return true;
+    int best = -1;   // the kind shot last, else the first that fits
+    for (int i = 0; i < INV_SIZE; i++) {
+        const ItemStack& it = s.inv[i];
+        if (it.empty() || it.d().kind != ItemKind::Ammo || it.d().ammo != kind) continue;
+        if (best < 0 || it.def == p.lastAmmo) best = i;
+    }
+    if (best < 0) return false;
+    std::swap(q, s.inv[best]);   // whatever was in the quiver goes back into the pack
+    p.dirty = true;
+    text(s.id, COL_WHITE, "You load " + itemName(q) + " into your quiver.");
+    return true;
+}
+
+int Server::ammoItem(int kind) const {
+    for (size_t i = 0; i < gData.items.size(); i++)
+        if (gData.items[i].kind == ItemKind::Ammo && gData.items[i].ammo == kind) return (int)i;
+    return -1;
+}
+
+void Server::dropAmmo(int def, Vec2 pos) {
+    if (def < 0 || map_.solidAt(pos)) return;
+    for (auto& it : items_)   // join a pile lying right there
+        if (it.item.def == def && dist(it.pos, pos) < 0.6f) { it.item.count++; return; }
+    ItemStack one;
+    one.def = (int16_t)def;
+    one.count = 1;
+    dropItem(one, pos);
+}
+
+void Server::fillQuiver(PlayerState& s) {
+    const ItemDef* w = s.weapon();
+    if (!ammoRule_ || !w || !w->ranged || w->ammo < 0 || !s.equip[EQ_QUIVER].empty()) return;
+    for (auto& it : s.inv)
+        if (!it.empty() && it.d().kind == ItemKind::Ammo && it.d().ammo == w->ammo) return;   // has some
+    int def = ammoItem(w->ammo);
+    if (def < 0) return;
+    s.equip[EQ_QUIVER] = makeItem(def);
+    text(s.id, COL_WHITE, "You find " + itemName(s.equip[EQ_QUIVER]) + " at the bottom of your pack.");
 }
 
 // ------------------------------------------------------------ chests, keys --
@@ -1004,7 +1061,8 @@ void Server::updatePlayers(float dt) {
         for (size_t i = 0; i < items_.size(); i++) {
             const FloorItem& f = items_[i];
             if (dist(f.pos, p.pos) > 0.6f) continue;
-            bool gold = f.item.d().kind == ItemKind::Gold || f.item.d().kind == ItemKind::Key;   // purse, key ring
+            ItemKind fk = f.item.d().kind;
+            bool gold = fk == ItemKind::Gold || fk == ItemKind::Key || fk == ItemKind::Ammo;   // purse, key ring, quiver
             if (f.item.d().kind == ItemKind::Chest) continue;   // opened with E, never by walking over
             if (!gold && (!p.autoPickup || f.droppedBy == id || !canCarry(p, f.item))) continue;
             pickupItem(p, i, false);
@@ -1327,6 +1385,7 @@ void Server::updateProjectiles(float dt) {
         } else if (pr.target) {
             if (Monster* m = monsterById(pr.target)) { tpos = m->pos; haveTarget = true; }
         }
+        if (remove && pr.recover) dropAmmo(pr.ammoDef, pr.pos);   // flew its full range: it lies there
         float spd = pr.vel.len();
         if (haveTarget) {
             Vec2 want = (tpos - pr.pos).norm() * spd;
@@ -1338,6 +1397,7 @@ void Server::updateProjectiles(float dt) {
             pr.pos += pr.vel * (dt / sub);
             if (map_.solidAt(pr.pos)) {
                 if (pr.radius > 0) explode(pr.pos - pr.vel.norm() * 0.3f, pr.radius, pr.dmg, pr.elem, pr.spell, pr.fromMonster, playerById(pr.ownerPlayer), pr.power);
+                if (pr.recover && rng_.chance(60)) dropAmmo(pr.ammoDef, pr.pos - pr.vel.norm() * 0.4f);   // bounced off the wall
                 remove = true;
                 break;
             }
@@ -1370,9 +1430,11 @@ void Server::updateProjectiles(float dt) {
                             int dmg = std::max(1, pr.dice.roll(rng_) + pr.dmgBonus);
                             if (roll == 20) dmg += pr.dice.roll(rng_);
                             if (pr.sneak && m.asleep) dmg *= 2;
+                            if (pr.recover && rng_.chance(25)) dropAmmo(pr.ammoDef, m.pos);   // pulled out afterwards
                             damageMonster(m, dmg, pr.elem, owner, roll == 20);
                         } else {
                             if (owner) text(owner->st.id, COL_GREY, "Your missile misses " + theName(m.d()) + ".");
+                            if (pr.recover && rng_.chance(50)) dropAmmo(pr.ammoDef, m.pos + pr.vel.norm() * 0.6f);
                             event(EV_MISS, m.pos);
                             wakeMonster(m, false);
                         }
@@ -1651,6 +1713,26 @@ void Server::doAttack(SPlayer& p) {
     p.attackT = 0.3f;
     p.noise = std::min(1.0f, p.noise + 0.5f);
 
+    int ammo = ranged ? w->ammo : -1, ammoDef = -1;
+    Element brand = s.weaponBrand();
+    if (ranged && ammoRule_ && ammo >= 0) {
+        if (!reloadQuiver(p, ammo)) {
+            s.attackCd = 1.0f;   // (and the message doesn't repeat every frame)
+            text(s.id, COL_ORANGE, std::string("You are out of ") + ammoName(ammo) + "! Find or buy more, or wield a melee weapon.");
+            return;
+        }
+        // The loaded ammo's own bonuses count for this shot.
+        ItemStack& q = s.equip[EQ_QUIVER];
+        const ItemDef& ad = q.d();
+        ammoDef = q.def;
+        p.lastAmmo = q.def;
+        toHit += ad.toHit;
+        dmgBonus += ad.toDam;
+        if (ad.brand != Element::Physical) brand = ad.brand;
+        if (--q.count <= 0) q = ItemStack();
+        else if (q.count == 5) text(s.id, COL_ORANGE, "Only 5 " + ad.name + " left in your quiver.");
+        p.dirty = true;
+    }
     if (p.strongAim) { arc = std::min(170.0f, arc * 1.6f); range += 0.3f; }
     Monster* t = findTarget(p.pos, p.angle, range, arc, s.detectT > 0);
     if (ranged) {
@@ -1667,7 +1749,10 @@ void Server::doAttack(SPlayer& p) {
         pr.dmgBonus = dmgBonus;
         pr.ttl = range / 16.0f + 0.2f;
         pr.sneak = s.c().stealth >= 5;
-        pr.elem = s.weaponBrand();
+        pr.elem = brand;
+        pr.ammo = ammo;
+        pr.ammoDef = ammoDef;
+        pr.recover = ammoDef >= 0;
         projectiles_.push_back(pr);
         event(EV_SHOOT, p.pos, s.id);
         return;
@@ -2134,6 +2219,9 @@ bool Server::canCarry(const SPlayer& p, const ItemStack& it) const {
     const ItemDef& d = it.d();
     if (d.kind == ItemKind::Gold || d.kind == ItemKind::Key) return true;   // purse and key ring
     int left = it.count;
+    const ItemStack& q = p.st.equip[EQ_QUIVER];
+    if (d.kind == ItemKind::Ammo && stacksWith(q, it)) left -= d.maxStack - q.count;   // the loaded kind
+    if (left <= 0) return true;
     for (auto& slot : p.st.inv) {
         if (slot.empty()) left -= d.maxStack;
         else if (stacksWith(slot, it)) left -= d.maxStack - slot.count;
@@ -2147,12 +2235,20 @@ bool Server::addToInventory(SPlayer& p, const ItemStack& it) {
     PlayerState& s = p.st;
     const ItemDef& d = it.d();
     if (d.kind == ItemKind::Gold) { s.gold += it.count; p.dirty = true; return true; }
+    int left = it.count;
+    ItemStack& q = s.equip[EQ_QUIVER];
+    if (d.kind == ItemKind::Ammo && stacksWith(q, it)) {   // more of what is loaded: into the quiver
+        int add = std::min(left, d.maxStack - q.count);
+        q.count += add;
+        left -= add;
+        p.dirty = true;
+        if (!left) return true;
+    }
     if (d.kind == ItemKind::Key && d.keyColor >= 0) {   // keys go on the key ring
         s.keys[d.keyColor] = (uint8_t)std::min(99, s.keys[d.keyColor] + it.count);
         p.dirty = true;
         return true;
     }
-    int left = it.count;
     if (d.maxStack > 1)
         for (auto& slot : s.inv)
             if (stacksWith(slot, it) && slot.count < d.maxStack) {
@@ -2236,7 +2332,20 @@ void Server::useStack(SPlayer& p, ItemStack& it, int slot, int target) {
         case ItemKind::Armor:
         case ItemKind::Helm:
         case ItemKind::Ring:
+        case ItemKind::Ammo:
         case ItemKind::Amulet: {
+            if (d.kind == ItemKind::Ammo) {   // the whole stack goes into the quiver
+                ItemStack& q = s.equip[EQ_QUIVER];
+                if (stacksWith(q, it)) {
+                    int add = std::min(it.count, d.maxStack - q.count);
+                    q.count += add;
+                    if ((it.count -= add) <= 0) it = ItemStack();
+                } else {
+                    std::swap(q, it);
+                }
+                text(s.id, COL_WHITE, "You load " + itemName(q) + " into your quiver.");
+                break;
+            }
             int eq = (target >= 0 && target < EQ_COUNT && fitsSlot(d, target)) ? target : equipSlotFor(d);
             // A second ring goes on the other hand.
             if (target < 0 && eq == EQ_RING && !s.equip[EQ_RING].empty() && s.equip[EQ_RING2].empty()) eq = EQ_RING2;
@@ -2519,6 +2628,7 @@ void Server::sendSnapshots() {
             e.id = pr.id;
             e.type = ET_PROJECTILE;
             e.def = pr.spell < 0 ? 0xFFFF : (uint16_t)pr.spell;
+            if (pr.spell < 0) e.extra = (uint8_t)(pr.ammo + 1);   // 0 = arrow, else AmmoKind + 1
             e.pos = pr.pos;
             e.angle = std::atan2(pr.vel.y, pr.vel.x);
             ents.push_back(e);
@@ -2595,6 +2705,7 @@ void Server::shopBuy(SPlayer& p, int store, int ware) {
     const StoreDef& st = gData.stores[store];
     if (ware < 0 || ware >= (int)st.items.size()) return;
     const ItemDef& d = gData.items[st.items[ware]];
+    if (d.kind == ItemKind::Ammo && !ammoRule_) { text(p.st.id, COL_GREY, "No need: ammunition isn't used up in this game (Options: Ammo)."); return; }
     int price = buyPrice(d);
     if (p.st.gold < price) { text(p.st.id, COL_GREY, "You can't afford the " + d.name + " (" + std::to_string(price) + " gold)."); return; }
     ItemStack it = makeItem(st.items[ware]);

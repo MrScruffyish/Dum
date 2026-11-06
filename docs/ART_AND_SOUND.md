@@ -68,7 +68,7 @@ follow the rules in the last column.
 | `item_<id>` | 32x32 | items lying on the floor (and the shop sign) | any size, transparent; the whole picture is drawn 0.28 wall heights tall, so leave empty space around small things |
 | `hand_fist`, `hand_dagger`, `hand_sword`, `hand_mace`, `hand_axe`, `hand_staff`, `hand_bow` | 128x128 | the first-person weapon in your hand | any size; drawn at the bottom right of the view |
 | `spell_<id>` | 32x32 | glowing projectile / explosion of a spell | black = invisible (it is *added* to the screen like light) |
-| `arrow` | 32x32 | arrows and sling stones in flight | transparent |
+| `arrow`, `bolt`, `pebble` | 32x32 | arrows, crossbow bolts and sling pebbles in flight | transparent |
 
 `<id>` is the id from the data files (`./build/dum_tool ids` lists them all with their
 picture names): `[monster goblin]` → `monster_goblin.png`,

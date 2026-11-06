@@ -160,7 +160,8 @@ left.
 - `stacksWith` decides what merges in the pack: same item, stackable, and for lights the same
   fuel left (so fresh torches stack). Using a light or wearable from a stack takes one;
   the item it replaces goes back into the pack.
-- There are two ring slots (`EQ_RING`, `EQ_RING2`; `fitsSlot` says a ring fits either).
+- There are two ring slots (`EQ_RING`, `EQ_RING2`; `fitsSlot` says a ring fits either),
+  and a quiver (`EQ_QUIVER`) for the loaded ammo; save version 11 added it.
   `A_INV_USE` carries the target slot (+1, 0 = automatic): the replace mode sends it, and
   otherwise a ring goes on the free hand. Saves before version 10 had six slots and are
   mapped on load.
@@ -169,6 +170,23 @@ left.
   where they lie.
 - Single player pauses while a menu is open, but `Server::pausedTick` still handles the
   player's actions and sends the result, so inventory and shop changes show at once.
+
+## Ammo
+
+- The Ammo option is a server rule (`Server::setAmmoRule`, from the host's settings), sent
+  to clients in `S_WELCOME`. With it off, nothing below happens: shots are free, ammo isn't
+  generated or given at the start, and shops refuse to sell it.
+- Ranged weapons name their `AmmoKind` (`ItemDef::ammo`). Ammo items are `kind = ammo`,
+  equipped in `EQ_QUIVER` (loaded with `useStack`, whole stacks; `addToInventory` puts more
+  of the loaded kind there first). `PlayerState::equipSum` and `resists` skip the quiver,
+  so ammo bonuses don't count for melee.
+- `doAttack` (ranged): `reloadQuiver` loads matching ammo from the pack if the quiver is
+  empty or holds another kind (the kind shot last first, `SPlayer::lastAmmo`), then takes
+  one shot's worth and adds the ammo's to-hit, damage and brand to the projectile.
+- Projectiles remember the ammo item (`ammoDef`). When one hits a wall, flies its full
+  range, misses or hits a monster, `dropAmmo` may leave one on the floor (it joins a pile
+  lying right there). The snapshot's `extra` tells clients which picture to draw (arrow,
+  bolt, pebble).
 
 ## The Abyss
 

@@ -174,6 +174,28 @@ A dedicated server runs it with `--campaign abyss`.
   good eye (search skill, rogues most of all) may also notice by themselves what's odd about
   a chest they stand next to.
 
+## Bows, crossbows, slings and ammo
+
+With **Options → Ammo: used up** (the default), every shot uses ammunition. Each weapon says
+what it shoots: **bows shoot arrows, crossbows shoot crossbow bolts, slings shoot sling
+pebbles**.
+
+- The loaded ammo sits in the **Quiver** slot (equipment, right column). Load ammo by
+  selecting it in your pack and pressing Enter. Ammo of the loaded kind that you pick up
+  goes straight into the quiver. Stacks hold up to 99.
+- **Ammo has its own stats**, added to the weapon's for each shot: Steel-tipped Arrows
+  +2 damage, Fire Arrows +1/+1 and fire damage, Steel Bolts +1/+3, Iron Shot +2... The
+  inventory shows them. They never count for melee.
+- The HUD shows what's loaded and how many you have: "37 Arrows (+15)" means 37 in the
+  quiver and 15 more arrows in your pack. When the quiver runs dry, it reloads from your
+  pack by itself (the kind you shot last first). With none left, you are told, and you can
+  switch to a melee weapon.
+- About half of the shots that miss, and a quarter of those that hit, can be **picked up
+  again** where they landed. The Weaponsmith sells bundles, and ammo turns up in the
+  dungeon and in chests. Rangers start with 40 arrows.
+- **Ammo: unlimited** turns all this off: shots are free and no ammo appears anywhere. In
+  co-op the host's setting applies (dedicated server: `--no-ammo`).
+
 ## Saving, difficulty, tips
 
 - The game **saves automatically** every minute, on every level change and when you leave.

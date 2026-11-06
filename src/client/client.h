@@ -117,6 +117,7 @@ private:
     bool helloSent_ = false;
     uint16_t myId_ = 0;
     int difficulty_ = 1;
+    bool ammoRule_ = false;     // the host's Ammo option: shots use up arrows/bolts/pebbles
     uint32_t lastStateTick_ = 0;
     Map map_;
     bool haveLevel_ = false;

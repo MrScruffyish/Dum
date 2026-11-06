@@ -74,6 +74,7 @@ void Client::handleMessage(const std::vector<uint8_t>& data) {
         case S_WELCOME:
             myId_ = r.u16();
             difficulty_ = r.u8();
+            ammoRule_ = r.u8() & 1;
             action(A_SET_AIM, strongAim ? 1 : 0);
             log_.clear();
             action(A_SET_AUTOPICKUP, autoPickup ? 1 : 0);
@@ -338,6 +339,10 @@ std::string Client::invUseLabel(const ItemStack& s) const {
         case ItemKind::Rod: return "zap";
         case ItemKind::Quest: return "examine";
         case ItemKind::Key: return "use (walk into the door with its colour of lock)";
+        case ItemKind::Ammo: {
+            const ItemStack& q = me_.equip[EQ_QUIVER];
+            return q.empty() || q.def == s.def ? "load into your quiver" : "load into your quiver (instead of " + q.d().name + ")";
+        }
         default: return "use";
     }
 }
@@ -796,7 +801,11 @@ void Client::draw(Renderer& r) {
                 break;
             }
             case ET_PROJECTILE:
-                if (e.s.def == 0xFFFF) { s.tex = &A.arrow; s.height = 0.2f; s.zoff = 0.38f; }
+                if (e.s.def == 0xFFFF) {   // extra: 0/1 = arrow, 2 = crossbow bolt, 3 = sling pebble
+                    s.tex = e.s.extra == 2 ? &A.bolt : e.s.extra == 3 ? &A.pebble : &A.arrow;
+                    s.height = e.s.extra == 3 ? 0.1f : 0.2f;
+                    s.zoff = e.s.extra == 3 ? 0.43f : 0.38f;
+                }
                 else { s.tex = &A.spellOrbs[e.s.def]; s.height = 0.3f; s.zoff = 0.32f; s.additive = true; s.fullbright = true; }
                 break;
             case ET_EFFECT: {
@@ -1078,7 +1087,19 @@ void Client::drawHud(Renderer& r) {
 
     int rx = 284;
     const ItemDef* wd = me_.weapon();
-    r.text(rx, by + 4, wd ? itemName(me_.equip[EQ_WEAPON]) : "Bare hands (1d2)", UI_TEXT);
+    std::string wname = wd ? itemName(me_.equip[EQ_WEAPON]) : "Bare hands (1d2)";
+    r.text(rx, by + 4, wname, UI_TEXT);
+    if (wd && wd->ranged && wd->ammo >= 0 && ammoRule_) {
+        // Shots left: what's loaded in the quiver, plus the same kind of ammo in the pack.
+        const ItemStack& q = me_.equip[EQ_QUIVER];
+        int loaded = !q.empty() && q.d().ammo == wd->ammo ? q.count : 0, spare = 0;
+        for (auto& it : me_.inv)
+            if (!it.empty() && it.d().kind == ItemKind::Ammo && it.d().ammo == wd->ammo) spare += it.count;
+        std::string a = loaded ? std::to_string(loaded) + " " + q.d().name : std::string("no ") + ammoName(wd->ammo) + " loaded";
+        if (spare) a += " (+" + std::to_string(spare) + ")";
+        int n = loaded + spare;
+        r.text(rx + r.textW(wname) + 8, by + 4, a.substr(0, 30), n == 0 ? 0xFFFF5040 : n <= 5 ? 0xFFFFB040 : 0xFFC0C0A0);
+    }
     r.text(rx, by + 14, "AC " + std::to_string(me_.armorClass()), UI_TEXT);
     r.text(rx + 48, by + 14, "STR " + std::to_string(me_.stat(STR)) + " DEX " + std::to_string(me_.stat(DEX)), UI_DIM);
     r.text(rx, by + 24, map_.depth ? "Depth " + std::to_string(map_.depth) : std::string("Town"), UI_TEXT);
@@ -1259,10 +1280,19 @@ void Client::drawInventory(Renderer& r) {
     if (!s.empty()) {
         const ItemDef& d = s.d();
         std::string info = d.desc;
-        if (d.kind == ItemKind::Weapon) info = std::string(d.ranged ? "Ranged" : "Melee") + " " + d.dmg.str() + ", " + (d.finesse ? "DEX" : "STR") + ", speed " + std::to_string((int)(10 / d.cooldown) / 10.0f).substr(0, 3) + "/s. " + info;
+        if (d.kind == ItemKind::Weapon) info = std::string(d.ranged ? "Ranged" : "Melee") + " " + d.dmg.str() + ", " + (d.finesse ? "DEX" : "STR") + ", speed " + std::to_string((int)(10 / d.cooldown) / 10.0f).substr(0, 3) + "/s. " +
+                                               (d.ranged && d.ammo >= 0 ? std::string("Shoots ") + ammoName(d.ammo) + ". " : "") + info;
         if (d.kind == ItemKind::Food) info = "Restores " + std::to_string(d.food) + " food. " + info;
         if (d.kind == ItemKind::Potion) info = (d.heal ? "Heals " + std::to_string(d.heal) + ". " : "") + (d.mana ? "Restores " + std::to_string(d.mana) + " mana." : "");
         if (d.kind == ItemKind::Scroll && d.spell >= 0) info = "Casts " + gData.spells[d.spell].name + ": " + gData.spells[d.spell].desc;
+        if (d.kind == ItemKind::Ammo) {   // its own bonuses, added to the bow's damage for each shot
+            static const char* ammoFor[AMMO_COUNT] = {"bows", "crossbows", "slings"};
+            static const char* elemName[] = {"", "arcane", "fire", "cold", "holy", "poison"};
+            std::string st = std::string("For ") + ammoFor[d.ammo < 0 ? 0 : d.ammo] + ": " + (d.toHit >= 0 ? "+" : "") + std::to_string(d.toHit) +
+                             " to hit, " + (d.toDam >= 0 ? "+" : "") + std::to_string(d.toDam) + " damage";
+            if (d.brand != Element::Physical) st += std::string(", ") + elemName[(int)d.brand];
+            info = st + ". " + info;
+        }
         if (d.kind == ItemKind::Wand || d.kind == ItemKind::Rod)
             info = gData.spells[d.spell].name + (d.kind == ItemKind::Rod ? " (recharges in " + std::to_string(d.recharge) + "s)" : "") +
                    ". Fail " + std::to_string(me_.deviceFail(d)) + "%. " + gData.spells[d.spell].desc;
@@ -1574,8 +1604,11 @@ void Client::drawShop(Renderer& r) {
         s.def = (int16_t)st.items[i];
         s.count = 1;
         s.fuel = d.fuel;
+        if (d.kind == ItemKind::Ammo) s.count = d.bundle;
         std::string n = d.kind == ItemKind::Light ? d.name : itemName(s);
-        r.text(x + 10, ry, n.substr(0, 34), price <= me_.gold ? (sel ? 0xFFFFFFFF : UI_TEXT) : 0xFF806050);
+        bool unneeded = d.kind == ItemKind::Ammo && !ammoRule_;   // Ammo option off: shots are free
+        if (unneeded) n = d.name + " (not needed)";
+        r.text(x + 10, ry, n.substr(0, 34), unneeded ? 0xFF706860 : price <= me_.gold ? (sel ? 0xFFFFFFFF : UI_TEXT) : 0xFF806050);
         std::string ps = std::to_string(price);
         r.text(x + 6 + colW - 4 - r.textW(ps), ry, ps, 0xFFFFD040);
     }
