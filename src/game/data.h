@@ -152,15 +152,16 @@ struct DifficultyRules {
     float xp = 1, gold = 1;
     float monsterCount = 1;   // multiplier for the number of monster groups
     // The Abyss: every dungeon level below the first adds per_level (e.g. 0.5 = +50%) of the
-    // base monster count, health, damage, xp and gold. Hidden = not in the difficulty menu.
-    float perLevel = 0;
+    // base monster health, damage, xp and gold, and count_per_level of the monster count.
+    // Hidden = not in the difficulty menu.
+    float perLevel = 0, countPerLevel = 0;
     bool hidden = false;
     // These rules as they apply on dungeon level 'depth' (only differs when perLevel > 0).
     DifficultyRules atDepth(int depth) const {
         DifficultyRules r = *this;
         if (perLevel <= 0 || depth <= 1) return r;
-        float f = 1 + perLevel * (depth - 1);
-        r.monsterCount *= f; r.monsterHp *= f; r.monsterDamage *= f;
+        float f = 1 + perLevel * (depth - 1), fc = 1 + countPerLevel * (depth - 1);
+        r.monsterCount *= fc; r.monsterHp *= f; r.monsterDamage *= f;
         r.xp *= f; r.gold *= f;
         r.monsterToHit += (depth - 1) / 2;
         return r;

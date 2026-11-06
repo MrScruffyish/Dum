@@ -11,7 +11,8 @@
 # xp / gold:     multipliers for experience and gold found
 # monster_count: multiplier for the number of monster groups
 # per_level:     each dungeon level below the first adds this much (0.5 = +50%) of the base
-#                monster count, health, damage, xp and gold; monster to-hit +1 every 2 levels
+#                monster health, damage, xp and gold; monster to-hit +1 every 2 levels
+# count_per_level: the same for the number of monsters (default: per_level)
 # hidden = yes:  not shown in the difficulty menu (used by The Abyss)
 
 [difficulty story]
@@ -78,14 +79,16 @@ respawn = 30
 xp = 1.25
 gold = 1.25
 
-# The Abyss (Adventure: The Abyss): starts like Easy and every level is 50% harder than the
-# first. Death sends the party back to half the depth. The deepest level goes on the high
+# The Abyss (Adventure: The Abyss): starts like Easy; every level the monsters get 50% (of
+# level 1's) stronger and 20% more numerous - besides the deeper, tougher kinds every
+# dungeon level brings anyway. Death sends the party back to half the depth. The deepest level goes on the high
 # score list.
 [difficulty abyss]
 name = The Abyss
-desc = Starts easy; every level down adds 50% more, stronger monsters.
+desc = Starts easy; every level down, monsters get 50% stronger and 20% more numerous.
 hidden = yes
 per_level = 0.5
+count_per_level = 0.2
 monster_damage = 0.6
 monster_hp = 0.75
 monster_tohit = -2

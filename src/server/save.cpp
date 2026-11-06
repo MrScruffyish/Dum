@@ -13,7 +13,7 @@
 namespace {
 
 const char kMagic[8] = {'D', 'U', 'M', 'S', 'A', 'V', 'E', '1'};
-constexpr uint16_t kSaveVersion = 9;   // 4: equipment slots, artifacts; 5: difficulty id; 6: campaigns; 7: quick slots, buffs; 8: poison, drain; 9: Abyss deaths
+constexpr uint16_t kSaveVersion = 10;  // 4: equipment slots, artifacts; 5: difficulty id; 6: campaigns; 7: quick slots, buffs; 8: poison, drain; 9: Abyss deaths; 10: second ring, key ring
 int gLoadVersion = kSaveVersion;
 
 void writeItem(Writer& w, const ItemStack& s) {
@@ -45,6 +45,7 @@ void writeChar(Writer& w, const SavedChar& c) {
     w.i32(s.gold);
     for (auto& it : s.inv) writeItem(w, it);
     for (auto& it : s.equip) writeItem(w, it);
+    for (uint8_t k : s.keys) w.u8(k);   // v10
     w.f32(s.blessT); w.f32(s.lightT); w.f32(s.detectT); w.f32(s.slowT);
     w.u8(s.dead);
     w.f32(s.respawnT);
@@ -78,8 +79,13 @@ SavedChar readChar(Reader& r) {
     s.food = r.f32();
     s.gold = r.i32();
     for (auto& it : s.inv) it = readItem(r);
-    if (gLoadVersion >= 4) {
+    if (gLoadVersion >= 10) {
         for (auto& it : s.equip) it = readItem(r);
+        for (uint8_t& k : s.keys) k = r.u8();
+    } else if (gLoadVersion >= 4) {
+        // weapon, armor, light, helm, ring, amulet (no second ring yet)
+        const int old[6] = {EQ_WEAPON, EQ_ARMOR, EQ_LIGHT, EQ_HELM, EQ_RING, EQ_AMULET};
+        for (int i = 0; i < 6; i++) s.equip[old[i]] = readItem(r);
     } else {  // version 3: weapon, armor, light only
         for (int i = 0; i < 3; i++) s.equip[i] = readItem(r);
     }

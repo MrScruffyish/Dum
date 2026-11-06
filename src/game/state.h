@@ -8,7 +8,7 @@
 #include "common/serialize.h"
 #include "game/data.h"
 
-constexpr uint16_t PROTOCOL_VERSION = 8;   // 8: data file checksums in C_HELLO
+constexpr uint16_t PROTOCOL_VERSION = 9;   // 8: data file checksums in C_HELLO; 9: second ring, key ring
 constexpr uint16_t DEFAULT_PORT = 27666;
 constexpr float TICK_DT = 1.0f / 30.0f;
 constexpr int INV_SIZE = 20;
@@ -85,9 +85,12 @@ struct EntSnap {
     void read(Reader& r);
 };
 
-enum EquipSlot { EQ_WEAPON, EQ_ARMOR, EQ_LIGHT, EQ_HELM, EQ_RING, EQ_AMULET, EQ_COUNT };
+// Two ring fingers. (Saves before version 10 had one ring, then the amulet.)
+enum EquipSlot { EQ_WEAPON, EQ_ARMOR, EQ_LIGHT, EQ_HELM, EQ_RING, EQ_RING2, EQ_AMULET, EQ_COUNT };
 // Which equipment slot an item goes into (-1 = not wearable).
 int equipSlotFor(const ItemDef& d);
+// Can this item be worn in that slot? (a ring fits either ring slot)
+bool fitsSlot(const ItemDef& d, int slot);
 extern const char* kEquipNames[EQ_COUNT];
 
 struct ItemStack {
@@ -113,6 +116,7 @@ struct PlayerState {
     float mp = 0, maxMp = 0;
     float food = 800;
     int gold = 0;
+    uint8_t keys[4] = {0, 0, 0, 0};   // the key ring: keys of each KeyColor (never take a pack slot)
     ItemStack inv[INV_SIZE];
     ItemStack equip[EQ_COUNT];
     float blessT = 0, lightT = 0, detectT = 0, slowT = 0;

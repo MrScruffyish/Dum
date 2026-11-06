@@ -316,6 +316,11 @@ void Server::rollCharacter(SPlayer& p, int cls) {
 // Make sure a character's quick slots and recharge timers fit its class (new or old saves).
 void Server::fixupChar(PlayerState& s) {
     s.recharge.resize(s.c().spells.size(), 0.0f);
+    for (auto& it : s.inv)   // keys carried in the pack (older saves) go on the key ring
+        if (!it.empty() && it.d().kind == ItemKind::Key && it.d().keyColor >= 0) {
+            s.keys[it.d().keyColor] = (uint8_t)std::min(99, s.keys[it.d().keyColor] + it.count);
+            it = ItemStack();
+        }
     for (auto& q : s.quick) {
         bool ok = (q >= 0 && q < (int)s.c().spells.size()) || (q >= QUICK_ITEM && q - QUICK_ITEM < (int)gData.items.size());
         if (!ok) q = -1;
@@ -724,9 +729,10 @@ void Server::newLevel(int depth, bool down) {
     for (auto& it : items_)
         if (it.item.d().artifact) { text(-1, COL_YELLOW, "You feel there is something special on this level..."); break; }
     if (abyss() && depth > 0) {
-        char buf[96];
-        std::snprintf(buf, sizeof buf, "The Abyss, level %d: monsters are %.1fx as many and as strong as on level 1.", depth,
-                      rules().monsterCount / difficultyRules(difficulty_).monsterCount);
+        char buf[120];
+        const DifficultyRules& base = difficultyRules(difficulty_);
+        std::snprintf(buf, sizeof buf, "The Abyss, level %d: monsters %.1fx as strong and %.1fx as many as on level 1.", depth,
+                      rules().monsterHp / base.monsterHp, rules().monsterCount / base.monsterCount);
         text(-1, COL_ORANGE, buf);
         if (deeper) recordScore();
     }
@@ -998,7 +1004,7 @@ void Server::updatePlayers(float dt) {
         for (size_t i = 0; i < items_.size(); i++) {
             const FloorItem& f = items_[i];
             if (dist(f.pos, p.pos) > 0.6f) continue;
-            bool gold = f.item.d().kind == ItemKind::Gold;
+            bool gold = f.item.d().kind == ItemKind::Gold || f.item.d().kind == ItemKind::Key;   // purse, key ring
             if (f.item.d().kind == ItemKind::Chest) continue;   // opened with E, never by walking over
             if (!gold && (!p.autoPickup || f.droppedBy == id || !canCarry(p, f.item))) continue;
             pickupItem(p, i, false);
@@ -1574,7 +1580,7 @@ void Server::onAction(SPlayer& p, Reader& r) {
             p.angle = saved;
             break;
         }
-        case A_INV_USE: useItem(p, x); break;
+        case A_INV_USE: useItem(p, x, y - 1); break;   // y = equipment slot + 1 (0 = where it goes)
         case A_INV_DROP: dropFromInv(p, x, y); break;
         case A_INV_GIVE: giveItem(p, x, y); break;
         case A_UNEQUIP: unequip(p, x); break;
@@ -2064,9 +2070,8 @@ void Server::doUse(SPlayer& p, bool doorsOnly) {
         if (t == T_DOOR_KEY) {
             p.useCd = 0.6f;
             int color = map_.keyDoorColor(x, y);
-            for (auto& slot : s.inv) {
-                if (slot.empty() || slot.d().kind != ItemKind::Key || slot.d().keyColor != color) continue;
-                if (--slot.count <= 0) slot = ItemStack();
+            if (s.keys[color] > 0) {
+                s.keys[color]--;
                 p.dirty = true;
                 map_.set(x, y, T_DOOR_OPEN);
                 sendTile(x, y);
@@ -2119,13 +2124,19 @@ void Server::doUse(SPlayer& p, bool doorsOnly) {
     }
 }
 
+// Same item, stackable, and (lights) the same fuel left: two fresh torches make "2 x Torch".
+static bool stacksWith(const ItemStack& a, const ItemStack& b) {
+    if (a.def != b.def || a.empty() || b.empty() || a.d().maxStack <= 1) return false;
+    return a.d().kind != ItemKind::Light || a.fuel == b.fuel;
+}
+
 bool Server::canCarry(const SPlayer& p, const ItemStack& it) const {
     const ItemDef& d = it.d();
-    if (d.kind == ItemKind::Gold) return true;
+    if (d.kind == ItemKind::Gold || d.kind == ItemKind::Key) return true;   // purse and key ring
     int left = it.count;
     for (auto& slot : p.st.inv) {
         if (slot.empty()) left -= d.maxStack;
-        else if (d.maxStack > 1 && slot.def == it.def) left -= d.maxStack - slot.count;
+        else if (stacksWith(slot, it)) left -= d.maxStack - slot.count;
         if (left <= 0) return true;
     }
     return left <= 0;
@@ -2136,10 +2147,15 @@ bool Server::addToInventory(SPlayer& p, const ItemStack& it) {
     PlayerState& s = p.st;
     const ItemDef& d = it.d();
     if (d.kind == ItemKind::Gold) { s.gold += it.count; p.dirty = true; return true; }
+    if (d.kind == ItemKind::Key && d.keyColor >= 0) {   // keys go on the key ring
+        s.keys[d.keyColor] = (uint8_t)std::min(99, s.keys[d.keyColor] + it.count);
+        p.dirty = true;
+        return true;
+    }
     int left = it.count;
     if (d.maxStack > 1)
         for (auto& slot : s.inv)
-            if (slot.def == it.def && slot.count < d.maxStack) {
+            if (stacksWith(slot, it) && slot.count < d.maxStack) {
                 int add = std::min(left, d.maxStack - slot.count);
                 slot.count += add;
                 left -= add;
@@ -2165,7 +2181,23 @@ void Server::pickupItem(SPlayer& p, size_t idx, bool quiet) {
         return;
     }
     FloorItem f = items_[idx];
-    if (!addToInventory(p, f.item)) { if (!quiet) text(p.st.id, COL_GREY, "Your pack is full."); return; }
+    if (!addToInventory(p, f.item)) {
+        ItemKind k = f.item.d().kind;
+        if (!quiet && (k == ItemKind::Food || k == ItemKind::Potion || k == ItemKind::Scroll)) {
+            // Pack full: eat, drink or read it right where it lies.
+            ItemStack here = f.item;
+            useStack(p, here, -1, -1);
+            for (size_t i = 0; i < items_.size(); i++)   // (using it may have changed the floor)
+                if (items_[i].id == f.id) {
+                    if (here.empty()) items_.erase(items_.begin() + i);
+                    else items_[i].item = here;
+                    break;
+                }
+            return;
+        }
+        if (!quiet) text(p.st.id, COL_GREY, "Your pack is full.");
+        return;
+    }
     items_.erase(items_.begin() + idx);
     if (f.item.d().artifact) text(-1, COL_YELLOW, p.st.name + " has found " + f.item.d().name + "!");
     else text(p.st.id, COL_WHITE, "You pick up " + itemName(f.item) + ".");
@@ -2173,12 +2205,18 @@ void Server::pickupItem(SPlayer& p, size_t idx, bool quiet) {
     if (f.item.d().kind == ItemKind::Quest) questPickup(f.item.def);
 }
 
-void Server::useItem(SPlayer& p, int slot) {
+void Server::useItem(SPlayer& p, int slot, int target) {
     if (slot < 0 || slot >= INV_SIZE) return;
+    useStack(p, p.st.inv[slot], slot, target);
+}
+
+// Use one of the items in 'it': from the pack (invSlot >= 0) or lying on the floor
+// (invSlot = -1: food, potions and scrolls only). target: equipment slot to put it in, or -1.
+void Server::useStack(SPlayer& p, ItemStack& it, int slot, int target) {
     PlayerState& s = p.st;
-    ItemStack& it = s.inv[slot];
     if (it.empty()) return;
     const ItemDef& d = it.d();
+    if (slot < 0 && d.kind != ItemKind::Food && d.kind != ItemKind::Potion && d.kind != ItemKind::Scroll) return;
     auto consume = [&]() { if (--it.count <= 0) it = ItemStack(); };
     p.dirty = true;
     switch (d.kind) {
@@ -2189,7 +2227,7 @@ void Server::useItem(SPlayer& p, int slot) {
                 int cap = d.fuel * 5 / 2;
                 if (held.fuel >= cap) { text(s.id, COL_GREY, "Your torch can't burn any longer than it already does."); break; }
                 held.fuel = std::min(cap, held.fuel + it.fuel);
-                it = ItemStack();
+                if (--it.count <= 0) it = ItemStack();   // one torch of a stack
                 text(s.id, COL_WHITE, "You combine the torches. " + itemName(held) + " - it burns brighter for longer.");
                 break;
             }
@@ -2199,8 +2237,22 @@ void Server::useItem(SPlayer& p, int slot) {
         case ItemKind::Helm:
         case ItemKind::Ring:
         case ItemKind::Amulet: {
-            int eq = equipSlotFor(d);
-            std::swap(s.equip[eq], it);
+            int eq = (target >= 0 && target < EQ_COUNT && fitsSlot(d, target)) ? target : equipSlotFor(d);
+            // A second ring goes on the other hand.
+            if (target < 0 && eq == EQ_RING && !s.equip[EQ_RING].empty() && s.equip[EQ_RING2].empty()) eq = EQ_RING2;
+            if (it.count > 1) {
+                // From a stack (torches): take one, and the old one goes into the pack.
+                ItemStack one = it, old = s.equip[eq];
+                one.count = 1;
+                it.count--;
+                s.equip[eq] = one;
+                if (!old.empty() && !addToInventory(p, old)) {
+                    dropItem(old, p.pos);
+                    text(s.id, COL_GREY, "Your pack is full; you drop " + itemName(old) + ".");
+                }
+            } else {
+                std::swap(s.equip[eq], it);
+            }
             text(s.id, d.artifact ? COL_YELLOW : COL_WHITE, "You are now using " + itemName(s.equip[eq]) + ".");
             break;
         }

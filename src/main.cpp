@@ -682,7 +682,7 @@ struct App {
             }
             if (sel >= 0 && sel < (int)items.size() && items[sel].first == M_ADVENTURE) {
                 int ci = gData.findCampaign(set.adventure);
-                std::string d = abyssChosen() ? "Starts easy, every level 50% harder. Dying sends you halfway back up. How deep can you go?"
+                std::string d = abyssChosen() ? "Starts easy; monsters +50% stronger, +20% more each level. Dying sends you halfway up."
                                 : ci < 0 ? "Descend forever. Bosses wait on levels 3, 6, 9, 12, 15 and 20." : gData.campaigns[ci].desc;
                 R.text((R.W - R.textW(d)) / 2, R.H - 28, d.substr(0, 104), 0xFFB0A890);
             }

@@ -282,14 +282,33 @@ int Client::nearestPlayerId(float maxDist) const {
 
 bool Client::invFits(int packSlot, int equipSlot) const {
     const ItemStack& s = me_.inv[packSlot];
-    return !s.empty() && equipSlotFor(s.d()) == equipSlot;
+    return !s.empty() && fitsSlot(s.d(), equipSlot);
+}
+
+// Where Enter puts this item: its slot, or for a ring the free hand (else the first ring).
+int Client::wearSlot(const ItemDef& d) const {
+    int eq = equipSlotFor(d);
+    if (eq == EQ_RING && !me_.equip[EQ_RING].empty() && me_.equip[EQ_RING2].empty()) return EQ_RING2;
+    return eq;
 }
 
 // Move the cursor; while replacing equipment it only stops on pack items that fit.
+// Up/Down follow the screen: down a column of equipment, from the bottom of either column
+// to item a, and from item a back up to the bottom of the left column.
 void Client::invStep(int dir) {
     if (invPick_ < 0) {
-        int rows = EQ_COUNT + INV_SIZE;
-        invSel_ = (invSel_ + rows + dir) % rows;
+        if (invSel_ < EQ_COUNT) {
+            int col = invSel_ / EQ_ROWS, row = invSel_ % EQ_ROWS + dir;
+            int colLen = std::min(EQ_ROWS, EQ_COUNT - col * EQ_ROWS);
+            if (row < 0) invSel_ = EQ_COUNT + INV_SIZE - 1;   // up from the top: the last pack row
+            else if (row >= colLen) invSel_ = EQ_COUNT;        // down from the bottom: item a
+            else invSel_ = col * EQ_ROWS + row;
+        } else {
+            int p = invSel_ - EQ_COUNT + dir;
+            if (p < 0) invSel_ = EQ_ROWS - 1;                  // up from item a: bottom of the left column
+            else if (p >= INV_SIZE) invSel_ = 0;               // down from the last row: the weapon
+            else invSel_ = EQ_COUNT + p;
+        }
         return;
     }
     int cur = invSel_ - EQ_COUNT;
@@ -303,7 +322,7 @@ void Client::invStep(int dir) {
 std::string Client::invUseLabel(const ItemStack& s) const {
     if (s.empty()) return "";
     const ItemDef& d = s.d();
-    int eq = equipSlotFor(d);
+    int eq = wearSlot(d);
     if (eq >= 0) {
         const ItemStack& cur = me_.equip[eq];
         if (d.id == "torch" && !cur.empty() && cur.def == s.def) return "add to your burning torch (combine)";
@@ -332,7 +351,7 @@ void Client::invAction(SDL_Keycode k) {
         else if (k == SDLK_DOWN || k == SDLK_s || k == SDLK_TAB) invStep(1);
         else if (enter) {
             int slot = invSel_ - EQ_COUNT;
-            if (slot >= 0 && invFits(slot, invPick_)) action(A_INV_USE, slot);
+            if (slot >= 0 && invFits(slot, invPick_)) action(A_INV_USE, slot, invPick_ + 1);   // into this very slot
             invSel_ = invPick_;
             invPick_ = -1;
         } else if (k == SDLK_BACKSPACE || k == SDLK_LEFT || k == SDLK_ESCAPE) {
@@ -347,6 +366,12 @@ void Client::invAction(SDL_Keycode k) {
     }
     if (k == SDLK_UP || k == SDLK_w) invStep(-1);
     else if (k == SDLK_DOWN || k == SDLK_s) invStep(1);
+    else if ((k == SDLK_LEFT || k == SDLK_RIGHT) && invSel_ < EQ_COUNT) {
+        // The other equipment column, same row (or its last one).
+        int col = 1 - invSel_ / EQ_ROWS, row = invSel_ % EQ_ROWS;
+        int colLen = std::min(EQ_ROWS, EQ_COUNT - col * EQ_ROWS);
+        invSel_ = col * EQ_ROWS + std::min(row, colLen - 1);
+    }
     else if (k == SDLK_PAGEUP) invSel_ = std::max(0, invSel_ - 5);
     else if (k == SDLK_PAGEDOWN) invSel_ = std::min(rows - 1, invSel_ + 5);
     bool equipRow = invSel_ < EQ_COUNT;
@@ -476,6 +501,7 @@ void Client::event(const SDL_Event& e) {
     if (ui_ == Ui::Inventory && !kb.is(K_INVENTORY, sc) && !kb.is(K_MAP, sc)) { invAction(k); return; }
     if (ui_ == Ui::Shop) { shopKey(k); return; }
     if (ui_ == Ui::Spells && !kb.is(K_SPELLBOOK, sc)) { bookKey(k); return; }
+    if (ui_ == Ui::Travel) { travelKey(kb.is(K_TRAVEL, sc) ? SDLK_RETURN : k); return; }
     if (e.key.repeat) return;
 
     // Screens (also close themselves when pressed again).
@@ -494,7 +520,7 @@ void Client::event(const SDL_Event& e) {
         autoFight_ = !autoFight_;
         addLog(autoFight_ ? "Auto-fight ON: you attack nearby awake monsters by yourself." : "Auto-fight off.", UI_HI);
     } else if (kb.is(K_EXPLORE, sc)) startAuto(Auto::Explore);
-    else if (kb.is(K_TRAVEL, sc)) startAuto(Auto::Travel);
+    else if (kb.is(K_TRAVEL, sc)) openTravelMenu();
     else if (kb.is(K_AUTOWALK, sc)) { autoWalk_ = !autoWalk_; stopAuto(""); addLog(autoWalk_ ? "Auto-walk on." : "Auto-walk off.", UI_DIM); }
     else if (kb.is(K_FACE, sc)) faceT_ = 1.5f;
     else if (kb.is(K_ATTACK, sc)) attackHeld_ = true;
@@ -858,6 +884,7 @@ void Client::draw(Renderer& r) {
         case Ui::Menu: drawMenu(r); break;
         case Ui::Shop: drawShop(r); break;
         case Ui::Spells: drawSpellBook(r); break;
+        case Ui::Travel: drawTravel(r); break;
         case Ui::Chat: {
             r.fill(4, r.H - 66, r.W - 8, 12, 0xFF000000, 200);
             r.text(8, r.H - 64, "Say: " + chat_ + ((int)(time_ * 2) % 2 ? "_" : ""), UI_TEXT);
@@ -1056,6 +1083,16 @@ void Client::drawHud(Renderer& r) {
     r.text(rx + 48, by + 14, "STR " + std::to_string(me_.stat(STR)) + " DEX " + std::to_string(me_.stat(DEX)), UI_DIM);
     r.text(rx, by + 24, map_.depth ? "Depth " + std::to_string(map_.depth) : std::string("Town"), UI_TEXT);
     r.text(rx + 66, by + 24, "Gold " + std::to_string(me_.gold), 0xFFFFD040);
+    {   // the key ring: a small coloured key for each key you carry
+        const uint32_t kc[KEY_COUNT] = {0xFFFF4040, 0xFF5090FF, 0xFF50E060, 0xFFFFE040};
+        int kx = rx + 66 + r.textW("Gold " + std::to_string(me_.gold)) + 8;
+        for (int c = 0; c < KEY_COUNT; c++)
+            for (int n = 0; n < std::min<int>(me_.keys[c], 3); n++, kx += 9) {
+                r.fill(kx, by + 25, 4, 4, kc[c]);
+                r.fill(kx + 4, by + 26, 4, 2, kc[c]);
+                r.fill(kx + 6, by + 28, 1, 2, kc[c]);
+            }
+    }
     r.text(rx, by + 34, "XP " + std::to_string(me_.xp) + "/" + std::to_string(me_.xpForNext()), UI_DIM);
 
     // Party list
@@ -1093,7 +1130,7 @@ void Client::drawHud(Renderer& r) {
                                                       {keys_->label(K_AUTOPICKUP), pick}, {keys_->label(K_HELP), "help"},
                                                       {keys_->label(K_LEGEND), "hide"}};
         std::pair<std::string, std::string> keys2[] = {{keys_->label(K_AUTOFIGHT), autoFight_ ? "auto-fight:ON" : "auto-fight"},
-                                                       {keys_->label(K_EXPLORE), "explore"}, {keys_->label(K_TRAVEL), "go to stairs"},
+                                                       {keys_->label(K_EXPLORE), "explore"}, {keys_->label(K_TRAVEL), "travel"},
                                                        {keys_->label(K_AUTOWALK), "auto-walk"}, {keys_->label(K_FACE), "face enemy"},
                                                        {keys_->label(K_SPELLBOOK), "spells"}, {keys_->label(K_USE), "use"}};
         auto legendRow = [&](const auto& arr, int ly) {
@@ -1176,12 +1213,15 @@ void Client::drawInventory(Renderer& r) {
         invStep(1);
         if (invSel_ < EQ_COUNT || !invFits(invSel_ - EQ_COUNT, invPick_)) { invSel_ = invPick_; invPick_ = -1; }
     }
-    panel(r, x, y, w, h, "Inventory - " + std::to_string(me_.gold) + " gold");
+    std::string keyRing;
+    for (int c = 0; c < KEY_COUNT; c++)
+        if (me_.keys[c]) keyRing += std::string(keyRing.empty() ? "" : ", ") + keyColorName(c) + (me_.keys[c] > 1 ? " x" + std::to_string(me_.keys[c]) : "");
+    panel(r, x, y, w, h, "Inventory - " + std::to_string(me_.gold) + " gold" + (keyRing.empty() ? "" : " - keys: " + keyRing));
     // Which equipment slot is in focus: the one being replaced, the selected one, or the one the
     // selected pack item would go into. Pack items that fit it are marked green.
     bool equipRow = invSel_ < EQ_COUNT;
     const ItemStack& selStack = equipRow ? me_.equip[invSel_] : me_.inv[invSel_ - EQ_COUNT];
-    int focusEq = invPick_ >= 0 ? invPick_ : equipRow ? invSel_ : (selStack.empty() ? -1 : equipSlotFor(selStack.d()));
+    int focusEq = invPick_ >= 0 ? invPick_ : equipRow ? invSel_ : (selStack.empty() ? -1 : wearSlot(selStack.d()));
     const uint32_t FIT = 0xFF80E080, HILITE = 0xFF4A3A20, TARGET = 0xFF24402A;
     int ry = y + 20;
     auto row = [&](int idx, const std::string& label, const ItemStack& s) {
@@ -1196,9 +1236,9 @@ void Client::drawInventory(Renderer& r) {
         r.text(x + 34, ry, itemName(s).substr(0, 63), c);
         ry += 10;
     };
-    // Equipment in two columns, then the pack.
+    // Equipment in two columns (weapon, armor, light, helm | ring, ring, amulet), then the pack.
     for (int i = 0; i < EQ_COUNT; i++) {
-        int col = i / 3, rowi = i % 3;
+        int col = i / EQ_ROWS, rowi = i % EQ_ROWS;
         int ex = x + 10 + col * 205, ey = y + 20 + rowi * 10;
         bool sel = i == invSel_ || i == invPick_;
         if (sel) r.fill(ex - 4, ey - 1, 202, 10, HILITE);
@@ -1208,7 +1248,7 @@ void Client::drawInventory(Renderer& r) {
         uint32_t c = es.empty() ? 0xFF605850 : es.d().artifact ? 0xFFFFC040 : (sel ? 0xFFFFFFFF : UI_TEXT);
         r.text(ex + 42, ey, itemName(es).substr(0, 25), c);
     }
-    ry = y + 20 + 30 + 4;
+    ry = y + 20 + EQ_ROWS * 10 + 4;
     for (int i = 0; i < INV_SIZE; i++) {
         std::string lbl = std::string(1, (char)('a' + i)) + ")";
         row(EQ_COUNT + i, lbl, me_.inv[i]);
@@ -1237,7 +1277,7 @@ void Client::drawInventory(Renderer& r) {
     } else if (equipRow) {
         bool any = false;
         for (int i = 0; i < INV_SIZE; i++) any |= invFits(i, invSel_);
-        if (any) hint = "Enter: replace with a green item   U: take off   Esc: close";
+        if (any) hint = "Enter: replace (green items)  U: take off  Left/Right: column";
         else if (!s.empty()) hint = "Enter/U: take off (nothing in your pack fits)   Esc: close";
         else hint = "Nothing in your pack fits here      Esc: close";
     } else if (!s.empty()) {
@@ -1391,10 +1431,10 @@ void Client::drawMenu(Renderer& r) {
 int Client::invRowAt(int mx, int my) const {
     if (mx < invX_ + 6 || mx > invX_ + invW_ - 6) return -1;
     for (int i = 0; i < EQ_COUNT; i++) {
-        int ex = invX_ + 10 + (i / 3) * 205, ey = invY_ + 20 + (i % 3) * 10;
+        int ex = invX_ + 10 + (i / EQ_ROWS) * 205, ey = invY_ + 20 + (i % EQ_ROWS) * 10;
         if (mx >= ex - 4 && mx < ex + 198 && my >= ey - 1 && my < ey + 9) return i;
     }
-    int ry = invY_ + 20 + 30 + 4;
+    int ry = invY_ + 20 + EQ_ROWS * 10 + 4;
     for (int i = 0; i < INV_SIZE; i++, ry += 10)
         if (my >= ry - 1 && my < ry + 9) return EQ_COUNT + i;
     return -1;
@@ -1419,6 +1459,13 @@ std::string Client::usePrompt() const {
         s.count = std::max<int>(1, items[i]->s.extra);
         std::string n = itemName(s);
         if (s.d().kind == ItemKind::Light) n = s.d().name;  // fuel unknown here
+        // Pack full: food, potions and scrolls can be used where they lie.
+        ItemKind k = s.d().kind;
+        bool room = k == ItemKind::Gold || k == ItemKind::Key;
+        for (auto& slot : me_.inv)
+            if (slot.empty() || (slot.def == s.def && s.d().maxStack > 1 && slot.count < s.d().maxStack && k != ItemKind::Light)) room = true;
+        if (!room && (k == ItemKind::Food || k == ItemKind::Potion || k == ItemKind::Scroll))
+            return "[" + keys_->label(K_USE) + "] " + (k == ItemKind::Food ? "Eat " : k == ItemKind::Potion ? "Drink " : "Read ") + n + " (your pack is full)";
         return "[" + keys_->label(K_USE) + "] Pick up " + n;
     }
     uint8_t under = map_.at((int)pos_.x, (int)pos_.y);
@@ -1437,9 +1484,7 @@ std::string Client::usePrompt() const {
             case T_DOOR_LOCKED: return "[" + keys_->label(K_USE) + "] Pick the lock (or keep walking into it)";
             case T_DOOR_KEY: {
                 int c = map_.keyDoorColor(x, y);
-                for (auto& it : me_.inv)
-                    if (!it.empty() && it.d().kind == ItemKind::Key && it.d().keyColor == c)
-                        return "[" + keys_->label(K_USE) + "] Unlock the " + keyColorName(c) + " door with your key";
+                if (me_.keys[c]) return "[" + keys_->label(K_USE) + "] Unlock the " + keyColorName(c) + " door with your key";
                 return std::string("A ") + keyColorName(c) + " lock: you need the " + keyColorName(c) + " key";
             }
             case T_RUBBLE: return "[" + keys_->label(K_USE) + "] Dig through the rubble (or walk into it)";

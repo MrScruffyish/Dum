@@ -243,7 +243,7 @@ light = 4
 fuel = 600
 depth = 1
 rarity = 5
-stack = 1
+stack = 5
 value = 1
 
 [item lantern]

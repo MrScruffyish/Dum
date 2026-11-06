@@ -471,6 +471,7 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
         d.gold = g.f("gold", 1);
         d.monsterCount = g.f("monster_count", 1);
         d.perLevel = g.f("per_level", 0);
+        d.countPerLevel = g.f("count_per_level", d.perLevel);
         d.hidden = g.b("hidden", false);
         difficulties.push_back(d);
     }

@@ -30,7 +30,7 @@ struct LogLine {
     double time;
 };
 
-enum class Ui { None, Inventory, Character, Quests, Map, Help, Chat, Menu, Shop, Spells };
+enum class Ui { None, Inventory, Character, Quests, Map, Help, Chat, Menu, Shop, Spells, Travel };
 
 class Client {
 public:
@@ -84,6 +84,15 @@ public:
 private:
     enum class Auto { None, Explore, Travel };
     Auto auto_ = Auto::None;
+    // Travel (G): where to. The menu lists what has been found so far.
+    enum class Dest { StairsDown, StairsUp, KeyDoor, Chest };
+    struct TravelDest { Dest kind; int x, y; std::string label; };
+    std::vector<TravelDest> travelOpts_;
+    int travelSel_ = 0;
+    TravelDest travel_{Dest::StairsDown, 0, 0, ""};
+    void openTravelMenu();
+    void travelKey(SDL_Keycode k);
+    void drawTravel(Renderer& r);
     bool autoWalk_ = false, autoFight_ = false;
     std::vector<std::pair<int, int>> path_;
     float repathT_ = 0, stuckT_ = 0, faceT_ = 0;
@@ -184,6 +193,8 @@ private:
     void drawShop(Renderer& r);
     int invRowAt(int mx, int my) const;
     bool invFits(int packSlot, int equipSlot) const;
+    int wearSlot(const ItemDef& d) const;
+    static constexpr int EQ_ROWS = 4;   // equipment rows in the inventory panel
     void invStep(int dir);
     std::string invUseLabel(const ItemStack& s) const;
 

@@ -388,6 +388,7 @@ int main(int argc, char** argv) {
                 if (m.at(x, y) != T_DOOR_KEY) continue;
                 int color = m.keyDoorColor(x, y);
                 sk.debugGive(b.id, std::string("key_") + keyColorName(color));
+                CHECK(sk.debugPlayer(b.id)->keys[color] == 1, "key not on the key ring");
                 // Stand on the open side of the door, facing it.
                 for (int k = 0; k < 4; k++) {
                     int nx = x + (k == 0) - (k == 1), ny = y + (k == 2) - (k == 3);
@@ -399,12 +400,54 @@ int main(int argc, char** argv) {
                 b.action(A_USE);
                 for (int t = 0; t < 3; t++) { sk.tick(); b.poll(); }
                 CHECK(m.at(x, y) == T_DOOR_OPEN, "the %s key did not open its door", keyColorName(color));
-                bool keyLeft = false;
-                for (auto& it : sk.debugPlayer(b.id)->inv) if (!it.empty() && it.d().kind == ItemKind::Key) keyLeft = true;
-                CHECK(!keyLeft, "key not used up");
+                CHECK(sk.debugPlayer(b.id)->keys[color] == 0, "key not used up");
                 y = m.h; break;
             }
         std::printf("keys and chests ok (%d vaults, %d chests)\n", vaults, chests);
+    }
+    {   // Torches stack, two rings, and a full pack uses scrolls from the floor.
+        auto nr = std::make_shared<ServerNet>();
+        Bot b;
+        nr->attachLoopback(b.pipe);
+        Server sr(nr, 99);
+        b.hello(0);   // warrior: holds a torch, carries another
+        for (int t = 0; t < 5; t++) { sr.tick(); b.poll(); }
+        PlayerState* ps = sr.debugPlayer(b.id);
+        sr.debugGive(b.id, "torch,torch");
+        int torchSlots = 0, torches = 0;
+        for (auto& it : ps->inv) if (!it.empty() && it.d().id == "torch") { torchSlots++; torches += it.count; }
+        CHECK(torchSlots == 1 && torches == 3, "torches: %d in %d slots (want 3 in 1)", torches, torchSlots);
+        // Holding a torch from a stack takes just one.
+        int ts = -1;
+        for (int i = 0; i < INV_SIZE; i++) if (!ps->inv[i].empty() && ps->inv[i].d().id == "torch") ts = i;
+        ps->equip[EQ_LIGHT] = ItemStack();
+        b.action(A_INV_USE, ts);
+        for (int t = 0; t < 3; t++) { sr.tick(); b.poll(); }
+        CHECK(!ps->equip[EQ_LIGHT].empty() && ps->equip[EQ_LIGHT].count == 1 && ps->inv[ts].count == 2, "holding one torch of a stack");
+        // Two rings: the second goes on the other hand; a chosen slot is respected.
+        sr.debugGive(b.id, "ring_protection,ring_accuracy,ring_damage");
+        auto slotOf = [&](const char* id) { for (int i = 0; i < INV_SIZE; i++) if (!ps->inv[i].empty() && ps->inv[i].d().id == id) return i; return -1; };
+        b.action(A_INV_USE, slotOf("ring_protection"));
+        for (int t = 0; t < 3; t++) { sr.tick(); b.poll(); }
+        b.action(A_INV_USE, slotOf("ring_accuracy"));
+        for (int t = 0; t < 3; t++) { sr.tick(); b.poll(); }
+        CHECK(!ps->equip[EQ_RING].empty() && !ps->equip[EQ_RING2].empty(), "two rings not worn");
+        b.action(A_INV_USE, slotOf("ring_damage"), EQ_RING2 + 1);
+        for (int t = 0; t < 3; t++) { sr.tick(); b.poll(); }
+        CHECK(ps->equip[EQ_RING2].d().id == "ring_damage" && ps->equip[EQ_RING].d().id == "ring_protection", "replacing the second ring");
+        // Fill the pack, put a scroll on the floor in front: E reads it where it lies.
+        for (auto& it : ps->inv) if (it.empty()) { it.def = (int16_t)gData.findItem("dagger"); it.count = 1; }
+        Vec2 at(sr.map().startX + 0.5f, sr.map().startY + 0.5f);
+        sr.debugMovePlayer(b.id, at);
+        sr.debugFace(b.id, 0);
+        int before = sr.floorItemCount();
+        sr.debugDrop(b.id, "scroll_light");
+        CHECK(sr.floorItemCount() == before + 1, "scroll not dropped");
+        sr.debugFace(b.id, 0);
+        b.action(A_USE);
+        for (int t = 0; t < 3; t++) { sr.tick(); b.poll(); }
+        CHECK(sr.floorItemCount() == before, "full pack: scroll on the floor was not read (%d items, want %d)", sr.floorItemCount(), before);
+        std::printf("torch stacks, two rings, reading from the floor ok\n");
     }
     {   // Joining with different data files: refused, told which files, and nothing is sent.
         auto nd = std::make_shared<ServerNet>();

@@ -148,16 +148,35 @@ left.
   the red, dim or golden look, the E prompt and the map dots. `SpellType::Treasure` sets
   `CHEST_KNOWN` within its radius. Players with the `search` skill roll every half second
   to notice what an undetected chest within 2 tiles holds.
-- **Unlocking:** `doUse` on a `T_DOOR_KEY` looks for a key of that colour in the pack,
-  uses it up and opens the door (it becomes `T_DOOR_OPEN`). Walking into the door does the
+- **Keys** never take a pack slot: `addToInventory` puts them on `PlayerState::keys[colour]`
+  (the key ring, sent to the owner and saved since protocol 9 / save version 10), and
+  auto-pickup takes them like gold. `fixupChar` moves keys out of the pack in older saves.
+- **Unlocking:** `doUse` on a `T_DOOR_KEY` checks the key ring for that colour, uses one
+  and opens the door (it becomes `T_DOOR_OPEN`). Walking into the door does the
   same (bump-to-open). Monsters can't open these doors, and Stone to Mud can't dig them.
+
+## Items: stacks, rings, using from the floor
+
+- `stacksWith` decides what merges in the pack: same item, stackable, and for lights the same
+  fuel left (so fresh torches stack). Using a light or wearable from a stack takes one;
+  the item it replaces goes back into the pack.
+- There are two ring slots (`EQ_RING`, `EQ_RING2`; `fitsSlot` says a ring fits either).
+  `A_INV_USE` carries the target slot (+1, 0 = automatic): the replace mode sends it, and
+  otherwise a ring goes on the free hand. Saves before version 10 had six slots and are
+  mapped on load.
+- `useItem` uses an inventory slot through `useStack`, which also works on a floor item's
+  stack: with a full pack, `pickupItem` eats, drinks or reads food, potions and scrolls
+  where they lie.
+- Single player pauses while a menu is open, but `Server::pausedTick` still handles the
+  player's actions and sends the result, so inventory and shop changes show at once.
 
 ## The Abyss
 
 The Abyss is a hidden difficulty (`hidden = yes`, `per_level = 0.5` in
 `data/difficulty.txt`), not a separate game mode. `DifficultyRules::atDepth(depth)` scales
-the monster count, health, damage, xp and gold by `1 + per_level x (depth - 1)` and adds
-to-hit every 2 levels. `Server::rules()` returns that, cached per depth. Monster groups
+monster health, damage, xp and gold by `1 + per_level x (depth - 1)`, the monster count by
+`1 + count_per_level x (depth - 1)`, and adds to-hit every 2 levels. It replaces the menu's
+difficulty completely. `Server::rules()` returns that, cached per depth. Monster groups
 are capped at 45 per level. `Server::abyss()` is simply "the difficulty has `per_level`".
 A party wipe there doesn't restart: `checkPartyWipe` counts a death, records the score,
 and after 6 s revives everyone on level `(depth + 1) / 2`. Levels never collapse in the

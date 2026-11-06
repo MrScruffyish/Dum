@@ -59,7 +59,7 @@ hasn't been tested.
 | B | **spell book**: every spell/technique of your class and your wands and rods. Press 1-9 to put the selected one on that key, Del to take it off, Enter to choose it. New spells and devices go on a free key by themselves |
 | E / Space | use: pick up items, open/close doors, pick locks, clear rubble, take stairs (a prompt shows what E will do) |
 | P | auto-pickup on/off (on by default: walking over items picks them up when your pack has room) |
-| I | inventory: W/S or mouse to select, Enter or double-click to use, eat, wear or wield (the bottom line says what Enter will do), D drop, Shift+D drop one, G give to ally. **To swap equipment**, select a worn slot (e.g. Armor) and press Enter: the pack items that fit it are marked green, pick one with W/S and press Enter. U takes the item off |
+| I | inventory: W/S, arrow keys or mouse to select (Left/Right switch between the two equipment columns; Down from the bottom of either goes to item a), Enter or double-click to use, eat, wear or wield (the bottom line says what Enter will do), D drop, Shift+D drop one, G give to ally. **To swap equipment**, select a worn slot (e.g. Armor) and press Enter: the pack items that fit it are marked green, pick one with W/S and press Enter. U takes the item off. You have two ring fingers: a new ring goes on the free hand, or pick which ring to replace |
 | C / J | character sheet / quest journal |
 | Tab / M | dungeon map |
 | H / X | quaff a healing potion / eat something (X picks the food that fits your hunger best; to eat a particular food, select it in the inventory and press Enter) |
@@ -70,7 +70,7 @@ hasn't been tested.
 | F3 | show the frame rate |
 | Q | **auto-fight** on/off: attack nearby awake monsters by yourself, turning toward them (casters use their selected attack spell while they have mana) |
 | Z | **auto-explore**: walk to unexplored places and items, stops when a new monster appears or you get hurt |
-| G | **travel** to the stairs down |
+| G | **travel**: a menu of the places you have found — stairs down, stairs up, coloured doors (and whether you have the key), the nearest unopened chest. G or Enter takes the first, 1-9 picks one. With only one place known, G goes straight there |
 | R | auto-walk forward on/off |
 | V | face the nearest monster |
 
@@ -123,13 +123,17 @@ files. Everything is explained in **[docs/CAMPAIGNS.md](docs/CAMPAIGNS.md)**.
 ## The Abyss (high scores)
 
 Choose **Adventure: The Abyss** in the main menu. It is the endless dungeon, but it starts at
-about Easy and every level down adds another 50% of level 1's monster count, health and
-damage (level 3 = 2x, level 5 = 3x, level 9 = 5x; to-hit also creeps up). XP and gold grow the
-same way, so you can keep up for a while. When the whole party dies you wake up halfway back
+about Easy, and every level down the monsters get another 50% of level 1's health and damage
+(level 3 = 2x, level 5 = 3x, level 9 = 5x as strong; to-hit also creeps up) and 20% more of
+them (level 6 = 2x as many). That comes on top of the deeper, tougher kinds of monster every
+dungeon level brings anyway. XP and gold grow with the strength, so you can keep up for a
+while. The Abyss ignores the Difficulty setting in the menu: everyone climbs the same ladder,
+so the high scores compare. When the whole party dies you wake up halfway back
 up (die on level 9 and you're back on level 5) with everything you carry. The deepest level
 reached, the number of deaths and where you first died go on **High scores: The Abyss** in
 the main menu (`abyss_scores.txt` next to the saves). Levels don't collapse in The Abyss. The
-numbers are in `[difficulty abyss]` in `data/difficulty.txt` (`per_level = 0.5`).
+numbers are in `[difficulty abyss]` in `data/difficulty.txt` (`per_level = 0.5`,
+`count_per_level = 0.2`).
 A dedicated server runs it with `--campaign abyss`.
 
 ## The town, recall and collapsed levels
@@ -153,8 +157,10 @@ A dedicated server runs it with `--campaign abyss`.
 - **Coloured doors** (red, blue, green, yellow) can't be picked or bashed. From level 2 on,
   a level may have a *vault*: a dead-end room behind such a door. "A door with a coloured
   lock guards a treasure" tells you when there is one. Its key lies somewhere you can reach
-  without it. Walk into the door (or press E) with the key in your pack to open it; the key
-  is used up. A coloured door shows on the map in its colour.
+  without it. Keys go on your **key ring**: they are always picked up, take no pack slot,
+  and show in the inventory title and as small coloured keys next to your gold. Walk into
+  the door (or press E) with its key to open it; the key is used up. A coloured door shows
+  on the map in its colour, and G can take you there.
 - **Chests** stand in rooms, and vaults hold one or two richer ones. Press E in front of
   one to open it: gold and items, nothing at all, or a **trap** (poison needle, gas, fire,
   monsters appearing, an alarm that wakes the whole level, a rune that teleports you away).
@@ -179,8 +185,10 @@ A dedicated server runs it with `--campaign abyss`.
   how many monsters there are, hunger and torch burn rate, respawn time, rewards, and whether
   a dead party starts over or gets back up.
   The host's setting applies in co-op. See [docs/BALANCING.md](docs/BALANCING.md).
-- **Torches:** use a spare torch while holding one to combine them (more fuel, and a bit
-  brighter).
+- **Torches:** spare torches with the same time left stack ("2 x Torch (10:00)"). Use a spare
+  torch while holding one to combine them (more fuel, and a bit brighter).
+- **Pack full?** Press E on food, a potion or a scroll lying on the floor to eat, drink or read
+  it right there (the prompt says so).
 - **Rubble** (rocks with a dark gap above them) blocks some passages. Walk into it or press E
   a few times to dig through. Going **up** stairs asks for a second E press.
 - Settings and saves are stored in `~/.local/share/dum/dum/` (Linux) or

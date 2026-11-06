@@ -22,7 +22,7 @@ struct KeyBinds {
                                          "Run", "Attack", "Cast spell", "Use / open / pick up", "Inventory", "Character sheet",
                                          "Quest journal", "Map", "Quaff healing potion", "Eat", "Auto-pickup on/off", "Chat",
                                          "Help", "Key legend on/off", "Auto-fight on/off", "Auto-explore",
-                                         "Travel to the stairs", "Auto-walk forward on/off", "Face nearest monster",
+                                         "Travel (stairs, doors, chests)", "Auto-walk forward on/off", "Face nearest monster",
                                          "Spell book / abilities"};
         return n[a];
     }

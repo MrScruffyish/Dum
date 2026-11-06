@@ -1,7 +1,12 @@
 // Dum - shared state serialization and rule helpers.
 #include "game/state.h"
 
-const char* kEquipNames[EQ_COUNT] = {"Weapon", "Armor", "Light", "Helm", "Ring", "Amulet"};
+const char* kEquipNames[EQ_COUNT] = {"Weapon", "Armor", "Light", "Helm", "Ring", "Ring", "Amulet"};
+
+bool fitsSlot(const ItemDef& d, int slot) {
+    int s = equipSlotFor(d);
+    return s == slot || (s == EQ_RING && slot == EQ_RING2);
+}
 
 int equipSlotFor(const ItemDef& d) {
     switch (d.kind) {
@@ -122,6 +127,7 @@ void PlayerState::write(Writer& w) const {
     w.f32(maxMp);
     w.f32(food);
     w.i32(gold);
+    for (uint8_t k : keys) w.u8(k);
     for (auto& s : inv) s.write(w);
     for (auto& s : equip) s.write(w);
     w.f32(blessT); w.f32(lightT); w.f32(detectT); w.f32(slowT);
@@ -151,6 +157,7 @@ void PlayerState::read(Reader& r) {
     maxMp = r.f32();
     food = r.f32();
     gold = r.i32();
+    for (uint8_t& k : keys) k = r.u8();
     for (auto& s : inv) s.read(r);
     for (auto& s : equip) s.read(r);
     blessT = r.f32(); lightT = r.f32(); detectT = r.f32(); slowT = r.f32();

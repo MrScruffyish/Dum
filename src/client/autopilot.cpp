@@ -1,5 +1,5 @@
 // Dum - helpers that make the game playable with less precise or less frequent input:
-// auto-explore, travel to the stairs, facing the nearest monster, and auto-fight.
+// auto-explore, travel (stairs, coloured doors, chests), facing the nearest monster, and auto-fight.
 #include <cstdio>
 #include <cstdlib>
 #include <queue>
@@ -26,8 +26,9 @@ uint32_t Client::nearestAwakeVisible(float maxDist) const {
 void Client::startAuto(Auto a) {
     if (me_.dead) return;
     if (a == Auto::Explore && map_.depth == 0) { addLog("The town is all explored. (G walks to the stairs down)", COL_DIM); return; }
-    if (a == Auto::Travel && map_.at((int)pos_.x, (int)pos_.y) == T_STAIRS_DOWN) {
-        addLog("You are standing on the stairs. Press " + keys_->label(K_USE) + " to go down.", COL_DIM);
+    if (a == Auto::Travel && (travel_.kind == Dest::StairsDown || travel_.kind == Dest::StairsUp) &&
+        (int)pos_.x == travel_.x && (int)pos_.y == travel_.y) {
+        addLog("You are standing on the stairs. Press " + keys_->label(K_USE) + (travel_.kind == Dest::StairsDown ? " to go down." : " to go up."), COL_DIM);
         return;
     }
     if (nearestAwakeVisible(12.0f)) { addLog("Not with an enemy in sight!", COL_HINT); return; }
@@ -38,7 +39,7 @@ void Client::startAuto(Auto a) {
     stuckT_ = 0;
     hpAtStart_ = (float)me_.hp;
     seenMonsters_ = visibleMonsters_;   // monsters already in view (asleep) don't stop us
-    addLog(a == Auto::Explore ? "Exploring... (any movement key stops)" : "Travelling to the stairs...", COL_DIM);
+    addLog(a == Auto::Explore ? "Exploring... (any movement key stops)" : "Travelling to the " + travel_.label + "... (any movement key stops)", COL_DIM);
 }
 
 void Client::stopAuto(const std::string& why) {
@@ -65,7 +66,11 @@ bool Client::findPath(bool explore) {
                 itemTiles.push_back({(int)e.s.pos.x, (int)e.s.pos.y});
     auto isGoal = [&](int x, int y) {
         if (x == sx && y == sy) return false;
-        if (!explore) return map_.at(x, y) == T_STAIRS_DOWN;
+        if (!explore) {
+            // A coloured door: stand right in front of it. Everything else: on it.
+            if (travel_.kind == Dest::KeyDoor) return std::abs(x - travel_.x) + std::abs(y - travel_.y) == 1;
+            return x == travel_.x && y == travel_.y;
+        }
         for (auto& it : itemTiles)
             if (it.first == x && it.second == y) return true;
         for (int dy = -1; dy <= 1; dy++)
@@ -135,8 +140,8 @@ Vec2 Client::autopilot(float dt) {
     if (path_.empty() || repathT_ <= 0) {
         repathT_ = 0.5f;
         if (!findPath(auto_ == Auto::Explore)) {
-            if (auto_ == Auto::Explore) stopAuto("Nothing more to explore here. (" + keys_->label(K_TRAVEL) + ": travel to the stairs)");
-            else stopAuto("You haven't found the stairs down yet. (" + keys_->label(K_EXPLORE) + ": explore)");
+            if (auto_ == Auto::Explore) stopAuto("Nothing more to explore here. (" + keys_->label(K_TRAVEL) + ": travel)");
+            else stopAuto("There is no known way to the " + travel_.label + ". (" + keys_->label(K_EXPLORE) + ": explore)");
             return {};
         }
     }
@@ -152,7 +157,17 @@ Vec2 Client::autopilot(float dt) {
     }
     if (path_.empty()) {
         if (auto_ == Auto::Travel) {
-            stopAuto("You reach the stairs. Press " + keys_->label(K_USE) + " to go down.");
+            std::string e = keys_->label(K_USE);
+            switch (travel_.kind) {
+                case Dest::StairsDown: stopAuto("You reach the stairs. Press " + e + " to go down."); break;
+                case Dest::StairsUp: stopAuto("You reach the stairs. Press " + e + " to go up."); break;
+                case Dest::KeyDoor:
+                    angle_ = std::atan2(travel_.y + 0.5f - pos_.y, travel_.x + 0.5f - pos_.x);   // face the door
+                    stopAuto(me_.keys[map_.keyDoorColor(travel_.x, travel_.y)] ? "Here is the door. Press " + e + " to unlock it."
+                                                                               : "Here is the door - but you don't have its key yet.");
+                    break;
+                case Dest::Chest: stopAuto("You reach the chest. Press " + e + " to open it."); break;
+            }
         }
         return {};
     }
@@ -218,4 +233,71 @@ void Client::autoFightStep() {
     if (spell && d <= spell->range) { tryCast(); return; }
     bool weaponTarget = targetId_ == fightTarget_ && !targetIsSpell_;
     if (weaponTarget) tryAttack();
+}
+
+// ---- Travel menu (G): every known place worth walking to ----
+
+void Client::openTravelMenu() {
+    travelOpts_.clear();
+    auto seen = [&](int x, int y) { return map_.inside(x, y) && (map_.flag(x, y) & F_SEEN); };
+    for (int y = 0; y < map_.h; y++)
+        for (int x = 0; x < map_.w; x++) {
+            if (!seen(x, y)) continue;
+            uint8_t t = map_.at(x, y);
+            if (t == T_STAIRS_DOWN) travelOpts_.insert(travelOpts_.begin(), {Dest::StairsDown, x, y, "stairs down"});
+            else if (t == T_STAIRS_UP && map_.depth > 0) travelOpts_.push_back({Dest::StairsUp, x, y, "stairs up"});
+        }
+    for (int y = 0; y < map_.h; y++)
+        for (int x = 0; x < map_.w; x++)
+            if (seen(x, y) && map_.at(x, y) == T_DOOR_KEY) {
+                int c = map_.keyDoorColor(x, y);
+                travelOpts_.push_back({Dest::KeyDoor, x, y, std::string(keyColorName(c)) + " door" + (me_.keys[c] ? " (you have the key)" : " (no key yet)")});
+            }
+    // The nearest closed chest you have seen (or detected).
+    float best = 1e9f;
+    TravelDest chest{Dest::Chest, -1, -1, "nearest unopened chest"};
+    for (auto& [id, e] : ents_) {
+        if (e.s.type != ET_ITEM || gData.items[e.s.def].id != "chest") continue;
+        int x = (int)e.s.pos.x, y = (int)e.s.pos.y;
+        if (!seen(x, y) && !(e.s.flags & EF_CHEST_KNOWN)) continue;
+        float d = dist(e.s.pos, pos_);
+        if (d < best) { best = d; chest.x = x; chest.y = y; }
+    }
+    if (chest.x >= 0) travelOpts_.push_back(chest);
+    if (travelOpts_.empty()) { addLog("You haven't found anywhere to travel to yet. (" + keys_->label(K_EXPLORE) + ": explore)", COL_DIM); return; }
+    travelSel_ = 0;
+    if (travelOpts_.size() == 1) { travel_ = travelOpts_[0]; startAuto(Auto::Travel); return; }   // nothing to choose
+    ui_ = Ui::Travel;
+}
+
+void Client::travelKey(SDL_Keycode k) {
+    int n = (int)travelOpts_.size();
+    int pick = -1;
+    if (k == SDLK_ESCAPE) { ui_ = Ui::None; return; }
+    if (k == SDLK_UP || k == SDLK_w) travelSel_ = (travelSel_ + n - 1) % n;
+    else if (k == SDLK_DOWN || k == SDLK_s) travelSel_ = (travelSel_ + 1) % n;
+    else if (k == SDLK_RETURN || k == SDLK_KP_ENTER || k == SDLK_SPACE || k == SDLK_e) pick = travelSel_;
+    else if (k >= SDLK_1 && k <= SDLK_9 && k - SDLK_1 < n) pick = k - SDLK_1;
+    if (pick < 0) return;
+    ui_ = Ui::None;
+    travel_ = travelOpts_[pick];
+    startAuto(Auto::Travel);
+}
+
+void Client::drawTravel(Renderer& r) {
+    int w = 260, h = 40 + (int)travelOpts_.size() * 12;
+    int x = (r.W - w) / 2, y = (r.H - 44 - h) / 2;
+    r.fill(x, y, w, h, 0xFF100C08, 230);
+    r.frame(x, y, w, h, 0xFF6A5030);
+    r.text(x + 8, y + 6, "Travel to:", 0xFFE0D0A0);
+    for (size_t i = 0; i < travelOpts_.size(); i++) {
+        int ry = y + 20 + (int)i * 12;
+        bool sel = (int)i == travelSel_;
+        if (sel) r.fill(x + 4, ry - 2, w - 8, 11, 0xFF4A3A20);
+        std::string t = std::to_string(i + 1) + "  " + travelOpts_[i].label;
+        if (!t.empty()) t[3] = (char)std::toupper((unsigned char)t[3]);
+        r.text(x + 10, ry, t, sel ? 0xFFFFFFFF : 0xFFD0C8B8);
+    }
+    std::string hint = keys_->label(K_TRAVEL) + "/Enter: go   1-9: pick   Esc: cancel";
+    r.text(x + (w - r.textW(hint)) / 2, y + h - 12, hint, 0xFF908070);
 }

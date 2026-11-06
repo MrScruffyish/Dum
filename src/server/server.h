@@ -301,7 +301,8 @@ private:
     void useDevice(SPlayer& p, int slot);
     void fixupChar(PlayerState& s);
     void doUse(SPlayer& p, bool doorsOnly = false);
-    void useItem(SPlayer& p, int slot);
+    void useItem(SPlayer& p, int slot, int target = -1);
+    void useStack(SPlayer& p, ItemStack& it, int slot, int target);
     void dropFromInv(SPlayer& p, int slot, int count);
     void giveItem(SPlayer& p, int slot, int toPlayer);
     void unequip(SPlayer& p, int slot);
