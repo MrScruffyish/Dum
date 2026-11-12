@@ -8,7 +8,7 @@
 #include "common/serialize.h"
 #include "game/data.h"
 
-constexpr uint16_t PROTOCOL_VERSION = 10;  // 8: data file checksums in C_HELLO; 9: second ring, key ring; 10: quiver slot, ammo rule
+constexpr uint16_t PROTOCOL_VERSION = 11;  // 8: data file checksums in C_HELLO; 9: second ring, key ring; 10: quiver slot, ammo rule; 11: floor hazard tiles
 constexpr uint16_t DEFAULT_PORT = 27666;
 constexpr float TICK_DT = 1.0f / 30.0f;
 constexpr int INV_SIZE = 20;

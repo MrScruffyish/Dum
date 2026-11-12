@@ -51,12 +51,16 @@ void Client::stopAuto(const std::string& why) {
 
 // Breadth-first search over the tiles we have seen. Explore: the nearest seen tile next to
 // unseen open ground (or with an item on it). Travel: the nearest known stairs down.
+// Hazards are avoided if any route without them exists (a second pass may cross one when a
+// patch blocks the only way through).
 bool Client::findPath(bool explore) {
     int sx = (int)pos_.x, sy = (int)pos_.y;
     if (!map_.inside(sx, sy)) return false;
+    bool allowHazards = false;
     auto walkable = [&](int x, int y) {
         if (!map_.inside(x, y) || !(map_.flag(x, y) & F_SEEN)) return false;
         uint8_t t = map_.at(x, y);
+        if (!allowHazards && Map::tileHazard(t)) return false;
         return !Map::tileSolid(t) || t == T_DOOR || t == T_DOOR_LOCKED || t == T_RUBBLE;
     };
     std::vector<std::pair<int, int>> itemTiles;
@@ -85,26 +89,31 @@ bool Client::findPath(bool explore) {
     std::vector<int> parent(map_.w * map_.h, -1);
     std::queue<int> q;
     int start = sy * map_.w + sx;
-    parent[start] = start;
-    q.push(start);
     int goal = -1;
-    while (!q.empty() && goal < 0) {
-        int c = q.front();
-        q.pop();
-        int x = c % map_.w, y = c / map_.w;
-        for (int dy = -1; dy <= 1 && goal < 0; dy++)
-            for (int dx = -1; dx <= 1; dx++) {
-                if (!dx && !dy) continue;
-                int nx = x + dx, ny = y + dy;
-                if (!walkable(nx, ny) || parent[ny * map_.w + nx] >= 0) continue;
-                if (dx && dy && (!walkable(x + dx, y) || !walkable(x, y + dy))) continue;  // no corner cutting
-                // Doors and rubble only straight on (diagonal bumps don't open them).
-                uint8_t t = map_.at(nx, ny);
-                if (dx && dy && (t == T_DOOR || t == T_DOOR_LOCKED || t == T_RUBBLE)) continue;
-                parent[ny * map_.w + nx] = c;
-                if (isGoal(nx, ny)) { goal = ny * map_.w + nx; break; }
-                q.push(ny * map_.w + nx);
-            }
+    for (int pass = 0; pass < 2 && goal < 0; pass++) {
+        allowHazards = pass > 0;
+        std::fill(parent.begin(), parent.end(), -1);
+        q = std::queue<int>();
+        parent[start] = start;
+        q.push(start);
+        while (!q.empty() && goal < 0) {
+            int c = q.front();
+            q.pop();
+            int x = c % map_.w, y = c / map_.w;
+            for (int dy = -1; dy <= 1 && goal < 0; dy++)
+                for (int dx = -1; dx <= 1; dx++) {
+                    if (!dx && !dy) continue;
+                    int nx = x + dx, ny = y + dy;
+                    if (!walkable(nx, ny) || parent[ny * map_.w + nx] >= 0) continue;
+                    if (dx && dy && (!walkable(x + dx, y) || !walkable(x, y + dy))) continue;  // no corner cutting
+                    // Doors and rubble only straight on (diagonal bumps don't open them).
+                    uint8_t t = map_.at(nx, ny);
+                    if (dx && dy && (t == T_DOOR || t == T_DOOR_LOCKED || t == T_RUBBLE)) continue;
+                    parent[ny * map_.w + nx] = c;
+                    if (isGoal(nx, ny)) { goal = ny * map_.w + nx; break; }
+                    q.push(ny * map_.w + nx);
+                }
+        }
     }
     if (goal < 0) {
         if (std::getenv("DUM_DEBUG_PATH")) {

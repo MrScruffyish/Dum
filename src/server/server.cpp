@@ -984,6 +984,15 @@ void Server::updatePlayers(float dt) {
             if (s.dead) continue;
         }
 
+        // Static floor hazards hurt whoever stands on them (about once a second).
+        p.hazardT = std::max(0.0f, p.hazardT - dt);
+        uint8_t under = map_.at((int)std::floor(p.pos.x), (int)std::floor(p.pos.y));
+        if (Map::tileHazard(under)) {
+            if (p.hazardT <= 0) { p.hazardT = 1.0f; hazardHit(p, under); if (s.dead) continue; }
+        } else {
+            p.hazardT = 0;
+        }
+
         // Food
         s.food -= dt * rules().hunger * (1.0f - s.slowDigest() / 100.0f);
         if (s.food < 150 && !p.warnedFood) { text(id, COL_ORANGE, "You are getting hungry."); p.warnedFood = true; }
@@ -1597,6 +1606,50 @@ void Server::damagePlayer(SPlayer& p, int dmg, const std::string& source, Elemen
         }
     }
     p.dirty = true;
+}
+
+// One hit from a static floor hazard. Depth (power_) makes the deeper kinds sting a little
+// more; elemental hazards are halved by the matching resistance in damagePlayer().
+void Server::hazardHit(SPlayer& p, uint8_t tile) {
+    int dmg = 1;
+    const char* source = "a hazard";
+    Element e = Element::Physical;
+    switch (tile) {
+        case T_POISON:
+            dmg = 1 + power_ / 8;
+            source = "the poison";
+            e = Element::Poison;
+            p.st.poisonT = std::max(p.st.poisonT, p.st.resists(Element::Poison) ? 2.0f : 4.0f);
+            break;
+        case T_SHARDS:
+            dmg = 1 + power_ / 7;
+            source = "the sharp shards";
+            break;
+        case T_GAS:
+            dmg = 1 + power_ / 10;
+            source = "the poison gas";
+            e = Element::Poison;
+            p.st.poisonT = std::max(p.st.poisonT, p.st.resists(Element::Poison) ? 3.0f : 6.0f);
+            break;
+        case T_LAVA:
+            dmg = 2 + power_ / 3;
+            source = "the lava";
+            e = Element::Fire;
+            break;
+        case T_FIRE:
+            dmg = 1 + power_ / 4;
+            source = "the fire";
+            e = Element::Fire;
+            break;
+        case T_ICE:
+            dmg = 1 + power_ / 6;
+            source = "the ice";
+            e = Element::Cold;
+            break;
+        default:
+            return;
+    }
+    damagePlayer(p, dmg, source, e);
 }
 
 void Server::explode(Vec2 pos, float radius, int dmg, Element e, int spell, bool fromMonster, SPlayer* by, int power) {

@@ -29,6 +29,7 @@ struct SPlayer {
     bool strongAim = false;
     float rodAcc = 0;          // rod recharge timer (tenths of seconds)
     int lastAmmo = -1;         // item def last shot from the quiver (reloaded first)
+    float hazardT = 0;         // time until the floor hazard hurts again
 };
 
 struct Monster {
@@ -299,6 +300,7 @@ private:
     void damageMonster(Monster& m, int dmg, Element e, SPlayer* by, bool crit);
     void killMonster(size_t idx, SPlayer* by);
     void damagePlayer(SPlayer& p, int dmg, const std::string& source, Element e = Element::Physical);
+    void hazardHit(SPlayer& p, uint8_t tile);
     void giveXp(int amount);
     void explode(Vec2 pos, float radius, int dmg, Element e, int spell, bool fromMonster, SPlayer* by, int power = 0);
 

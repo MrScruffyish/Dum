@@ -108,7 +108,9 @@ int main(int argc, char** argv) {
         for (int y = 0; y < m.h; y++) {
             std::string row;
             for (int x = 0; x < m.w; x++) {
-                const char* c = " #.+'LS><:$";
+                // T_ROCK ... T_ICE: rock, wall, floor, doors, stairs, rubble, shop, key door,
+                // poison, shards, gas, lava, fire, ice.
+                static const char* c = " #.+'LS><:$kpsglfi";
                 row += c[m.at(x, y)];
             }
             std::printf("%s\n", row.c_str());
@@ -118,6 +120,7 @@ int main(int argc, char** argv) {
     std::printf("data: %zu classes, %zu items, %zu monsters, %zu spells\n", gData.classes.size(), gData.items.size(), gData.monsters.size(), gData.spells.size());
 
     // 1. Dungeon generation: many seeds/depths, all connected, deterministic.
+    int hazardLevels = 0;
     for (uint32_t seed = 1; seed <= 60; seed++)
         for (int depth = 1; depth <= 10; depth += 3) {
             Map a, b;
@@ -127,6 +130,15 @@ int main(int argc, char** argv) {
             CHECK(a.at(a.startX, a.startY) == T_STAIRS_UP, "no up stairs");
             CHECK(a.at(a.downX, a.downY) == T_STAIRS_DOWN, "no down stairs");
             CHECK(a.rooms.size() >= 4, "too few rooms");
+            int hazards = 0;
+            for (int y = 0; y < a.h; y++)
+                for (int x = 0; x < a.w; x++)
+                    if (Map::tileHazard(a.at(x, y))) {
+                        hazards++;
+                        CHECK(Map::tileHazard(a.at(x, y)) && !Map::tileSolid(a.at(x, y)), "hazard must be walkable");
+                    }
+            CHECK(hazards <= 26, "too many hazard tiles seed %u depth %d: %d", seed, depth, hazards);
+            if (hazards) hazardLevels++;
             // serialization round trip
             Writer w;
             a.serialize(w, false);
@@ -134,7 +146,8 @@ int main(int argc, char** argv) {
             Map c;
             CHECK(c.deserialize(r) && c.tiles == a.tiles, "map serialization");
         }
-    std::printf("dungeon generation ok\n");
+    CHECK(hazardLevels > 0, "no floor hazards generated at all");
+    std::printf("dungeon generation ok (%d/%d levels with floor hazards)\n", hazardLevels, 60 * 4);
 
     {   // Corridor assist: walking at a wall just beside a corridor opening slides you into it.
         Map m;

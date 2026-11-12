@@ -20,6 +20,14 @@ enum Tile : uint8_t {
     T_RUBBLE,        // blocks movement and sight until cleared
     T_SHOP,          // town shop entrance (store index in floorTex)
     T_DOOR_KEY,      // door with a coloured lock: only the key of that colour opens it (colour: keyDoorColor)
+    // Static floor hazards: walkable, but they hurt whoever stands on them. Keep these together
+    // (tileHazard() and hazardIndex() rely on the order).
+    T_POISON,
+    T_SHARDS,
+    T_GAS,
+    T_LAVA,
+    T_FIRE,
+    T_ICE,
 };
 
 // Colours of key doors and keys.
@@ -27,6 +35,18 @@ enum KeyColor : uint8_t { KEY_RED = 0, KEY_BLUE, KEY_GREEN, KEY_YELLOW, KEY_COUN
 inline const char* keyColorName(int c) {
     static const char* n[KEY_COUNT] = {"red", "blue", "green", "yellow"};
     return c >= 0 && c < KEY_COUNT ? n[c] : "strange";
+}
+
+inline const char* hazardName(uint8_t t) {
+    switch (t) {
+        case T_POISON: return "poison";
+        case T_SHARDS: return "sharp shards";
+        case T_GAS: return "poison gas";
+        case T_LAVA: return "lava";
+        case T_FIRE: return "fire";
+        case T_ICE: return "ice";
+        default: return "hazard";
+    }
 }
 
 enum TileFlag : uint8_t {
@@ -64,6 +84,8 @@ struct Map {
                t == T_DOOR_KEY;
     }
     static bool tileIsDoor(uint8_t t) { return t == T_DOOR || t == T_DOOR_OPEN || t == T_DOOR_LOCKED; }
+    static bool tileHazard(uint8_t t) { return t >= T_POISON && t <= T_ICE; }
+    static int hazardIndex(uint8_t t) { return t - T_POISON; }   // 0..5, index into the hazard art
     bool solid(int x, int y) const { return tileSolid(at(x, y)); }
     // Colour of a T_DOOR_KEY tile's lock (kept in wallTex as 8 + colour).
     int keyDoorColor(int x, int y) const { return inside(x, y) ? (wallTex[y * w + x] - 8) & 3 : 0; }

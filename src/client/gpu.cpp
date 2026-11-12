@@ -363,8 +363,11 @@ void GpuRenderer::Impl::buildMesh(const Map& m, const Assets& a) {
             float fx = (float)x, fy = (float)y, X = fx + 1, Y = fy + 1;
             if (!Map::tileSolid(tile)) {
                 // Floor (u along x, v along y, like the software renderer).
-                const Texture* ft = tile == T_STAIRS_DOWN ? &a.stairsDown : tile == T_STAIRS_UP ? &a.stairsUp : &a.floors[m.floorTex[idx] & 7];
-                quad(ft, {fx, fy, 0, 0, 0, fx, fy, 1}, {X, fy, 0, 1, 0, fx, fy, 1}, {X, Y, 0, 1, 1, fx, fy, 1}, {fx, Y, 0, 0, 1, fx, fy, 1});
+                bool hazard = Map::tileHazard(tile);
+                const Texture* ft = hazard ? &a.hazardFloors[Map::hazardIndex(tile)]
+                                           : tile == T_STAIRS_DOWN ? &a.stairsDown : tile == T_STAIRS_UP ? &a.stairsUp : &a.floors[m.floorTex[idx] & 7];
+                float fs = hazard ? 1.2f : 1.0f;
+                quad(ft, {fx, fy, 0, 0, 0, fx, fy, fs}, {X, fy, 0, 1, 0, fx, fy, fs}, {X, Y, 0, 1, 1, fx, fy, fs}, {fx, Y, 0, 0, 1, fx, fy, fs});
                 if (m.flags[idx] & F_OUTDOOR) {
                     hasSky = true;
                 } else {

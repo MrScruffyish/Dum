@@ -125,6 +125,29 @@ then keeps ticking the server on the *Still hosting* screen
 menu, or quits if the host had asked to quit. It ends by itself when the last player has
 left.
 
+## Floor hazards
+
+- **Tiles:** `T_POISON`, `T_SHARDS`, `T_GAS`, `T_LAVA`, `T_FIRE` and `T_ICE` (the last six
+  values of `Tile`). They are ordinary walkable floor: `Map::tileSolid` does not list them,
+  and `Map::tileHazard` / `Map::hazardIndex` identify them. The underlying `floorTex` is
+  kept, so a hazard can sit on any room theme. They travel in `Map::serialize` like every
+  other tile, so saves and `S_LEVEL` need no extra format.
+- **Generation:** `Gen::placeHazards` in `src/game/map.cpp`, after the stairs are placed and
+  before vaults. Only levels 2 and deeper; the chance grows slowly with depth (about a third
+  of levels), never more than two patches, and each patch is a small round blob (radius 1 or
+  rarely 2). Patches stay out of the town, off the stairs (and three tiles around them), and
+  away from doorways. Everything is deterministic from the level seed.
+- **Damage:** `Server::updatePlayers` checks the tile under each player about once a
+  second and calls `Server::hazardHit`. Lava and fire use `Element::Fire`, ice uses
+  `Element::Cold`, the poison bog and gas cloud use `Element::Poison` (and can leave the
+  player poisoned), shards are physical. Depth (`power_`) raises the damage, and the usual
+  elemental resistances halve it in `damagePlayer`.
+- **Looks:** the software renderer and the GPU mesh pick `Assets::hazardFloors[]` for these
+  tiles (`Map::hazardIndex`) and shade them a little brighter; the automap gives each one
+  its own colour. `data/gfx/floor_poison.png` etc. replace the generated art, and the status
+  bar says what the player is standing in. Auto-explore and travel route around visible
+  hazards when there is another way (they still cross one if it is the only path).
+
 ## Keys, vaults and chests
 
 - **Vaults** are made by the generator (`Gen::placeVaults` in `src/game/map.cpp`), from

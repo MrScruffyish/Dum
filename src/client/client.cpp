@@ -1064,6 +1064,8 @@ void Client::drawHud(Renderer& r) {
     float lf = L.empty() ? 0 : forever ? 1.0f : (float)L.fuel / std::max(1, L.d().fuel);
     bar(r, mx, by + 24, 110, 8, lf, L.empty() || (!forever && L.fuel < 60) ? 0xFFE06020 : 0xFFE0C040, lightS);
     std::string status;
+    uint8_t under = map_.at((int)std::floor(pos_.x), (int)std::floor(pos_.y));
+    if (Map::tileHazard(under)) status += std::string("In ") + hazardName(under) + "! ";
     if (me_.blessT > 0) status += "Blessed ";
     if (me_.lightT > 0) status += "Light ";
     if (me_.detectT > 0) status += "Detect ";
@@ -1083,7 +1085,7 @@ void Client::drawHud(Renderer& r) {
     if (auto_ == Auto::Travel) status += "Travelling ";
     if (autoWalk_) status += "AutoWalk ";
     if (me_.recallT > 0) status += "Recall " + std::to_string((int)me_.recallT + 1) + "s ";
-    r.text(mx, by + 35, status, 0xFF80FF80);
+    r.text(mx, by + 35, status, Map::tileHazard(under) ? 0xFFFF7050 : 0xFF80FF80);
 
     int rx = 284;
     const ItemDef* wd = me_.weapon();
@@ -1202,6 +1204,12 @@ void Client::drawMinimap(Renderer& r, int x0, int y0, int w, int h, int scale, b
                 case T_STAIRS_UP: c = 0xFF40FFFF; break;
                 case T_RUBBLE: c = 0xFFC08040; break;
                 case T_SHOP: c = 0xFFFF60FF; break;
+                case T_POISON: c = 0xFF50C030; break;
+                case T_SHARDS: c = 0xFFC8D0D8; break;
+                case T_GAS: c = 0xFFA0E040; break;
+                case T_LAVA: c = 0xFFFF6010; break;
+                case T_FIRE: c = 0xFFFF9020; break;
+                case T_ICE: c = 0xFF80D0FF; break;
                 default: c = (map_.flag(tx, ty) & F_LIT) ? 0xFF3A3830 : 0xFF262420; break;
             }
             r.fill(sx, sy, scale, scale, c);

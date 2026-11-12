@@ -320,6 +320,49 @@ struct Gen {
                     m.set(x, y, T_RUBBLE);
     }
 
+    // A few static patches of dangerous floor. They are rare: most levels have none, and no
+    // level gets more than two. Patches are small, walkable blobs in rooms (now and then a
+    // corridor), never on or next to the stairs or a doorway.
+    void placeHazards() {
+        if (depth < 2) return;
+        static const uint8_t kinds[6] = {T_POISON, T_SHARDS, T_GAS, T_LAVA, T_FIRE, T_ICE};
+        int count = rng.chance(std::min(55, 22 + depth * 3)) ? 1 : 0;
+        if (count && depth >= 7 && rng.chance(25)) count = 2;
+        for (int p = 0; p < count; p++) {
+            uint8_t kind = kinds[rng.range(0, 5)];
+            int rad = rng.chance(30) ? 2 : 1;
+            for (int tries = 0; tries < 120; tries++) {
+                int cx = rng.range(2, m.w - 3), cy = rng.range(2, m.h - 3);
+                if (m.at(cx, cy) != T_FLOOR) continue;
+                bool inRoom = (m.flag(cx, cy) & F_ROOM) != 0;
+                if (!inRoom && !((m.flag(cx, cy) & F_CORRIDOR) && rng.chance(20))) continue;
+                auto nearStairs = [&](int x, int y, int d) {
+                    return (std::abs(x - m.startX) <= d && std::abs(y - m.startY) <= d) ||
+                           (std::abs(x - m.downX) <= d && std::abs(y - m.downY) <= d);
+                };
+                if (nearStairs(cx, cy, 3)) continue;
+                bool nearDoor = false;
+                for (int dy = -1; dy <= 1 && !nearDoor; dy++)
+                    for (int dx = -1; dx <= 1; dx++) {
+                        uint8_t t = m.at(cx + dx, cy + dy);
+                        if (Map::tileIsDoor(t) || t == T_DOOR_KEY || t == T_DOOR_SECRET || t == T_SHOP) { nearDoor = true; break; }
+                    }
+                if (nearDoor) continue;
+                bool made = false;
+                for (int dy = -rad; dy <= rad; dy++)
+                    for (int dx = -rad; dx <= rad; dx++) {
+                        if (dx * dx + dy * dy > rad * rad) continue;   // a round blob
+                        int x = cx + dx, y = cy + dy;
+                        if (m.at(x, y) != T_FLOOR || nearStairs(x, y, 2)) continue;
+                        if (!(m.flag(x, y) & (F_ROOM | F_CORRIDOR))) continue;
+                        m.set(x, y, kind);
+                        made = true;
+                    }
+                if (made) break;
+            }
+        }
+    }
+
     void buildWalls() {
         for (int y = 0; y < m.h; y++)
             for (int x = 0; x < m.w; x++) {
@@ -411,6 +454,7 @@ struct Gen {
         m.set(bx, by, T_STAIRS_DOWN);
         m.startX = sx; m.startY = sy;
         m.downX = bx; m.downY = by;
+        placeHazards();
         placeVaults();
         return true;
     }

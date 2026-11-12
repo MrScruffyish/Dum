@@ -241,8 +241,14 @@ void Renderer::drawWorld(Map& m, const Assets& a, Vec2 cam, float angle, float h
                 if (l < 0.01f) { row[x] = 0xFF000000; continue; }
                 const Texture* t;
                 uint8_t tile = m.tiles[idx];
+                bool hazard = Map::tileHazard(tile);
                 if (isFloor) {
-                    t = tile == T_STAIRS_DOWN ? &a.stairsDown : tile == T_STAIRS_UP ? &a.stairsUp : &a.floors[m.floorTex[idx] & 7];
+                    if (hazard) {
+                        t = &a.hazardFloors[Map::hazardIndex(tile)];
+                        l = std::min(1.4f, l * 1.2f);   // make danger stand out
+                    } else {
+                        t = tile == T_STAIRS_DOWN ? &a.stairsDown : tile == T_STAIRS_UP ? &a.stairsUp : &a.floors[m.floorTex[idx] & 7];
+                    }
                 } else if (m.flags[idx] & F_OUTDOOR) {
                     // Open sky: a vertical gradient, lighter toward the horizon.
                     float k = clampf((horizon - y) / (H * 0.5f), 0.0f, 1.0f);

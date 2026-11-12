@@ -42,6 +42,7 @@ struct Assets {
     Texture door, doorLocked, rubble;
     Texture keyDoors[4];   // doors with a red / blue / green / yellow lock (KeyColor)
     Texture floors[8];
+    Texture hazardFloors[6];   // T_POISON, T_SHARDS, T_GAS, T_LAVA, T_FIRE, T_ICE (Map::hazardIndex)
     Texture shopDoors[8];
     Texture ceiling, ceilingCave, stairsDown, stairsUp, stairsUpCeil;
     std::vector<Texture> monsters, monstersAttack;  // per monster def

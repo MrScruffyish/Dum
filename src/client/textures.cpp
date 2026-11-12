@@ -362,6 +362,123 @@ Texture cobbleFloor(int seed) {
     return t;
 }
 
+// --------------------------------------------------------------- hazards ---
+// Floor tiles that hurt the player. They must read at a glance, so each one has a strong,
+// distinct colour and a clear motif (molten cracks, flames, crystals, bubbles, shards...).
+Texture lavaFloor(int seed) {
+    Texture t(64, 64);
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++) {
+            float n = fbm(x, y, 4, seed, 5);
+            float flow = std::sin((x + y * 0.55f) * 0.24f + n * 9.0f) * 0.5f + 0.5f;
+            uint32_t c = colMix(0xFFA01800, 0xFFFFD040, clampf(flow * 0.7f + n * 0.55f, 0.0f, 1.0f));
+            if (n < 0.28f) c = vary(0xFF2A1712, 0.6f + 0.8f * n);          // cooled crust islands
+            else if (flow > 0.9f) c = colMix(0xFFFFE080, 0xFFFF7010, n);   // white-hot veins
+            if (h2(x, y, seed + 5) > 0.975f) c = 0xFFFFF0A0;               // sparks
+            t.set(x, y, c);
+        }
+    return t;
+}
+
+Texture fireFloor(int seed) {
+    Rng r((uint32_t)seed);
+    Texture t(64, 64);
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++) {
+            float n = fbm(x, y, 4, seed, 4);
+            uint32_t c = colMix(0xFF2A1C14, 0xFF54200E, 0.25f + 0.6f * n);   // warm, scorched ground
+            if (h2(x, y, seed + 3) > 0.92f) c = colMix(0xFFB04010, 0xFFFFB040, n);   // embers
+            t.set(x, y, c);
+        }
+    // Little tongues of flame all over the tile.
+    for (int i = 0; i < 14; i++) {
+        float cx = 3 + r.frand() * 58, by = 24 + r.frand() * 38;
+        float h = 10 + r.frand() * 26, w = 4 + r.frand() * 7;
+        float lean = (r.frand() - 0.5f) * 8;
+        fillEllipse(t, cx, by, w * 0.85f, 2.5f, 0xFF7A2008);   // glow on the ground
+        fillTri(t, Vec2(cx - w * 0.5f, by), Vec2(cx + w * 0.5f, by), Vec2(cx + lean, by - h), 0xFFD03808);
+        fillTri(t, Vec2(cx - w * 0.28f, by - 2), Vec2(cx + w * 0.28f, by - 2), Vec2(cx + lean * 0.7f, by - h * 0.7f), 0xFFFFA020);
+        fillTri(t, Vec2(cx - w * 0.13f, by - 4), Vec2(cx + w * 0.13f, by - 4), Vec2(cx + lean * 0.45f, by - h * 0.4f), 0xFFFFF080);
+    }
+    return t;
+}
+
+Texture iceFloor(int seed) {
+    Texture t(64, 64);
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++) {
+            float n = fbm(x, y, 4, seed, 5);
+            uint32_t c = colMix(0xFF6AA4C8, 0xFFE8FAFF, 0.35f + 0.65f * n);
+            // Cracks run along the ridges of a second noise field.
+            float ridge = 1.0f - std::fabs(2.0f * fbm(x, y, 3, seed + 11, 4) - 1.0f);
+            if (ridge > 0.92f) c = colMix(0xFFB8E8FF, 0xFFFFFFFF, n);
+            else if (ridge < 0.08f) c = colMix(0xFF2A5A80, 0xFF5A90B8, n);
+            if (h2(x, y, seed + 7) > 0.985f) c = 0xFFFFFFFF;   // glints
+            t.set(x, y, c);
+        }
+    return t;
+}
+
+Texture poisonFloor(int seed) {
+    Rng r((uint32_t)seed);
+    Texture t(64, 64);
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++) {
+            float n = fbm(x, y, 4, seed, 5);
+            uint32_t c = vary(0xFF2E4A14, 0.55f + 0.85f * n);
+            if (n > 0.62f) c = colMix(c, 0xFF5A9A20, 0.5f);
+            t.set(x, y, c);
+        }
+    for (int i = 0; i < 34; i++) {
+        float cx = 2 + r.frand() * 60, cy = 2 + r.frand() * 60, rad = 1.5f + r.frand() * 4.5f;
+        fillCircle(t, cx, cy, rad, vary(0xFF1A3008, 0.7f + r.frand() * 0.5f));
+        fillCircle(t, cx - rad * 0.2f, cy - rad * 0.25f, rad * 0.7f, vary(0xFF4A8A18, 0.8f + r.frand() * 0.5f));
+        fillCircle(t, cx - rad * 0.35f, cy - rad * 0.4f, rad * 0.3f, 0xFFB8E860);   // bubble shine
+    }
+    return t;
+}
+
+Texture gasFloor(int seed) {
+    Texture t(64, 64);
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++) {
+            float n = fbm(x, y, 3, seed, 5);
+            float wisp = fbm(x + 17, y - 11, 4, seed + 9, 4);
+            float fog = clampf((n * 0.55f + wisp * 0.45f - 0.28f) * 2.2f, 0.0f, 1.0f);
+            uint32_t c = colMix(0xFF20281A, 0xFF6AA840, fog);
+            if (fog > 0.75f) c = colMix(c, 0xFFC0E880, 0.35f);
+            if (h2(x, y, seed + 13) > 0.97f) c = 0xFFE0F0A0;   // floating motes
+            t.set(x, y, c);
+        }
+    return t;
+}
+
+Texture shardsFloor(int seed) {
+    Rng r((uint32_t)seed);
+    Texture t(64, 64);
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++) {
+            float n = fbm(x, y, 8, seed, 3);
+            uint32_t c = vary(0xFF4A4440, 0.6f + 0.7f * n);
+            if (y % 16 == 0 || x % 16 == 0) c = colMul(c, 0.55f);
+            t.set(x, y, c);
+        }
+    // Jagged metal shards sticking out of the floor.
+    for (int i = 0; i < 18; i++) {
+        float cx = 5 + r.frand() * 54, cy = 5 + r.frand() * 54;
+        float ang = r.frand() * 6.2831853f, len = 4 + r.frand() * 9, wid = 1.5f + r.frand() * 3.5f;
+        Vec2 dir(std::cos(ang), std::sin(ang)), perp(-dir.y, dir.x);
+        Vec2 tip = Vec2(cx, cy) + dir * len;
+        Vec2 a = Vec2(cx, cy) + perp * wid, b = Vec2(cx, cy) - perp * wid;
+        fillTri(t, tip, a, b, 0xFF241E1A);
+        Vec2 tip2 = Vec2(cx, cy) + dir * (len * 0.78f);
+        Vec2 a2 = Vec2(cx, cy) + perp * (wid * 0.55f), b2 = Vec2(cx, cy) - perp * (wid * 0.55f);
+        fillTri(t, tip2, a2, b2, vary(0xFFA8B0B8, 0.8f + r.frand() * 0.4f));
+        line(t, cx, cy, tip2.x, tip2.y, 0.8f, 0xFFE8F0F8);
+    }
+    return t;
+}
+
 Texture stairsTex(bool down) {
     Texture t(64, 64);
     for (int y = 0; y < 64; y++)
@@ -1173,6 +1290,12 @@ void Assets::build() {
     floors[FT_GRASS] = grassFloor(17);
     floors[FT_COBBLE] = cobbleFloor(18);
     for (int i = 6; i < 8; i++) floors[i] = floors[FT_STONE];
+    hazardFloors[Map::hazardIndex(T_POISON)] = poisonFloor(21);
+    hazardFloors[Map::hazardIndex(T_SHARDS)] = shardsFloor(22);
+    hazardFloors[Map::hazardIndex(T_GAS)] = gasFloor(23);
+    hazardFloors[Map::hazardIndex(T_LAVA)] = lavaFloor(24);
+    hazardFloors[Map::hazardIndex(T_FIRE)] = fireFloor(25);
+    hazardFloors[Map::hazardIndex(T_ICE)] = iceFloor(26);
     ceiling = darkBlocks(0xFF4A4848, 15);
     ceilingCave = caveWall(0xFF4A4038, 16);
     stairsDown = stairsTex(true);
@@ -1242,6 +1365,8 @@ std::vector<std::pair<std::string, Texture*>> Assets::namedTextures() {
     for (int i = 0; i < WT_COUNT; i++) v.push_back({wallNames[i], &walls[i]});
     static const char* floorNames[FT_COUNT] = {"floor_stone", "floor_dirt", "floor_tiles", "floor_wood", "floor_grass", "floor_cobble"};
     for (int i = 0; i < FT_COUNT; i++) v.push_back({floorNames[i], &floors[i]});
+    static const char* hazardNames[6] = {"floor_poison", "floor_shards", "floor_gas", "floor_lava", "floor_fire", "floor_ice"};
+    for (int i = 0; i < 6; i++) v.push_back({hazardNames[i], &hazardFloors[i]});
     v.push_back({"door", &door});
     v.push_back({"door_locked", &doorLocked});
     for (int i = 0; i < KEY_COUNT; i++) v.push_back({std::string("door_") + keyColorName(i), &keyDoors[i]});
