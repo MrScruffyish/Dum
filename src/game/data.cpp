@@ -358,9 +358,15 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
         d.spellRate = g.f("spellrate", 0.0f);
         d.drop = g.i("drop", 20);
         d.steals = g.b("steals", false);
+        d.stealsItem = g.b("stealitem", false);
         d.regen = g.f("regen", 0);
         d.erratic = g.i("erratic", 0);
-        d.drainsLight = g.b("drainlight", false);
+        if (g.has("drainlight")) {
+            std::string v = g.str("drainlight");
+            int amount = std::atoi(v.c_str());
+            d.drainsLight = v == "1" || v == "yes" || v == "true" || amount > 0;
+            d.lightDrain = std::max(0, amount);
+        }
         if (g.has("explode")) {
             d.deathSpell = findSpell(g.str("explode"));
             if (d.deathSpell < 0) { err = where(s) + "unknown spell " + g.str("explode"); return false; }

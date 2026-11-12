@@ -155,6 +155,7 @@ a level, or sold to a shop, returns to the pool and can be found again.
 | Key in `monsters.txt` | Effect |
 |------|--------|
 | `steals = yes` | 60% of its hits take 5 + 10-30% of your gold, then it teleports away |
+| `stealitem = yes` | 50% of its hits take an item from your pack, then it teleports away. It never takes your last item, a quest item or an artifact; with one stack left it takes only one thing from it |
 | `summon = <id>` or `kin` | while fighting, chance `summonrate` per second (default 0.08) to call 1-2 more; at most 3 times per monster, never past 100 monsters on the level |
 | `breeds = yes`, `breedtime = N` | while awake, a copy every N seconds or so (default 30; it starts again at a random 0-50% of N). Never more than 6 of its kind within 6 tiles, 20 of its kind on the level, or 100 monsters in all |
 | `poison = N` | each hit poisons you for N more seconds (max 30, half with poison resistance): 1 + level/8 damage per second. Any healing or an antidote cures it |
@@ -163,7 +164,7 @@ a level, or sold to a shop, returns to the pool and can be found again.
 | `invisible = yes` | drawn as a faint shimmer; auto-aim only finds it within 3 tiles, unless you have Detect Monsters active |
 | `regen = N` | regains N hit points per second |
 | `erratic = N` | spends roughly N% of its time fluttering in random directions |
-| `drainlight = yes` | each hit burns 30-90 seconds of fuel from your torch or lantern |
+| `drainlight = yes` | each hit burns 30-90 seconds of fuel from your torch or lantern. `drainlight = N` burns N to 1.5×N seconds instead |
 | `explode = <spell>` | casts that spell (a ball) where it dies: it hurts *players* |
 | `resist = fire, cold` | half damage from those elements (cold also no longer slows it) |
 | `vulnerable = holy` | double damage from those elements |

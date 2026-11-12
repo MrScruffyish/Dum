@@ -9,8 +9,9 @@
 # spell + spellrate: ranged attack and how often (per second) it is used.
 # boss = yes: placed by quests only, never randomly.
 # Abilities: steals = yes (takes gold, then teleports away),
+#   stealitem = yes (takes something from your pack - never your last item - then teleports away),
 #   regen = N (hit points per second), erratic = N (% of time flying about randomly),
-#   drainlight = yes (hits burn your light's fuel), explode = <spell> (when it dies),
+#   drainlight = yes or N (hits burn your light's fuel; N = seconds, default 30-90), explode = <spell> (when it dies),
 #   resist = fire, cold... (half damage), vulnerable = ... (double damage),
 #   poison = N (its hits poison you for N seconds), drain = str|dex|con|int|wis (its hits
 #   may drain that stat until restored), blink = yes (teleports around you while fighting),
@@ -363,6 +364,27 @@ rarity = 2
 steals = yes
 drop = 50
 
+[monster pack_rat]
+name = pack rat
+sprite = rat
+color = 6a5a40
+color2 = ffd040
+hp = 2d4
+ac = 12
+dmg = 1d2
+speed = 3.4
+attackcd = 1.0
+sight = 7
+size = 0.6
+sleep = 50
+xp = 6
+depth = 2
+rarity = 3
+group = 1-2
+stealitem = yes
+doors = no
+drop = 10
+
 [monster kobold_archer]
 name = kobold archer
 sprite = humanoid
@@ -463,6 +485,54 @@ undead = yes
 drainlight = yes
 doors = no
 drop = 15
+
+[monster gloom_moth]
+name = gloom moth
+sprite = bat
+color = 3a3048
+color2 = ffe080
+hp = 3d8
+ac = 13
+dmg = 1d4
+speed = 2.8
+attackcd = 1.0
+sight = 9
+size = 0.7
+sleep = 50
+xp = 14
+depth = 4
+rarity = 3
+group = 2-3
+erratic = 30
+drainlight = 90
+resist = cold
+vulnerable = fire
+doors = no
+drop = 10
+
+[monster lighteater]
+name = lighteater
+sprite = ghost
+color = 241a30
+color2 = ffd060
+hp = 7d8
+ac = 16
+dmg = 1d8
+speed = 2.5
+attackcd = 1.1
+sight = 12
+size = 0.9
+sleep = 30
+xp = 55
+depth = 7
+rarity = 2
+undead = yes
+drainlight = 180
+regen = 1
+resist = cold, poison
+vulnerable = holy, fire
+doors = no
+drop = 20
 
 [monster hill_orc_archer]
 name = orc archer

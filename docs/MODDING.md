@@ -140,8 +140,9 @@ Other things you can give it (all explained at the top of `monsters.txt`):
   monster versions of spells have ids starting with `m_` (`dum_tool ids spells` lists them),
   but a monster can use any spell.
 - **Undead:** `undead = yes` (holy damage does double, and priests are good against it).
-- **Special abilities:** `steals`, `poison = 5`, `drain = str`, `blink`, `invisible`,
-  `breeds`, `erratic = 30`, `drainlight`, `explode = m_fireburst`, `summon = goblin` (or
+- **Special abilities:** `steals`, `stealitem`, `poison = 5`, `drain = str`, `blink`, `invisible`,
+  `breeds`, `erratic = 30`, `drainlight` (or `drainlight = 120` for a stronger drain),
+  `explode = m_fireburst`, `summon = goblin` (or
   `kin`) with `summonrate`, `resist = cold`, `doors = no` (can't open doors), `reach`.
 - **A boss:** `boss = yes`. Bosses never appear randomly. Every boss becomes a stage of the
   main quest ("Slay ... on dungeon level N"), in order of their `depth`, and waits on that

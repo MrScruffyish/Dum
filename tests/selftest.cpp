@@ -753,6 +753,32 @@ int main(int argc, char** argv) {
         CHECK(s10.map().depth == depth + 2, "delving went from %d to %d", depth, s10.map().depth);
         std::printf("monster abilities, potions, delving ok\n");
     }
+    {   // Pack rats steal from the pack, but never take the last item.
+        auto n11 = std::make_shared<ServerNet>();
+        Bot b;
+        n11->attachLoopback(b.pipe);
+        Server s11(n11, 46);
+        b.hello(0);
+        auto run = [&](int ticks) { for (int t = 0; t < ticks; t++) { s11.tick(); b.poll(); } };
+        run(5);
+        s11.debugGoto(0);
+        run(5);
+        PlayerState* ps = s11.debugPlayer(b.id);
+        for (auto& it : ps->inv) it = ItemStack();
+        s11.debugGive(b.id, "dagger,leather_armor");
+        run(3);
+        auto packCount = [&]() {
+            int n = 0;
+            for (auto& it : ps->inv) if (!it.empty()) n++;
+            return n;
+        };
+        CHECK(packCount() == 2, "pack theft setup left %d items", packCount());
+        ps->maxHp = ps->hp = 5000;
+        s11.debugSpawn("pack_rat,pack_rat,pack_rat,pack_rat", true);
+        for (int t = 0; t < 30 * 30; t++) { s11.tick(); b.poll(); ps->maxHp = ps->hp = 5000; }
+        CHECK(packCount() == 1, "pack rats left %d items (expected the last one)", packCount());
+        std::printf("pack theft ok\n");
+    }
     {   // Campaign: the sample "Sunken Crypt" - hand-made first level, goals, saving.
         int ci = gData.findCampaign("sunken_crypt");
         CHECK(ci >= 0, "sample campaign missing");

@@ -108,9 +108,11 @@ struct MonsterDef {
     int drop = 0;              // % chance to drop an item
     // special abilities
     bool steals = false;       // steals gold on a hit, then teleports away
+    bool stealsItem = false;   // steals an item from your pack, then teleports away
     float regen = 0;           // hit points regained per second
     int erratic = 0;           // % of the time it flutters about randomly
     bool drainsLight = false;  // its hits burn away your light's fuel
+    int lightDrain = 0;        // seconds of fuel burned per hit (0 = the usual 30-90)
     int deathSpell = -1;       // explodes with this spell when it dies
     float breedTime = 0;       // multiplies slowly: one copy every ~N seconds while awake (0 = never)
     int poison = 0;            // its hits poison you for this many seconds

@@ -1241,7 +1241,10 @@ void Server::updateMonsters(float dt) {
                         if (d.drainsLight) {
                             ItemStack& L = best->st.equip[EQ_LIGHT];
                             if (!L.empty() && L.fuel > 1 && L.d().fuel > 0) {
-                                L.fuel = std::max(1, L.fuel - rng_.range(30, 90));
+                                int burn = d.lightDrain > 0
+                                    ? d.lightDrain + rng_.range(0, std::max(1, d.lightDrain / 2))
+                                    : rng_.range(30, 90);
+                                L.fuel = std::max(1, L.fuel - burn);
                                 best->dirty = true;
                                 text(best->st.id, COL_ORANGE, capitalize(theName(d)) + " drains the fire from your light!");
                             }
@@ -1255,6 +1258,34 @@ void Server::updateMonsters(float dt) {
                             if (randomFloor(away, false)) { m.pos = away; m.hasSeen = false; m.target = -1; }
                             text(best->st.id, COL_GREY, "The thief vanishes!");
                             continue;
+                        }
+                        if (d.stealsItem && !bs.dead && rng_.chance(50)) {
+                            // Pick a pack slot, but leave quest items, artifacts (and the
+                            // player's last item) alone. With several stacks it grabs a whole
+                            // one; with a single stack it takes just one thing from it.
+                            std::vector<int> slots;
+                            for (int i = 0; i < INV_SIZE; i++)
+                                if (!bs.inv[i].empty() && bs.inv[i].d().kind != ItemKind::Quest && !bs.inv[i].d().artifact)
+                                    slots.push_back(i);
+                            if (!slots.empty()) {
+                                int slot = slots[rng_.range(0, (int)slots.size() - 1)];
+                                ItemStack& it = bs.inv[slot];
+                                bool onlyStack = slots.size() == 1;
+                                if (!onlyStack || it.count > 1) {
+                                    ItemStack stolen = it;
+                                    if (onlyStack) { stolen.count = 1; it.count--; }
+                                    else it = ItemStack();
+                                    best->dirty = true;
+                                    if (onlyStack)
+                                        text(best->st.id, COL_ORANGE, capitalize(theName(d)) + " snatches one from your stack of " + stolen.d().name + "!");
+                                    else
+                                        text(best->st.id, COL_ORANGE, capitalize(theName(d)) + " snatches " + itemName(stolen) + " from your pack!");
+                                    Vec2 away;
+                                    if (randomFloor(away, false)) { m.pos = away; m.hasSeen = false; m.target = -1; }
+                                    text(best->st.id, COL_GREY, "The thief slips away!");
+                                    continue;
+                                }
+                            }
                         }
                     } else {
                         text(best->st.id, COL_GREY, capitalize(theName(d)) + " misses you.");
