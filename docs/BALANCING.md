@@ -164,6 +164,7 @@ a level, or sold to a shop, returns to the pool and can be found again.
 | `invisible = yes` | drawn as a faint shimmer; auto-aim only finds it within 3 tiles, unless you have Detect Monsters active |
 | `regen = N` | regains N hit points per second |
 | `erratic = N` | spends roughly N% of its time fluttering in random directions |
+| `roam = yes` | a prowler: never starts asleep, so it wanders the level from the start. It only homes in on the party once it actually sees someone, so it fills empty stretches without hunting you from across the map |
 | `drainlight = yes` | each hit burns 30-90 seconds of fuel from your torch or lantern. `drainlight = N` burns N to 1.5×N seconds instead |
 | `explode = <spell>` | casts that spell (a ball) where it dies: it hurts *players* |
 | `resist = fire, cold` | half damage from those elements (cold also no longer slows it) |

@@ -377,6 +377,7 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
         if (g.has("drain")) d.drainStat = statFromName(g.str("drain"));
         d.blink = g.b("blink", false);
         d.invisible = g.b("invisible", false);
+        d.roams = g.b("roam", false);
         if (g.has("summon")) {
             d.summon = g.str("summon") == "kin" ? -2 : findMonster(g.str("summon"));
             if (d.summon == -1) { err = where(s) + "unknown monster " + g.str("summon") + " (monsters must be defined before they are summoned, or use 'kin')"; return false; }

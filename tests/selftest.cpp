@@ -680,6 +680,32 @@ int main(int argc, char** argv) {
         CHECK(slot < 0 || ps->inv[slot].empty(), "destroy did not empty the pack slot");
         std::printf("using and destroying items on the floor ok\n");
     }
+    {   // Prowlers (roam = yes) start awake so levels feel lived-in; ordinary monsters
+        // can still be caught asleep, and a prowler doesn't home in until it sees you.
+        auto nw = std::make_shared<ServerNet>();
+        Bot b;
+        nw->attachLoopback(b.pipe);
+        Server sw(nw, 5252);
+        b.hello(0);
+        for (int t = 0; t < 5; t++) { sw.tick(); b.poll(); }
+        int prowlerDef = gData.findMonster("cave_bat");
+        CHECK(prowlerDef >= 0 && gData.monsters[prowlerDef].roams, "cave_bat should be a prowler");
+        bool prowlerAwake = true;
+        for (int i = 0; i < 30; i++) {
+            sw.debugClearMonsters();
+            sw.debugSpawnNatural("cave_bat");
+            if (sw.monsters().empty() || sw.monsters().back().asleep) prowlerAwake = false;
+        }
+        CHECK(prowlerAwake, "a prowler started asleep");
+        bool sleeperSeen = false;
+        for (int i = 0; i < 80 && !sleeperSeen; i++) {
+            sw.debugClearMonsters();
+            sw.debugSpawnNatural("stone_golem");   // sleep = 50 by default
+            if (!sw.monsters().empty() && sw.monsters().back().asleep) sleeperSeen = true;
+        }
+        CHECK(sleeperSeen, "an ordinary monster never started asleep");
+        std::printf("roaming prowlers ok\n");
+    }
     {   // Ammo: the quiver fills at the start, shots use it up, some land on the floor;
         // with the option off nothing is used.
         for (int rule = 1; rule >= 0; rule--) {

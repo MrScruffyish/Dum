@@ -542,7 +542,7 @@ void Server::spawnMonster(int def, Vec2 pos, bool forceAwake) {
     m.angle = rng_.frand() * 2 * PI;
     const MonsterDef& d = gData.monsters[def];
     m.maxHp = m.hp = std::max(1, (int)std::lround(d.hp.roll(rng_) * rules().monsterHp));
-    m.asleep = !forceAwake && rng_.chance(d.sleep);
+    m.asleep = !forceAwake && !d.roams && rng_.chance(d.sleep);   // prowlers are up and about
     m.boss = d.boss;
     monsters_.push_back(m);
 }
@@ -1530,7 +1530,10 @@ void Server::updateMonsters(float dt) {
             int x = (int)m.pos.x, y = (int)m.pos.y;
             int here = flow.empty() ? 9999 : flow[y * map_.w + x];
             bool direct = best && map_.los(m.pos, best->pos) && bestD < 4.0f;
-            if (!direct && here < (m.hasSeen ? 40 : 18)) {
+            // Prowlers don't home in on the party from across the level; they wander until
+            // they actually spot someone, then they join the hunt like everyone else.
+            bool hunts = !d.roams || m.hasSeen;
+            if (hunts && !direct && here < (m.hasSeen ? 40 : 18)) {
                 int bx = x, by = y, bv = here;
                 for (int dy = -1; dy <= 1; dy++)
                     for (int dx = -1; dx <= 1; dx++) {
@@ -3046,6 +3049,19 @@ void Server::debugSpawn(const std::string& ids, bool awake) {
         monsters_.back().asleep = !awake;
         i++;
     }
+}
+
+void Server::debugSpawnNatural(const std::string& id) {
+    if (players_.empty()) return;
+    SPlayer& p = players_.begin()->second;
+    int def = gData.findMonster(id);
+    if (def < 0) { std::printf("[server] unknown monster %s\n", id.c_str()); return; }
+    Vec2 pos = p.pos;
+    for (float d = 3.5f; d > 1.0f; d -= 0.25f) {
+        Vec2 c = p.pos + dirFromAngle(p.angle) * d;
+        if (map_.circleFree(c, MONSTER_RADIUS) && map_.los(p.pos, c)) { pos = c; break; }
+    }
+    spawnMonster(def, pos, false);
 }
 
 // =============================================================== shops ======

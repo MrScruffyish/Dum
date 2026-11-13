@@ -198,6 +198,8 @@ public:
     void debugSetLeverTimer(int i, float t) { if (i >= 0 && i < (int)levers_.size()) levers_[i].timer = t; }
     // Debug: spawn monsters (comma separated ids) in front of the first player, awake or asleep.
     void debugSpawn(const std::string& ids, bool awake);
+    // Debug: spawn one monster with the dungeon's own sleep roll (prowlers come up awake).
+    void debugSpawnNatural(const std::string& id);
     // Testing/debug: move a player directly (bypasses movement validation).
     void debugMovePlayer(int playerId, Vec2 p) {
         if (SPlayer* sp = playerById(playerId)) { sp->pos = p; sendTeleport(*sp); }

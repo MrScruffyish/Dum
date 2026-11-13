@@ -141,6 +141,7 @@ Other things you can give it (all explained at the top of `monsters.txt`):
   but a monster can use any spell.
 - **Undead:** `undead = yes` (holy damage does double, and priests are good against it).
 - **Special abilities:** `steals`, `stealitem`, `poison = 5`, `drain = str`, `blink`, `invisible`,
+  `roam` (a prowler: starts awake and wanders the level, hunting only once it sees you),
   `breeds`, `erratic = 30`, `drainlight` (or `drainlight = 120` for a stronger drain),
   `explode = m_fireburst`, `summon = goblin` (or
   `kin`) with `summonrate`, `resist = cold`, `doors = no` (can't open doors), `reach`.

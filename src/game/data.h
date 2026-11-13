@@ -119,6 +119,7 @@ struct MonsterDef {
     int drainStat = -1;        // its hits may drain this stat
     bool blink = false;        // teleports short distances while fighting
     bool invisible = false;    // hard to see: only targeted up close (or with detection)
+    bool roams = false;        // a prowler: starts awake and wanders the level; only hunts once it sees you
     int summon = -1;           // calls monsters of this kind for help (at most 3 times)
     float summonRate = 0;      // chance per second while fighting
     std::vector<Element> resist, vulnerable;
