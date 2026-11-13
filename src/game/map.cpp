@@ -3,6 +3,26 @@
 
 #include <queue>
 
+namespace {
+// Wall and floor textures for each level theme: a primary and a secondary (variation).
+struct ThemeDef { uint8_t wall, wall2, floor, floor2; };
+const ThemeDef kThemes[THEME_COUNT] = {
+    {WT_BRICK, WT_BRICK, FT_STONE, FT_TILES},   // STONE
+    {WT_CAVE,  WT_CAVE,  FT_DIRT,  FT_STONE},   // CAVERN
+    {WT_MOSS,  WT_BRICK, FT_STONE, FT_DIRT},    // RUINS
+    {WT_WOOD,  WT_WOOD,  FT_WOOD,  FT_TILES},   // HALLS
+    {WT_DARK,  WT_DARK,  FT_STONE, FT_STONE},   // DARK
+    {WT_BLOOD, WT_DARK,  FT_TILES, FT_STONE},   // TEMPLE
+    {WT_DARK,  WT_BRICK, FT_TILES, FT_STONE},   // CRYPT
+};
+}  // namespace
+
+const char* levelThemeName(int theme) {
+    static const char* n[THEME_COUNT] = {"built of stone", "a natural cavern", "mossy ruins",
+                                         "a wooden hall", "bare, dark stone", "a blood-stained temple", "a catacomb"};
+    return theme >= 0 && theme < THEME_COUNT ? n[theme] : "built of stone";
+}
+
 void Map::resize(int w_, int h_) {
     w = w_;
     h = h_;
@@ -90,9 +110,23 @@ struct Gen {
     Rng rng;
     int depth;
     float danger;              // difficulty multiplier for traps, hazards, trapdoors and vaults
+    LevelTheme theme;          // the level-wide look
     std::vector<int> roomId;   // -1 = none
 
-    Gen(Map& map, uint32_t seed, int d, float dg) : m(map), rng(seed), depth(d), danger(dg) {}
+    Gen(Map& map, uint32_t seed, int d, float dg) : m(map), rng(seed), depth(d), danger(dg) {
+        theme = pickTheme();
+        m.theme = (uint8_t)theme;
+    }
+
+    // A look that fits the depth: shallower levels are more varied, deep ones dark and bloody.
+    LevelTheme pickTheme() {
+        static const LevelTheme shallow[] = {THEME_STONE, THEME_CAVERN, THEME_RUINS, THEME_HALLS};
+        static const LevelTheme mid[] = {THEME_STONE, THEME_CAVERN, THEME_RUINS, THEME_DARK, THEME_CRYPT};
+        static const LevelTheme deep[] = {THEME_DARK, THEME_TEMPLE, THEME_CRYPT, THEME_CAVERN, THEME_STONE};
+        if (depth <= 2) return shallow[rng.range(0, 3)];
+        if (depth <= 5) return mid[rng.range(0, 4)];
+        return deep[rng.range(0, 4)];
+    }
 
     // Scale a percentage chance by the danger multiplier, kept in 0..100.
     int dangerPct(int base) const { return std::max(0, std::min(100, (int)std::lround(base * danger))); }
@@ -120,9 +154,13 @@ struct Gen {
     }
 
     uint8_t themeWall() {
-        if (depth <= 2) return rng.chance(70) ? WT_BRICK : (rng.chance(50) ? WT_WOOD : WT_MOSS);
-        if (depth <= 5) return rng.chance(40) ? WT_BRICK : (rng.chance(50) ? WT_MOSS : WT_DARK);
-        return rng.chance(50) ? WT_DARK : (rng.chance(60) ? WT_BLOOD : WT_BRICK);
+        const ThemeDef& t = kThemes[theme];
+        return rng.chance(75) ? t.wall : t.wall2;
+    }
+
+    uint8_t themeFloor() {
+        const ThemeDef& t = kThemes[theme];
+        return rng.chance(80) ? t.floor : t.floor2;
     }
 
     bool placeRoom() {
@@ -140,7 +178,7 @@ struct Gen {
         int id = (int)m.rooms.size();
         uint8_t fl = F_ROOM | (r.lit ? F_LIT : 0);
         uint8_t wt = themeWall();
-        uint8_t ft = (uint8_t)(wt == WT_WOOD ? FT_WOOD : (rng.chance(30) ? FT_TILES : FT_STONE));
+        uint8_t ft = themeFloor();
 
         auto mark = [&](int i, int j) { carveFloor(i, j, id, fl, ft); };
         if (shape == RECT) {  // rectangle, maybe with pillars
@@ -299,6 +337,16 @@ struct Gen {
         bool horiz = Map::tileSolid(m.at(x, y - 1)) && Map::tileSolid(m.at(x, y + 1));
         bool vert = Map::tileSolid(m.at(x - 1, y)) && Map::tileSolid(m.at(x + 1, y));
         if (!horiz && !vert) return false;   // must be a doorway
+        // There must be a real way onward outside the room: open floor (or an open door), not
+        // just another closed door, so a vault door is never stacked directly behind one.
+        bool onward = false;
+        const int ox[4] = {1, -1, 0, 0}, oy[4] = {0, 0, 1, -1};
+        for (int k = 0; k < 4; k++) {
+            int nx = x + ox[k], ny = y + oy[k];
+            if (!m.inside(nx, ny) || roomId[ny * m.w + nx] == r) continue;
+            if (!Map::tileSolid(m.at(nx, ny))) { onward = true; break; }
+        }
+        if (!onward) return false;
         ex = x; ey = y;
         return true;
     }
@@ -513,6 +561,21 @@ struct Gen {
             used[pick] = true;
             m.rooms[r].special = pick;
             made++;
+            // A floor that reads at a glance: dirt den, grass garden, wooden library, tiled
+            // armoury/treasury, dark crypt.
+            uint8_t ft = FT_STONE;
+            switch (pick) {
+                case ROOM_DEN: ft = FT_DIRT; break;
+                case ROOM_GARDEN: ft = FT_GRASS; break;
+                case ROOM_LIBRARY: ft = FT_WOOD; break;
+                case ROOM_ARMORY:
+                case ROOM_TREASURY: ft = FT_TILES; break;
+                default: break;
+            }
+            const Room& rr = m.rooms[r];
+            for (int y = rr.y; y < rr.y + rr.h; y++)
+                for (int x = rr.x; x < rr.x + rr.w; x++)
+                    if (roomId[y * m.w + x] == r) m.floorTex[y * m.w + x] = ft;
         }
     }
 
@@ -531,9 +594,9 @@ struct Gen {
                         if (isFloorish(x + dx, y + dy) && m.at(x + dx, y + dy) != T_ROCK && m.at(x + dx, y + dy) != T_WALL) { adj = true; break; }
                 if (adj) {
                     m.set(x, y, T_WALL);
-                    // Corridors get cave-like walls deeper down.
-                    if (!(m.flag(x, y) & F_ROOM) && depth >= 3 && m.wallTex[y * m.w + x] == WT_BRICK && rng.chance(40))
-                        m.wallTex[y * m.w + x] = WT_CAVE;
+                    // Corridors follow the level's theme.
+                    if (!(m.flag(x, y) & F_ROOM) && rng.chance(60))
+                        m.wallTex[y * m.w + x] = themeWall();
                 }
             }
     }
@@ -629,6 +692,7 @@ void generateTown(Map& m, uint32_t seed) {
     Rng rng(seed ^ 0x70E4u);
     m.resize(48, 36);
     m.depth = 0;
+    m.theme = THEME_STONE;
     m.seed = seed;
     for (int y = 0; y < m.h; y++)
         for (int x = 0; x < m.w; x++) {

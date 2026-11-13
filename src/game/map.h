@@ -86,9 +86,25 @@ struct Room {
     int cy() const { return y + h / 2; }
 };
 
+// A level-wide theme: a cohesive look (walls and floors) chosen per level so levels feel
+// distinct. The client renders the wallTex/floorTex tiles; the theme only picks the palette
+// and names it for the arrival message. Not serialized (only needed when generating).
+enum LevelTheme : uint8_t {
+    THEME_STONE = 0,  // brick walls, stone and tiled floors
+    THEME_CAVERN,     // natural cave walls, dirt floors
+    THEME_RUINS,      // mossy stone, dirt and grass
+    THEME_HALLS,      // wooden halls
+    THEME_DARK,       // bare dark stone
+    THEME_TEMPLE,     // blood-stained walls, tiled floors
+    THEME_CRYPT,      // catacombs of dark walls and tiles
+    THEME_COUNT
+};
+const char* levelThemeName(int theme);
+
 struct Map {
     int w = 0, h = 0;
     int depth = 1;
+    uint8_t theme = THEME_STONE;   // LevelTheme used when this level was generated
     uint32_t seed = 0;
     std::vector<uint8_t> tiles, flags, wallTex, floorTex;
     std::vector<Room> rooms;

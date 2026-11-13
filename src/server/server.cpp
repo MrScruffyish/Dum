@@ -1057,6 +1057,7 @@ void Server::newLevel(int depth, bool down) {
     descentT_ = 0;
     // Difficulty decides how many traps and hazards this level gets (The Abyss grows with depth).
     float danger = difficultyRules(difficulty_).atDepth(std::max(1, depth)).danger;
+    map_.theme = THEME_STONE;   // hand-made maps keep this; procedural ones pick their own
     if (campaignLevel) {
         addCampaignGoal(depth);
         map_.seed = seed;
@@ -1075,6 +1076,7 @@ void Server::newLevel(int depth, bool down) {
     for (int y = 0; y < map_.h && !hasTrapdoor; y++)
         for (int x = 0; x < map_.w; x++)
             if (map_.at(x, y) == T_TRAPDOOR) { hasTrapdoor = true; break; }
+    if (depth > 0) text(-1, COL_GREY, std::string("This level is ") + levelThemeName(map_.theme) + ".");
     if (hasTrapdoor) text(-1, COL_YELLOW, "Somewhere on this level, a trapdoor drops to the level below.");
     for (auto& it : items_)
         if (it.item.d().artifact) { text(-1, COL_YELLOW, "You feel there is something special on this level..."); break; }

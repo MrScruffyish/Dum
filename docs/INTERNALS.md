@@ -125,6 +125,23 @@ then keeps ticking the server on the *Still hosting* screen
 menu, or quits if the host had asked to quit. It ends by itself when the last player has
 left.
 
+## Level themes
+
+- **What:** `enum LevelTheme` (`src/game/map.h`) picks one coherent look per level so levels
+  feel distinct: stone, cavern, ruins, wooden halls, dark stone, temple or crypt. Each theme
+  maps to a primary/secondary wall and floor texture in `kThemes` (`src/game/map.cpp`). The
+  client already renders `wallTex`/`floorTex`, so a theme is only a palette — no new tiles.
+- **Choosing:** `Gen::pickTheme` weights themes by depth (shallow levels favour stone, cavern,
+  ruins and halls; deep ones dark stone, temple and crypt). It is drawn from the level seed,
+  so it is deterministic. `Map::theme` holds the result and `levelThemeName` names it for the
+  "This level is ..." arrival message in `Server::newLevel`.
+- **Rooms:** every room and corridor uses the theme's walls and floors (with a little
+  variation). Cave-shaped rooms stay cave-textured, and a hazard keeps the floor texture
+  underneath. Special rooms override their floor (`placeSpecialRooms`): a den is dirt, a
+  garden grass, a library wood, an armoury/treasury tiles, a crypt dark stone.
+- **Saves:** `Map::theme` is not serialized (it is only needed while generating); it comes
+  back as stone after a load, which is fine because the tiles already carry the look.
+
 ## Floor hazards
 
 - **Tiles:** `T_POISON`, `T_SHARDS`, `T_GAS`, `T_LAVA`, `T_FIRE` and `T_ICE` (the last six

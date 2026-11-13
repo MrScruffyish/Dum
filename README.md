@@ -12,7 +12,7 @@ look roughly toward a monster and your character's stats and the dice decide wha
 - Stat-based combat: d20 + skill + stat modifier vs. armor class, weapon dice, crits, sneak attacks
 - Monsters with more than damage: poison, stat drain, gold and pack theft (never your last item), light-draining, summoning, breeding, blinking, invisibility, and prowlers that roam the level awake
 - Food, light fuel, mana, hit points, leveling, spells, scrolls, potions, sleeping monsters
-- Dungeon generator: rooms, caves, corridors, doors (locked and secret), rubble, lit and dark rooms, rare static floor hazards (poison, shards, gas, lava, fire, ice), hidden lever vaults that close on a timer, visible one-way trapdoors, and special rooms (a monster den, an armoury, a library, a garden, a treasury, a crypt)
+- Dungeon generator: rooms, caves, corridors, doors (locked and secret), rubble, lit and dark rooms, a distinct look per level (stone, cavern, ruins, wooden halls, dark stone, temple or crypt), rare static floor hazards (poison, shards, gas, lava, fire, ice), hidden lever vaults that close on a timer, visible one-way trapdoors, and special rooms (a monster den, an armoury, a library, a garden, a treasury, a crypt)
 - Quests: a chain of boss quests going deeper, plus random per-level tasks
 - Co-op multiplayer over UDP (ENet): host from the game or run a dedicated server, give/drop items
 - All content in editable text files; all art and sound generated in code and replaceable by PNG/WAV files

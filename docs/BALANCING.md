@@ -219,6 +219,10 @@ lets you see further **and** makes you easier to see).
 Dungeon layout (room count, sizes, door chances, lit rooms) is in `src/game/map.cpp`.
 Lit rooms get rarer deeper down: `85 - 12 × level`%, but at least 10%.
 
+Each level also picks a **theme** (stone, cavern, ruins, wooden halls, dark stone, temple or
+crypt) that sets its walls and floors; shallow levels favour the first few, deep levels the
+last few. It is purely a look — no effect on difficulty.
+
 ## Town, shops, recall
 
 | What | Value |

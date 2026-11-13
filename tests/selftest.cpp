@@ -755,6 +755,18 @@ int main(int argc, char** argv) {
         CHECK(specialLevels > 0, "no special rooms generated at all");
         std::printf("special rooms ok (%d/180 levels)\n", specialLevels);
     }
+    {   // Level themes: each level picks one coherent look, so levels feel distinct.
+        bool seen[THEME_COUNT] = {false};
+        int themes = 0;
+        for (uint32_t seed = 1; seed <= 80; seed++) {
+            Map m;
+            generateLevel(m, seed, 6);
+            CHECK(m.theme < THEME_COUNT, "bad level theme %d", m.theme);
+            if (!seen[m.theme]) { seen[m.theme] = true; themes++; }
+        }
+        CHECK(themes >= 3, "too few level themes at depth 6: %d", themes);
+        std::printf("level themes ok (%d distinct at depth 6)\n", themes);
+    }
     {   // Ammo: the quiver fills at the start, shots use it up, some land on the floor;
         // with the option off nothing is used.
         for (int rule = 1; rule >= 0; rule--) {
@@ -948,17 +960,22 @@ int main(int argc, char** argv) {
         int onKeys = 0;
         for (int q : b.st.quick) if (q >= 0) onKeys++;
         CHECK(onKeys == 9, "wizard level 12 should fill all 9 keys (%d)", onKeys);
-        // Sleep a monster.
+        // Sleep a monster. Even a kobold can shrug a spell off (a small resist chance), so
+        // keep trying until it sticks rather than depending on a single roll.
         s9.debugSpawn("kobold", true);
         run(1);
-        if (!s9.monsters().empty()) {
+        bool slept = false;
+        for (int attempt = 0; attempt < 12 && !s9.monsters().empty() && !slept; attempt++) {
+            ps->mp = ps->maxMp;
             Vec2 mp = s9.monsters().back().pos;
             face(std::atan2(mp.y - b.pos.y, mp.x - b.pos.x));
             b.action(A_CAST, spellIdx("sleep_monster"));
-            run(30);
-            const Monster& m = s9.monsters().back();
-            CHECK(m.asleep && m.sleepT > 0, "sleep: monster asleep %d sleepT %.1f", (int)m.asleep, m.sleepT);
+            run(60);
+            if (!s9.monsters().empty() && s9.monsters().back().asleep) slept = true;
         }
+        CHECK(!s9.monsters().empty() && s9.monsters().back().asleep && s9.monsters().back().sleepT > 0,
+              "sleep: monster asleep %d sleepT %.1f", s9.monsters().empty() ? 0 : (int)s9.monsters().back().asleep,
+              s9.monsters().empty() ? 0.0f : s9.monsters().back().sleepT);
         // Stone to mud: find a wall next to us.
         const Map& mp = s9.map();
         int wx = -1, wy = -1;
