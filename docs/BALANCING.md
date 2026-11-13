@@ -254,6 +254,21 @@ Lit rooms get rarer deeper down: `85 - 12 × level`%, but at least 10%.
 | Trapdoor on a level (level 2+) | `min(60, 25 + 3 × level)`% before placement; 25% chance of a second one at level 8+ |
 | Trapdoor drop | whole party, exactly one level down, 0.7 s after someone steps on it; no way back up through the hatch |
 
+## Special rooms
+
+The generator themes a few rooms per level (never the stairs rooms, never the same kind
+twice on a level). Shallow levels get one, deeper levels up to three or four, and hard
+difficulties a little more.
+
+| Room | Contents |
+|------|----------|
+| Den | a nest of 4-8 monsters of one kind, plus a little gold |
+| Crypt (level 3+) | 3-4 undead (of kinds that fit the depth), grave goods, gold |
+| Armoury | 2-3 weapons, armour or helms |
+| Library | 2-3 scrolls, potions, wands or rods |
+| Garden | 2-3 pieces of food |
+| Treasury (level 2+) | 3-5 gold piles and a chest |
+
 ## Difficulty
 
 Difficulty levels are defined in `data/difficulty.txt` (Story, Easy, Normal, Hard, Nightmare);

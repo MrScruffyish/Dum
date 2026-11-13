@@ -317,7 +317,7 @@ struct Gen {
             if (made >= want) break;
             // Never the rooms with the stairs.
             int sr = roomId[m.startY * m.w + m.startX], dr = roomId[m.downY * m.w + m.downX];
-            if (r == sr || r == dr) continue;
+            if (r == sr || r == dr || m.rooms[r].special != ROOM_NONE) continue;
             int x, y;
             if (!deadEndEntry(r, x, y)) continue;
             m.set(x, y, T_DOOR_KEY);
@@ -335,7 +335,7 @@ struct Gen {
         for (size_t i = order.size(); i > 1; i--) std::swap(order[i - 1], order[rng.range(0, (int)i - 1)]);
         for (int r : order) {
             int sr = roomId[m.startY * m.w + m.startX], dr = roomId[m.downY * m.w + m.downX];
-            if (r == sr || r == dr) continue;
+            if (r == sr || r == dr || m.rooms[r].special != ROOM_NONE) continue;
             int ex, ey;
             if (!deadEndEntry(r, ex, ey)) continue;
             uint8_t entry = m.at(ex, ey);
@@ -450,6 +450,7 @@ struct Gen {
             for (int tries = 0; tries < 120; tries++) {
                 int cx = rng.range(2, m.w - 3), cy = rng.range(2, m.h - 3);
                 if (m.at(cx, cy) != T_FLOOR) continue;
+                if (specialRoomAt(cx, cy)) continue;   // special rooms stay clean
                 bool inRoom = (m.flag(cx, cy) & F_ROOM) != 0;
                 if (!inRoom && !((m.flag(cx, cy) & F_CORRIDOR) && rng.chance(20))) continue;
                 auto nearStairs = [&](int x, int y, int d) {
@@ -477,6 +478,47 @@ struct Gen {
                 if (made) break;
             }
         }
+    }
+
+    // Mark a few rooms as "special": the server fills them with themed contents (a monster den,
+    // an armoury, a library, a garden, a treasury or a crypt). The stairs rooms stay ordinary,
+    // and vaults never take over a special room.
+    void placeSpecialRooms() {
+        if (depth < 1) return;
+        int sr = roomId[m.startY * m.w + m.startX], dr = roomId[m.downY * m.w + m.downX];
+        std::vector<int> cand;
+        for (size_t i = 0; i < m.rooms.size(); i++) {
+            if ((int)i == sr || (int)i == dr) continue;
+            if (m.rooms[i].w * m.rooms[i].h < 18) continue;
+            cand.push_back((int)i);
+        }
+        for (size_t i = cand.size(); i > 1; i--) std::swap(cand[i - 1], cand[rng.range(0, (int)i - 1)]);
+        int want = 1 + (depth >= 4 ? 1 : 0) + (depth >= 9 ? 1 : 0);
+        if (depth >= 2 && rng.chance(dangerPct(20))) want++;
+        want = std::min(want, (int)cand.size());
+        static const RoomSpecial kinds[] = {ROOM_DEN, ROOM_ARMORY, ROOM_LIBRARY, ROOM_GARDEN, ROOM_TREASURY, ROOM_CRYPT};
+        bool used[ROOM_SPECIAL_COUNT] = {false};
+        int made = 0;
+        for (int r : cand) {
+            if (made >= want) break;
+            RoomSpecial pick = ROOM_NONE;
+            for (int tries = 0; tries < 12 && pick == ROOM_NONE; tries++) {
+                RoomSpecial k = kinds[rng.range(0, 5)];
+                if (used[k]) continue;                        // one of each kind per level
+                if (k == ROOM_CRYPT && depth < 3) continue;   // the undead wait a little
+                if (k == ROOM_TREASURY && depth < 2) continue;
+                pick = k;
+            }
+            if (pick == ROOM_NONE) continue;
+            used[pick] = true;
+            m.rooms[r].special = pick;
+            made++;
+        }
+    }
+
+    bool specialRoomAt(int x, int y) const {
+        int r = roomId[y * m.w + x];
+        return r >= 0 && m.rooms[r].special != ROOM_NONE;
     }
 
     void buildWalls() {
@@ -571,6 +613,7 @@ struct Gen {
         m.set(bx, by, T_STAIRS_DOWN);
         m.startX = sx; m.startY = sy;
         m.downX = bx; m.downY = by;
+        placeSpecialRooms();
         placeHazards();
         placeVaults();
         placeLeverVault();

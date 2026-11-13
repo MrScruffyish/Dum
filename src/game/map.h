@@ -65,9 +65,23 @@ enum TileFlag : uint8_t {
     F_OUTDOOR = 16,  // open sky above (town)
 };
 
+// A room can be "special": a themed set of contents the server fills in when it populates the
+// level. ROOM_NONE is an ordinary room.
+enum RoomSpecial : uint8_t {
+    ROOM_NONE = 0,
+    ROOM_DEN,       // a nest of one monster kind
+    ROOM_ARMORY,    // weapons, armour and helms
+    ROOM_LIBRARY,   // scrolls, potions and wands
+    ROOM_GARDEN,    // food and herbs
+    ROOM_TREASURY,  // a pile of gold and a chest
+    ROOM_CRYPT,     // the undead and their grave goods
+    ROOM_SPECIAL_COUNT
+};
+
 struct Room {
     int x, y, w, h;
     bool lit;
+    RoomSpecial special = ROOM_NONE;
     int cx() const { return x + w / 2; }
     int cy() const { return y + h / 2; }
 };

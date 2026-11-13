@@ -292,6 +292,7 @@ private:
     void newGame();
     void newLevel(int depth, bool down);
     void populate(const std::vector<int>* pool = nullptr);
+    void populateSpecialRooms();
     void placeChestsAndKeys();
     void rebuildLevers();
     void updateLevers(float dt);

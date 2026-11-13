@@ -734,6 +734,27 @@ int main(int argc, char** argv) {
         CHECK(high > low * 2, "danger did not add traps/hazards: %.2f -> %ld, %.2f -> %ld", 0.35f, low, 2.2f, high);
         std::printf("difficulty scaling ok (%ld danger tiles at x0.35, %ld at x2.2)\n", low, high);
     }
+    {   // Special rooms: the generator marks a few rooms as themed (den, armoury, library,
+        // garden, treasury, crypt), never the stairs rooms, and the server fills them in.
+        int specialLevels = 0;
+        for (uint32_t seed = 1; seed <= 60; seed++)
+            for (int depth : {2, 5, 8}) {
+                Map m;
+                generateLevel(m, seed, depth);
+                int n = 0;
+                for (auto& r : m.rooms)
+                    if (r.special != ROOM_NONE) {
+                        n++;
+                        bool up = m.startX >= r.x && m.startX < r.x + r.w && m.startY >= r.y && m.startY < r.y + r.h;
+                        bool down = m.downX >= r.x && m.downX < r.x + r.w && m.downY >= r.y && m.downY < r.y + r.h;
+                        CHECK(!up && !down, "special room holds a staircase seed %u depth %d", seed, depth);
+                    }
+                CHECK(n <= 4, "too many special rooms seed %u depth %d: %d", seed, depth, n);
+                if (n) specialLevels++;
+            }
+        CHECK(specialLevels > 0, "no special rooms generated at all");
+        std::printf("special rooms ok (%d/180 levels)\n", specialLevels);
+    }
     {   // Ammo: the quiver fills at the start, shots use it up, some land on the floor;
         // with the option off nothing is used.
         for (int rule = 1; rule >= 0; rule--) {

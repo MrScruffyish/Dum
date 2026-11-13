@@ -178,6 +178,24 @@ left.
   and opens the door (it becomes `T_DOOR_OPEN`). Walking into the door does the
   same (bump-to-open). Monsters can't open these doors, and Stone to Mud can't dig them.
 
+## Special rooms
+
+- **Marking:** `Gen::placeSpecialRooms` in `src/game/map.cpp` runs once the stairs are placed
+  (before hazards and vaults). It picks a few rooms — never the stairs rooms, never smaller
+  than 18 cells — and sets `Room::special` to `ROOM_DEN`, `ROOM_ARMORY`, `ROOM_LIBRARY`,
+  `ROOM_GARDEN`, `ROOM_TREASURY` or `ROOM_CRYPT` (`enum RoomSpecial` in `src/game/map.h`).
+  One of each kind per level, 1 room on shallow levels up to 3-4 deeper down (a little more
+  on hard difficulties). `ROOM_CRYPT` waits until level 3, `ROOM_TREASURY` until level 2.
+- **Vaults step aside:** `placeVaults` and `placeLeverVault` skip special rooms, and
+  `placeHazards` keeps floor hazards out of them, so the theme is never spoiled.
+- **Contents:** `Server::populateSpecialRooms` (called from `populate`) fills each one: a den
+  is a nest of one monster kind plus gold; a crypt is undead (if any fit the depth) with
+  grave goods and gold; an armoury holds weapons, armour and helms; a library holds scrolls,
+  potions and wands; a garden holds food; a treasury holds gold and a chest. Item kinds are
+  chosen from what may appear near the level's depth.
+- **Saves:** `Room::special` is only needed while generating; it is not serialized (rooms are
+  saved as x, y, w, h, lit), so old saves load fine and the contents come from the save.
+
 ## Items: stacks, rings, using from the floor
 
 - `stacksWith` decides what merges in the pack: same item, stackable, and for lights the same

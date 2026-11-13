@@ -591,6 +591,7 @@ void Server::populate(const std::vector<int>* pool) {
         if (randomFloor(p, false)) dropItem(makeItem(pickItem(depth)), p);
     }
     placeChestsAndKeys();
+    populateSpecialRooms();
     // Guaranteed supplies: food and light.
     for (const char* id : {"ration", "ration", "torch", "flask_oil"}) {
         Vec2 p;
@@ -617,6 +618,101 @@ void Server::populate(const std::vector<int>* pool) {
                 if (map_.circleFree(c, MONSTER_RADIUS)) spawnMonster(pickMonster(depth), c);
             }
             text(-1, COL_ORANGE, "You sense a powerful presence on this level...");
+        }
+    }
+}
+
+// Fill the rooms the generator marked special with themed contents: a monster den, an armoury,
+// a library, a garden, a treasury or a crypt.
+void Server::populateSpecialRooms() {
+    int depth = power_;
+    int goldDef = gData.findItem("gold");
+    bool haveChest = gData.findItem("chest") >= 0;
+    // A random item of one of these kinds that can appear around this depth (fallback: any).
+    auto pickKind = [&](const std::vector<ItemKind>& kinds, int bonus) -> int {
+        std::vector<int> cands;
+        for (size_t i = 0; i < gData.items.size(); i++) {
+            const ItemDef& d = gData.items[i];
+            if (d.rarity <= 0 || d.artifact || d.depth > depth + bonus) continue;
+            for (ItemKind k : kinds)
+                if (d.kind == k) { cands.push_back((int)i); break; }
+        }
+        return cands.empty() ? pickItem(depth + bonus) : cands[rng_.range(0, (int)cands.size() - 1)];
+    };
+    auto pickUndead = [&]() -> int {
+        std::vector<int> cands;
+        int eff = std::max(1, depth + rules().monsterDepthBias);
+        for (size_t i = 0; i < gData.monsters.size(); i++) {
+            const MonsterDef& d = gData.monsters[i];
+            if (d.undead && !d.boss && d.rarity > 0 && d.depth <= eff + 1) cands.push_back((int)i);
+        }
+        return cands.empty() ? -1 : cands[rng_.range(0, (int)cands.size() - 1)];
+    };
+    auto spotsIn = [&](const Room& r) {
+        std::vector<Vec2> v;
+        for (int y = r.y; y < r.y + r.h; y++)
+            for (int x = r.x; x < r.x + r.w; x++)
+                if (map_.at(x, y) == T_FLOOR && (map_.flag(x, y) & F_ROOM)) v.push_back(Vec2(x + 0.5f, y + 0.5f));
+        return v;
+    };
+    auto takeSpot = [&](std::vector<Vec2>& v, Vec2& out) {
+        if (v.empty()) return false;
+        int i = rng_.range(0, (int)v.size() - 1);
+        out = v[i];
+        v[i] = v.back();
+        v.pop_back();
+        return true;
+    };
+    auto gold = [&](int lo, int hi) {
+        return makeItem(goldDef, std::max(1, (int)(rng_.range(lo, hi) * std::max(1, depth) * rules().gold)));
+    };
+    for (const Room& r : map_.rooms) {
+        if (r.special == ROOM_NONE) continue;
+        std::vector<Vec2> sp = spotsIn(r);
+        if (sp.empty()) continue;
+        Vec2 p;
+        switch (r.special) {
+            case ROOM_DEN: {
+                int def = pickMonster(depth);
+                for (int i = 0, n = rng_.range(4, 8); i < n; i++) {
+                    Vec2 q;
+                    if (!takeSpot(sp, q)) break;
+                    if (map_.circleFree(q, MONSTER_RADIUS)) spawnMonster(def, q);
+                }
+                if (goldDef >= 0 && takeSpot(sp, p)) dropItem(gold(8, 20), p);
+                break;
+            }
+            case ROOM_CRYPT: {
+                int def = pickUndead();
+                for (int i = 0, n = rng_.range(3, 5); i < n; i++) {
+                    Vec2 q;
+                    if (!takeSpot(sp, q)) break;
+                    if (def >= 0 && map_.circleFree(q, MONSTER_RADIUS)) spawnMonster(def, q);
+                }
+                for (int i = 0, n = rng_.range(1, 2); i < n; i++)
+                    if (takeSpot(sp, p))
+                        dropItem(makeItem(pickKind({ItemKind::Weapon, ItemKind::Armor, ItemKind::Helm, ItemKind::Ring, ItemKind::Amulet}, 1)), p);
+                if (goldDef >= 0 && takeSpot(sp, p)) dropItem(gold(10, 25), p);
+                break;
+            }
+            case ROOM_ARMORY:
+                for (int i = 0, n = rng_.range(2, 4); i < n; i++)
+                    if (takeSpot(sp, p)) dropItem(makeItem(pickKind({ItemKind::Weapon, ItemKind::Armor, ItemKind::Helm}, 1)), p);
+                break;
+            case ROOM_LIBRARY:
+                for (int i = 0, n = rng_.range(2, 4); i < n; i++)
+                    if (takeSpot(sp, p)) dropItem(makeItem(pickKind({ItemKind::Scroll, ItemKind::Potion, ItemKind::Wand, ItemKind::Rod}, 1)), p);
+                break;
+            case ROOM_GARDEN:
+                for (int i = 0, n = rng_.range(2, 4); i < n; i++)
+                    if (takeSpot(sp, p)) dropItem(makeItem(pickKind({ItemKind::Food}, 0)), p);
+                break;
+            case ROOM_TREASURY:
+                for (int i = 0, n = rng_.range(3, 6); i < n; i++)
+                    if (goldDef >= 0 && takeSpot(sp, p)) dropItem(gold(6, 18), p);
+                if (haveChest && takeSpot(sp, p)) dropItem(makeChest(false), p);
+                break;
+            default: break;
         }
     }
 }
