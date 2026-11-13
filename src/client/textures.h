@@ -44,7 +44,7 @@ struct Assets {
     Texture floors[8];
     Texture hazardFloors[6];   // T_POISON, T_SHARDS, T_GAS, T_LAVA, T_FIRE, T_ICE (Map::hazardIndex)
     Texture shopDoors[8];
-    Texture ceiling, ceilingCave, stairsDown, stairsUp, stairsUpCeil;
+    Texture ceiling, ceilingCave, stairsDown, stairsUp, stairsUpCeil, trapdoor;
     std::vector<Texture> monsters, monstersAttack;  // per monster def
     std::vector<std::vector<Texture>> monstersWalk, monstersDie;   // per monster def: frames
     std::vector<std::vector<Texture>> playersWalk;                 // per class: frames

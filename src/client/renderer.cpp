@@ -247,7 +247,8 @@ void Renderer::drawWorld(Map& m, const Assets& a, Vec2 cam, float angle, float h
                         t = &a.hazardFloors[Map::hazardIndex(tile)];
                         l = std::min(1.4f, l * 1.2f);   // make danger stand out
                     } else {
-                        t = tile == T_STAIRS_DOWN ? &a.stairsDown : tile == T_STAIRS_UP ? &a.stairsUp : &a.floors[m.floorTex[idx] & 7];
+                        t = tile == T_STAIRS_DOWN ? &a.stairsDown : tile == T_STAIRS_UP ? &a.stairsUp
+                            : tile == T_TRAPDOOR ? &a.trapdoor : &a.floors[m.floorTex[idx] & 7];
                     }
                 } else if (m.flags[idx] & F_OUTDOOR) {
                     // Open sky: a vertical gradient, lighter toward the horizon.

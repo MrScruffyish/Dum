@@ -85,7 +85,7 @@ private:
     enum class Auto { None, Explore, Travel };
     Auto auto_ = Auto::None;
     // Travel (G): where to. The menu lists what has been found so far.
-    enum class Dest { StairsDown, StairsUp, KeyDoor, Chest };
+    enum class Dest { StairsDown, StairsUp, KeyDoor, Chest, Trapdoor };
     struct TravelDest { Dest kind; int x, y; std::string label; };
     std::vector<TravelDest> travelOpts_;
     int travelSel_ = 0;
@@ -139,6 +139,7 @@ private:
     float stepT_ = 0, bumpCd_ = 0, digShake_ = 0;
     bool rubbleHinted_ = false;
     bool leverHinted_ = false;
+    bool trapdoorHinted_ = false;
     int shopIdx_ = 0, shopSel_ = 0, shopSide_ = 0;   // shop window: side 0 = buy, 1 = sell
     int shopX_ = 0, shopY_ = 0;
     int selSpell_ = 0;
@@ -190,6 +191,7 @@ private:
     std::string usePrompt() const;
     void hintRubble();
     void hintLever();
+    void hintTrapdoor();
     bool tryOpenShop(float angle);
     void shopKey(SDL_Keycode k);
     int shopRowAt(int mx, int my, int& side) const;

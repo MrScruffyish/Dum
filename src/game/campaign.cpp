@@ -242,6 +242,7 @@ bool buildHandMap(const HandMap& h, Map& m, std::vector<Placement>& placed, std:
                 case ':': t = T_RUBBLE; break;
                 case '>': t = T_STAIRS_DOWN; m.downX = mx; m.downY = my; haveDown = true; break;
                 case '<': t = T_STAIRS_UP; m.startX = mx; m.startY = my; haveStart = true; break;
+                case '^': t = T_TRAPDOOR; break;
                 case '@': if (!haveStart) { m.startX = mx; m.startY = my; haveStart = true; } break;
                 default: {
                     auto it = h.legend.find(c);
@@ -316,6 +317,7 @@ std::string handMapText(const Map& m, const std::string& id, const std::string& 
                 case T_RUBBLE: c = ':'; break;
                 case T_STAIRS_DOWN: c = '>'; break;
                 case T_STAIRS_UP: c = '<'; break;
+                case T_TRAPDOOR: c = '^'; break;
                 default: c = ' ';
             }
             row += c;

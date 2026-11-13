@@ -60,6 +60,9 @@ bool Client::findPath(bool explore) {
     auto walkable = [&](int x, int y) {
         if (!map_.inside(x, y) || !(map_.flag(x, y) & F_SEEN)) return false;
         uint8_t t = map_.at(x, y);
+        // Never let auto-walk drop the party through a trapdoor. Travelling to one stops
+        // beside it, so stepping on is always a deliberate press.
+        if (t == T_TRAPDOOR) return false;
         if (!allowHazards && Map::tileHazard(t)) return false;
         return !Map::tileSolid(t) || t == T_DOOR || t == T_DOOR_LOCKED || t == T_RUBBLE;
     };
@@ -71,8 +74,9 @@ bool Client::findPath(bool explore) {
     auto isGoal = [&](int x, int y) {
         if (x == sx && y == sy) return false;
         if (!explore) {
-            // A coloured door: stand right in front of it. Everything else: on it.
-            if (travel_.kind == Dest::KeyDoor) return std::abs(x - travel_.x) + std::abs(y - travel_.y) == 1;
+            // A coloured door or a trapdoor: stand right in front of it. Everything else: on it.
+            if (travel_.kind == Dest::KeyDoor || travel_.kind == Dest::Trapdoor)
+                return std::abs(x - travel_.x) + std::abs(y - travel_.y) == 1;
             return x == travel_.x && y == travel_.y;
         }
         for (auto& it : itemTiles)
@@ -176,6 +180,7 @@ Vec2 Client::autopilot(float dt) {
                                                                                : "Here is the door - but you don't have its key yet.");
                     break;
                 case Dest::Chest: stopAuto("You reach the chest. Press " + e + " to open it."); break;
+                case Dest::Trapdoor: stopAuto("You reach the trapdoor. Step onto it to drop."); break;
             }
         }
         return {};
@@ -255,6 +260,7 @@ void Client::openTravelMenu() {
             uint8_t t = map_.at(x, y);
             if (t == T_STAIRS_DOWN) travelOpts_.insert(travelOpts_.begin(), {Dest::StairsDown, x, y, "stairs down"});
             else if (t == T_STAIRS_UP && map_.depth > 0) travelOpts_.push_back({Dest::StairsUp, x, y, "stairs up"});
+            else if (t == T_TRAPDOOR && map_.depth > 0) travelOpts_.push_back({Dest::Trapdoor, x, y, "trapdoor down (one-way)"});
         }
     for (int y = 0; y < map_.h; y++)
         for (int x = 0; x < map_.w; x++)

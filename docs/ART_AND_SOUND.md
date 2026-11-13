@@ -53,6 +53,7 @@ follow the rules in the last column.
 | `wall_brick`, `wall_cave`, `wall_moss`, `wall_dark`, `wall_wood`, `wall_blood` | 64x64 | wall textures (the dungeon picks a theme per room/depth) | power of two (32, 64, 128, 256...), tiles seamlessly |
 | `floor_stone`, `floor_dirt`, `floor_tiles`, `floor_wood`, `floor_grass`, `floor_cobble` | 64x64 | floor textures | power of two, seamless |
 | `floor_poison`, `floor_shards`, `floor_gas`, `floor_lava`, `floor_fire`, `floor_ice` | 64x64 | the six static floor hazards (make each one unmistakable) | power of two, seamless |
+| `trapdoor` | 64x64 | a closed trapdoor hatch in the floor (clearly a way down) | power of two, seamless |
 | `ceiling`, `ceiling_cave` | 64x64 | ceilings (cave ceiling above dirt floors) | power of two, seamless |
 | `door`, `door_locked` | 64x64 | closed doors (fills a whole wall tile) | power of two |
 | `door_red`, `door_blue`, `door_green`, `door_yellow` | 64x64 | doors with a coloured lock (vaults) | power of two |

@@ -108,9 +108,9 @@ int main(int argc, char** argv) {
         for (int y = 0; y < m.h; y++) {
             std::string row;
             for (int x = 0; x < m.w; x++) {
-                // T_ROCK ... T_DOOR_TIMED_OPEN: rock, wall, floor, doors, stairs, rubble, shop, key door,
-                // poison, shards, gas, lava, fire, ice, lever, timed door (closed/open).
-                static const char* c = " #.+'LS><:$kpsglfiVTo";
+                // T_ROCK ... T_TRAPDOOR: rock, wall, floor, doors, stairs, rubble, shop, key door,
+                // poison, shards, gas, lava, fire, ice, lever, timed door (closed/open), trapdoor.
+                static const char* c = " #.+'LS><:$kpsglfiVTo^";
                 row += c[m.at(x, y)];
             }
             std::printf("%s\n", row.c_str());
@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
     std::printf("data: %zu classes, %zu items, %zu monsters, %zu spells\n", gData.classes.size(), gData.items.size(), gData.monsters.size(), gData.spells.size());
 
     // 1. Dungeon generation: many seeds/depths, all connected, deterministic.
-    int hazardLevels = 0, leverLevels = 0;
+    int hazardLevels = 0, leverLevels = 0, trapdoorLevels = 0;
     for (uint32_t seed = 1; seed <= 60; seed++)
         for (int depth = 1; depth <= 10; depth += 3) {
             Map a, b;
@@ -140,11 +140,12 @@ int main(int argc, char** argv) {
             CHECK(hazards <= 26, "too many hazard tiles seed %u depth %d: %d", seed, depth, hazards);
             if (hazards) hazardLevels++;
             // Lever vaults are always a visible, reachable lever outside a hidden door.
-            int levers = 0, timedDoors = 0, lx = -1, ly = -1, dx = -1, dy = -1;
+            int levers = 0, timedDoors = 0, trapdoors = 0, lx = -1, ly = -1, dx = -1, dy = -1, tx = -1, ty = -1;
             for (int y = 0; y < a.h; y++)
                 for (int x = 0; x < a.w; x++) {
                     if (a.at(x, y) == T_LEVER) { levers++; lx = x; ly = y; }
                     if (a.at(x, y) == T_DOOR_TIMED) { timedDoors++; dx = x; dy = y; }
+                    if (a.at(x, y) == T_TRAPDOOR) { trapdoors++; tx = x; ty = y; }
                 }
             CHECK(levers == timedDoors, "lever/timed door mismatch seed %u depth %d: %d/%d", seed, depth, levers, timedDoors);
             CHECK(levers <= 1, "too many levers seed %u depth %d: %d", seed, depth, levers);
@@ -187,6 +188,32 @@ int main(int argc, char** argv) {
                 CHECK(dr > 0, "timed door unreachable from the stairs seed %u depth %d", seed, depth);
                 CHECK(dw > 0, "timed door has no sealed vault behind it seed %u depth %d", seed, depth);
             }
+            CHECK(trapdoors <= 2, "too many trapdoors seed %u depth %d: %d", seed, depth, trapdoors);
+            CHECK(depth > 1 || trapdoors == 0, "trapdoor in the first level or town seed %u depth %d", seed, depth);
+            if (trapdoors) {
+                trapdoorLevels++;
+                CHECK(!Map::tileSolid(a.at(tx, ty)), "trapdoor must be walkable seed %u depth %d", seed, depth);
+                CHECK(std::abs(tx - a.startX) + std::abs(ty - a.startY) >= 6, "trapdoor too close to the start seed %u depth %d",
+                      seed, depth);
+                std::vector<uint8_t> seen(a.w * a.h, 0);
+                std::vector<std::pair<int, int>> q;
+                seen[a.startY * a.w + a.startX] = 1;
+                q.push_back({a.startX, a.startY});
+                for (size_t i = 0; i < q.size(); i++) {
+                    const int ox[4] = {1, -1, 0, 0}, oy[4] = {0, 0, 1, -1};
+                    for (int k = 0; k < 4; k++) {
+                        int nx = q[i].first + ox[k], ny = q[i].second + oy[k];
+                        if (!a.inside(nx, ny)) continue;
+                        uint8_t t = a.at(nx, ny);
+                        if (t == T_ROCK || t == T_WALL || t == T_LEVER || t == T_DOOR_TIMED) continue;
+                        int idx = ny * a.w + nx;
+                        if (seen[idx]) continue;
+                        seen[idx] = 1;
+                        q.push_back({nx, ny});
+                    }
+                }
+                CHECK(seen[ty * a.w + tx], "trapdoor unreachable from the stairs seed %u depth %d", seed, depth);
+            }
             // serialization round trip
             Writer w;
             a.serialize(w, false);
@@ -196,7 +223,9 @@ int main(int argc, char** argv) {
         }
     CHECK(hazardLevels > 0, "no floor hazards generated at all");
     CHECK(leverLevels > 0, "no lever vaults generated at all");
-    std::printf("dungeon generation ok (%d/%d levels with floor hazards, %d with a lever vault)\n", hazardLevels, 60 * 4, leverLevels);
+    CHECK(trapdoorLevels > 0, "no trapdoors generated at all");
+    std::printf("dungeon generation ok (%d/%d levels with floor hazards, %d with a lever vault, %d with a trapdoor)\n",
+                hazardLevels, 60 * 4, leverLevels, trapdoorLevels);
 
     {   // Corridor assist: walking at a wall just beside a corridor opening slides you into it.
         Map m;
@@ -528,6 +557,32 @@ int main(int argc, char** argv) {
             }
         }
         std::printf("lever and timed door ok\n");
+    }
+    {   // Stepping on a visible trapdoor drops the whole party exactly one level.
+        auto nt = std::make_shared<ServerNet>();
+        Bot b;
+        nt->attachLoopback(b.pipe);
+        Server td(nt, 909090);
+        b.hello(0);
+        for (int t = 0; t < 5; t++) { td.tick(); b.poll(); }
+        bool found = false;
+        for (int attempt = 0; attempt < 40 && !found; attempt++) {
+            td.debugGoto(2 + attempt % 12);
+            for (int t = 0; t < 2; t++) { td.tick(); b.poll(); }
+            const Map& m = td.map();
+            int tx = -1, ty = -1;
+            for (int y = 0; y < m.h && tx < 0; y++)
+                for (int x = 0; x < m.w; x++)
+                    if (m.at(x, y) == T_TRAPDOOR) { tx = x; ty = y; break; }
+            if (tx < 0) continue;
+            int before = m.depth;
+            td.debugClearMonsters();
+            td.debugMovePlayer(b.id, Vec2(tx + 0.5f, ty + 0.5f));
+            for (int t = 0; t < 40; t++) { td.tick(); b.poll(); }
+            if (td.map().depth == before + 1 && td.map().at(td.map().startX, td.map().startY) == T_STAIRS_UP) found = true;
+        }
+        CHECK(found, "a trapdoor never dropped the party to the next level");
+        std::printf("trapdoor descent ok\n");
     }
     {   // Torches stack, two rings, and a full pack uses scrolls from the floor.
         auto nr = std::make_shared<ServerNet>();

@@ -12,7 +12,7 @@ look roughly toward a monster and your character's stats and the dice decide wha
 - Stat-based combat: d20 + skill + stat modifier vs. armor class, weapon dice, crits, sneak attacks
 - Monsters with more than damage: poison, stat drain, gold and pack theft (never your last item), light-draining, summoning, breeding, blinking and invisibility
 - Food, light fuel, mana, hit points, leveling, spells, scrolls, potions, sleeping monsters
-- Dungeon generator: rooms, caves, corridors, doors (locked and secret), rubble, lit and dark rooms, rare static floor hazards (poison, shards, gas, lava, fire, ice), and hidden lever vaults that close on a timer
+- Dungeon generator: rooms, caves, corridors, doors (locked and secret), rubble, lit and dark rooms, rare static floor hazards (poison, shards, gas, lava, fire, ice), hidden lever vaults that close on a timer, and visible one-way trapdoors
 - Quests: a chain of boss quests going deeper, plus random per-level tasks
 - Co-op multiplayer over UDP (ENet): host from the game or run a dedicated server, give/drop items
 - All content in editable text files; all art and sound generated in code and replaceable by PNG/WAV files
@@ -181,6 +181,17 @@ A dedicated server runs it with `--campaign abyss`.
   never closes on you while you stand in the doorway or inside the vault, and the lever can
   be pulled again, so you cannot lock yourself out. "Somewhere on this level, a wall lever
   opens a hidden vault" tells you that one exists. Vaults hold one or two richer chests.
+
+## Trapdoors
+
+- Some dungeon levels have a **trapdoor**: a wooden hatch with iron bands and a brass ring,
+  set into a room floor. It is always visible, so you can simply walk around it.
+- Stepping onto it drops the **whole party** one level down. There is no confirmation and
+  no matching way back up: it is a one-way shortcut, not a staircase. You land at the
+  up-stairs of the level below.
+- "Somewhere on this level, a trapdoor drops to the level below" tells you one exists.
+  A seen trapdoor appears on the minimap and in the G travel list, and auto-walk avoids
+  trapdoors unless you deliberately travel to one.
 
 ## Bows, crossbows, slings and ammo
 

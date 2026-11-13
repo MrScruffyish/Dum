@@ -250,6 +250,8 @@ Lit rooms get rarer deeper down: `85 - 12 × level`%, but at least 10%.
 | Monsters with `doors = yes` | open doors. Locked doors: 15% chance per try to burst them open |
 | Lever vault on a level (level 2+) | `min(80, 30 + 4 × level)`% before checking that the level has a suitable dead end |
 | Timed door stays open | `max(15, 2 × walking time from lever to door + 2)` seconds (walking is 3.4 tiles/s), and it waits while someone is in the doorway or vault |
+| Trapdoor on a level (level 2+) | `min(60, 25 + 3 × level)`% before placement; 25% chance of a second one at level 8+ |
+| Trapdoor drop | whole party, exactly one level down, 0.7 s after someone steps on it; no way back up through the hatch |
 
 ## Difficulty
 

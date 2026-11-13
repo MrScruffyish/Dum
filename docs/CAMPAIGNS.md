@@ -113,6 +113,7 @@ Everything after `map:` up to the next empty line is the map, one character per 
 | `<` | stairs up: the party arrives here |
 | `@` | start position without stairs |
 | `>` | stairs down |
+| `^` | one-way trapdoor down (the party falls one level) |
 | any other letter or digit | whatever you define with `place` |
 
 `place X = monster <id>` (add `awake` to have it awake from the start) or

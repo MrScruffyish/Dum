@@ -368,6 +368,56 @@ struct Gen {
         }
     }
 
+    void placeTrapdoors() {
+        if (depth < 2 || !rng.chance(std::min(60, 25 + depth * 3))) return;
+        int want = depth >= 8 && rng.chance(25) ? 2 : 1;
+        // Reachable from the stairs without a coloured key or the hidden lever door, so a
+        // trapdoor never sits inside a vault that the party has not opened yet.
+        std::vector<int> d(m.w * m.h, -1);
+        std::queue<int> q;
+        d[m.startY * m.w + m.startX] = 0;
+        q.push(m.startY * m.w + m.startX);
+        while (!q.empty()) {
+            int c = q.front();
+            q.pop();
+            int x = c % m.w, y = c / m.w;
+            const int ox[4] = {1, -1, 0, 0}, oy[4] = {0, 0, 1, -1};
+            for (int k = 0; k < 4; k++) {
+                int nx = x + ox[k], ny = y + oy[k];
+                if (!m.inside(nx, ny)) continue;
+                int idx = ny * m.w + nx;
+                if (d[idx] >= 0) continue;
+                uint8_t t = m.at(nx, ny);
+                if (t == T_ROCK || t == T_WALL || t == T_LEVER || t == T_DOOR_KEY || t == T_DOOR_TIMED) continue;
+                d[idx] = d[c] + 1;
+                q.push(idx);
+            }
+        }
+        auto near = [](int x, int y, int tx, int ty, int r) {
+            return std::abs(x - tx) <= r && std::abs(y - ty) <= r;
+        };
+        int made = 0;
+        for (int tries = 0; tries < 500 && made < want; tries++) {
+            int x = rng.range(2, m.w - 3), y = rng.range(2, m.h - 3);
+            if (m.at(x, y) != T_FLOOR || !(m.flag(x, y) & F_ROOM)) continue;
+            if (d[y * m.w + x] < 6) continue;   // keep the arrival room clear
+            if (near(x, y, m.startX, m.startY, 4) || near(x, y, m.downX, m.downY, 4)) continue;
+            bool busy = false;
+            for (int yy = y - 1; yy <= y + 1 && !busy; yy++)
+                for (int xx = x - 1; xx <= x + 1; xx++) {
+                    uint8_t t = m.at(xx, yy);
+                    if (Map::tileIsDoor(t) || t == T_DOOR_KEY || t == T_DOOR_SECRET || t == T_DOOR_TIMED || t == T_LEVER ||
+                        t == T_STAIRS_DOWN || t == T_STAIRS_UP || t == T_TRAPDOOR) {
+                        busy = true;
+                        break;
+                    }
+                }
+            if (busy) continue;
+            m.set(x, y, T_TRAPDOOR);
+            made++;
+        }
+    }
+
     void placeRubble() {
         for (int y = 1; y < m.h - 1; y++)
             for (int x = 1; x < m.w - 1; x++)
@@ -513,6 +563,7 @@ struct Gen {
         placeHazards();
         placeVaults();
         placeLeverVault();
+        placeTrapdoors();
         return true;
     }
 };

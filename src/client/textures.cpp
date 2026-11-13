@@ -520,6 +520,36 @@ Texture stairsTex(bool down) {
     return t;
 }
 
+// A heavy wooden hatch with iron bands and a brass ring: plainly a way down, and plainly
+// a one-way one (there are no steps back up).
+Texture trapdoorTex() {
+    Texture t(64, 64);
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 64; x++)
+            t.set(x, y, vary(0xFF57504A, 0.6f + 0.45f * fbm(x, y, 8, 31, 2)));
+    fillRect(t, 3, 3, 60, 60, 0xFF181410);   // recessed frame
+    for (int y = 7; y < 57; y++)
+        for (int x = 7; x < 57; x++) {
+            float g = fbm(x, y, 6, 37, 3);
+            t.set(x, y, vary(0xFF6A4826, 0.65f + 0.6f * g));
+        }
+    for (int x = 15; x < 57; x += 10) fillRect(t, x, 7, x, 56, 0xFF2E1C0E);   // plank seams
+    fillRect(t, 7, 15, 56, 20, 0xFF34343A);   // iron bands
+    fillRect(t, 7, 43, 56, 48, 0xFF34343A);
+    line(t, 7, 15, 56, 15, 1.5f, 0xFF7A7A84);
+    line(t, 7, 43, 56, 43, 1.5f, 0xFF7A7A84);
+    for (int y : {17, 46})
+        for (int x : {11, 23, 40, 52}) {
+            fillCircle(t, (float)x, (float)y, 1.6f, 0xFF1A1A20);
+            fillCircle(t, (float)x - 0.5f, (float)y - 0.5f, 0.7f, 0xFFB0B0B8);
+        }
+    fillCircle(t, 32, 32, 9, 0xFF2A1A08);      // brass ring
+    fillCircle(t, 32, 32, 7, 0xFF9A7A30);
+    fillCircle(t, 32, 32, 4, 0xFF181008);
+    fillCircle(t, 29.5f, 29.5f, 1.2f, 0xFFFFE080);
+    return t;
+}
+
 // -------------------------------------------------------------- sprites ---
 Texture humanoid(uint32_t c1, uint32_t c2, bool attack, int seed, uint32_t skin = 0, int hat = 0) {
     Texture t(64, 64);
@@ -1328,6 +1358,7 @@ void Assets::build() {
     ceilingCave = caveWall(0xFF4A4038, 16);
     stairsDown = stairsTex(true);
     stairsUp = stairsTex(false);
+    trapdoor = trapdoorTex();
     stairsUpCeil = Texture(64, 64);
     for (int y = 0; y < 64; y++)
         for (int x = 0; x < 64; x++) {
@@ -1404,6 +1435,7 @@ std::vector<std::pair<std::string, Texture*>> Assets::namedTextures() {
     v.push_back({"ceiling", &ceiling});
     v.push_back({"ceiling_cave", &ceilingCave});
     v.push_back({"stairs_down", &stairsDown});
+    v.push_back({"trapdoor", &trapdoor});
     v.push_back({"stairs_up", &stairsUp});
     v.push_back({"stairs_up_ceiling", &stairsUpCeil});
     v.push_back({"arrow", &arrow});
@@ -1492,7 +1524,8 @@ void Assets::loadOverrides(const std::string& dataDir) {
         Texture n;
         if (!loadPng(path, n)) continue;
         bool tiled = name.rfind("wall_", 0) == 0 || name.rfind("floor_", 0) == 0 || name.rfind("ceiling", 0) == 0 ||
-                     name.rfind("stairs", 0) == 0 || name.rfind("door", 0) == 0 || name == "rubble" || name == "lever";
+                     name.rfind("stairs", 0) == 0 || name.rfind("door", 0) == 0 || name == "rubble" || name == "lever" ||
+                     name == "trapdoor";
         if (tiled && (!isPow2(n.w) || !isPow2(n.h))) {
             std::printf("art override %s ignored: size must be a power of two (64x64, 128x128...)\n", path.c_str());
             continue;

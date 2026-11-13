@@ -253,7 +253,14 @@ Vec2 Server::spawnPoint(int exceptPlayer) {
         if (id != exceptPlayer && o.joined && !o.st.dead) { anchor = o.pos; break; }
     for (int t = 0; t < 40; t++) {
         Vec2 c = anchor + dirFromAngle(rng_.frand() * 2 * PI) * (0.7f + rng_.frand() * 1.2f);
-        if (map_.circleFree(c, PLAYER_RADIUS) && map_.los(anchor, c)) return c;
+        if (!map_.circleFree(c, PLAYER_RADIUS) || !map_.los(anchor, c)) continue;
+        // Never spawn anyone on (or right against) a trapdoor: joining the game should not
+        // drop the party through the floor.
+        bool onTrapdoor = false;
+        for (int y = (int)std::floor(c.y - 0.3f); y <= (int)std::floor(c.y + 0.3f) && !onTrapdoor; y++)
+            for (int x = (int)std::floor(c.x - 0.3f); x <= (int)std::floor(c.x + 0.3f); x++)
+                if (map_.at(x, y) == T_TRAPDOOR) { onTrapdoor = true; break; }
+        if (!onTrapdoor) return c;
     }
     return anchor;
 }
@@ -964,6 +971,11 @@ void Server::newLevel(int depth, bool down) {
         }
     }
     rebuildLevers();
+    bool hasTrapdoor = false;
+    for (int y = 0; y < map_.h && !hasTrapdoor; y++)
+        for (int x = 0; x < map_.w; x++)
+            if (map_.at(x, y) == T_TRAPDOOR) { hasTrapdoor = true; break; }
+    if (hasTrapdoor) text(-1, COL_YELLOW, "Somewhere on this level, a trapdoor drops to the level below.");
     for (auto& it : items_)
         if (it.item.d().artifact) { text(-1, COL_YELLOW, "You feel there is something special on this level..."); break; }
     if (abyss() && depth > 0) {
@@ -1173,6 +1185,17 @@ void Server::updatePlayers(float dt) {
             if (p.hazardT <= 0) { p.hazardT = 1.0f; hazardHit(p, under); if (s.dead) continue; }
         } else {
             p.hazardT = 0;
+        }
+
+        // A visible trapdoor is a one-way drop: the whole party falls to the next level.
+        if (under == T_TRAPDOOR && descentT_ <= 0) {
+            bool campaignEnd = campaign_ >= 0 && map_.depth >= (int)gData.campaigns[campaign_].levels.size();
+            if (!campaignEnd) {
+                descentT_ = 0.7f;
+                descentTo_ = map_.depth + 1;
+                text(-1, COL_YELLOW, s.name + " steps onto a trapdoor - the floor gives way!");
+                event(EV_STAIRS, p.pos);
+            }
         }
 
         // Food

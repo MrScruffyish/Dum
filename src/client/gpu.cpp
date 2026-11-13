@@ -365,7 +365,8 @@ void GpuRenderer::Impl::buildMesh(const Map& m, const Assets& a) {
                 // Floor (u along x, v along y, like the software renderer).
                 bool hazard = Map::tileHazard(tile);
                 const Texture* ft = hazard ? &a.hazardFloors[Map::hazardIndex(tile)]
-                                           : tile == T_STAIRS_DOWN ? &a.stairsDown : tile == T_STAIRS_UP ? &a.stairsUp : &a.floors[m.floorTex[idx] & 7];
+                                           : tile == T_STAIRS_DOWN ? &a.stairsDown : tile == T_STAIRS_UP ? &a.stairsUp
+                                           : tile == T_TRAPDOOR ? &a.trapdoor : &a.floors[m.floorTex[idx] & 7];
                 float fs = hazard ? 1.2f : 1.0f;
                 quad(ft, {fx, fy, 0, 0, 0, fx, fy, fs}, {X, fy, 0, 1, 0, fx, fy, fs}, {X, Y, 0, 1, 1, fx, fy, fs}, {fx, Y, 0, 0, 1, fx, fy, fs});
                 if (m.flags[idx] & F_OUTDOOR) {

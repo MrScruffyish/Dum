@@ -33,6 +33,9 @@ enum Tile : uint8_t {
     T_LEVER,
     T_DOOR_TIMED,       // closed: looks and behaves like a wall
     T_DOOR_TIMED_OPEN,  // open: walkable until the timer runs out
+    // A one-way drop to the next level. Walkable, like a floor tile, but stepping on it
+    // takes the whole party down. There is no matching way back up through it.
+    T_TRAPDOOR,
 };
 
 // Colours of key doors and keys.

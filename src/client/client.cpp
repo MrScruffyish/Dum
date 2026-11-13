@@ -100,6 +100,7 @@ void Client::handleMessage(const std::vector<uint8_t>& data) {
             visitedItems_.clear();
             seenMonsters_.clear();
             leverHinted_ = false;
+            trapdoorHinted_ = false;
             break;
         }
         case S_TILE: {
@@ -703,6 +704,7 @@ void Client::update(float dt) {
     digShake_ = std::max(0.0f, digShake_ - dt);
     hintRubble();
     hintLever();
+    hintTrapdoor();
     healFlash_ = std::max(0.0f, healFlash_ - dt * 2);
     levelFlash_ = std::max(0.0f, levelFlash_ - dt);
 
@@ -1218,6 +1220,7 @@ void Client::drawMinimap(Renderer& r, int x0, int y0, int w, int h, int scale, b
                 case T_DOOR_TIMED: c = 0xFF60C0FF; break;
                 case T_DOOR_TIMED_OPEN: c = 0xFF60FFB0; break;
                 case T_LEVER: c = 0xFFFFD040; break;
+                case T_TRAPDOOR: c = 0xFFB070FF; break;
                 case T_STAIRS_DOWN: c = 0xFFFFFF40; break;
                 case T_STAIRS_UP: c = 0xFF40FFFF; break;
                 case T_RUBBLE: c = 0xFFC08040; break;
@@ -1527,6 +1530,7 @@ std::string Client::usePrompt() const {
     uint8_t under = map_.at((int)pos_.x, (int)pos_.y);
     if (under == T_STAIRS_DOWN) return "[" + keys_->label(K_USE) + "] Go down the stairs";
     if (under == T_STAIRS_UP && map_.depth > 1) return "[" + keys_->label(K_USE) + "] Go up the stairs";
+    if (under == T_TRAPDOOR) return "The trapdoor is giving way beneath you!";
     int x, y;
     if (useTileInFront(map_, pos_, angle_, x, y)) {
         switch (map_.at(x, y)) {
@@ -1575,6 +1579,20 @@ void Client::hintLever() {
             if (!map_.los(pos_, Vec2(x + 0.5f, y + 0.5f))) continue;
             leverHinted_ = true;
             addLog("A brass lever juts from the wall. Face it and press " + keys_->label(K_USE) + " to pull it.", UI_HI);
+            return;
+        }
+}
+
+// The first time a trapdoor comes into view, explain that it is a one-way drop.
+void Client::hintTrapdoor() {
+    if (trapdoorHinted_) return;
+    int px = (int)pos_.x, py = (int)pos_.y;
+    for (int y = py - 6; y <= py + 6; y++)
+        for (int x = px - 6; x <= px + 6; x++) {
+            if (map_.at(x, y) != T_TRAPDOOR || !(map_.flag(x, y) & F_SEEN)) continue;
+            if (!map_.los(pos_, Vec2(x + 0.5f, y + 0.5f))) continue;
+            trapdoorHinted_ = true;
+            addLog("A trapdoor is set into the floor. Step onto it to drop a level; the whole party follows.", UI_HI);
             return;
         }
 }
