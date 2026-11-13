@@ -338,10 +338,13 @@ private:
     bool meleeHit(SPlayer& p, Monster& t, int extraHit, int extraDmg);
     void useDevice(SPlayer& p, int slot);
     void fixupChar(PlayerState& s);
-    void doUse(SPlayer& p, bool doorsOnly = false);
+    void doUse(SPlayer& p, bool doorsOnly = false, bool useFloorItem = false);
     void useItem(SPlayer& p, int slot, int target = -1);
     void useStack(SPlayer& p, ItemStack& it, int slot, int target);
+    static bool canUseFromFloor(const ItemDef& d);
+    void useFloorStack(SPlayer& p, size_t idx);
     void dropFromInv(SPlayer& p, int slot, int count);
+    void destroyItem(SPlayer& p, int slot);
     void giveItem(SPlayer& p, int slot, int toPlayer);
     void unequip(SPlayer& p, int slot);
     bool addToInventory(SPlayer& p, const ItemStack& it);

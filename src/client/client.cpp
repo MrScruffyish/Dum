@@ -244,6 +244,7 @@ void Client::handleMessage(const std::vector<uint8_t>& data) {
 void Client::openUi(Ui u) {
     ui_ = (ui_ == u) ? Ui::None : u;
     invPick_ = -1;
+    invDelete_ = -1;
     if (ui_ == Ui::Chat) { chat_.clear(); SDL_StartTextInput(); }
     else SDL_StopTextInput();
     if (ui_ == Ui::Menu) menuSel_ = 0;
@@ -354,6 +355,25 @@ std::string Client::invUseLabel(const ItemStack& s) const {
     }
 }
 
+// A short phrase for what Shift+E would do with this floor item ("" = just pick it up).
+std::string Client::floorUseHint(const ItemStack& s) const {
+    if (s.empty()) return "";
+    switch (s.d().kind) {
+        case ItemKind::Food: return "eat it here";
+        case ItemKind::Potion: return "drink it here";
+        case ItemKind::Scroll: return "read it here";
+        case ItemKind::Fuel: return "refuel here";
+        case ItemKind::Ammo: return "load it here";
+        case ItemKind::Light: return "hold it now";
+        case ItemKind::Weapon: return "wield it now";
+        case ItemKind::Ring: return "put it on now";
+        case ItemKind::Armor:
+        case ItemKind::Helm:
+        case ItemKind::Amulet: return "wear it now";
+        default: return "";
+    }
+}
+
 void Client::invAction(SDL_Keycode k) {
     int rows = EQ_COUNT + INV_SIZE;
     bool enter = k == SDLK_RETURN || k == SDLK_e || k == SDLK_SPACE || k == SDLK_KP_ENTER;
@@ -376,6 +396,19 @@ void Client::invAction(SDL_Keycode k) {
         }
         return;
     }
+    bool equipRow = invSel_ < EQ_COUNT;
+    int slot = equipRow ? invSel_ : invSel_ - EQ_COUNT;
+    // Del destroys a pack item. Ask once: the first press arms it, the second destroys it.
+    if ((k == SDLK_DELETE || k == SDLK_BACKSPACE) && !equipRow && !me_.inv[slot].empty()) {
+        if (invDelete_ == slot) {
+            action(A_INV_DELETE, slot);
+            invDelete_ = -1;
+        } else {
+            invDelete_ = slot;
+        }
+        return;
+    }
+    invDelete_ = -1;
     if (k == SDLK_UP || k == SDLK_w) invStep(-1);
     else if (k == SDLK_DOWN || k == SDLK_s) invStep(1);
     else if ((k == SDLK_LEFT || k == SDLK_RIGHT) && invSel_ < EQ_COUNT) {
@@ -386,8 +419,6 @@ void Client::invAction(SDL_Keycode k) {
     }
     else if (k == SDLK_PAGEUP) invSel_ = std::max(0, invSel_ - 5);
     else if (k == SDLK_PAGEDOWN) invSel_ = std::min(rows - 1, invSel_ + 5);
-    bool equipRow = invSel_ < EQ_COUNT;
-    int slot = equipRow ? invSel_ : invSel_ - EQ_COUNT;
     if (enter) {
         if (equipRow) {
             // Replace: jump to the first pack item that fits this slot. Nothing fits -> take it off.
@@ -421,6 +452,7 @@ void Client::event(const SDL_Event& e) {
     if (ui_ == Ui::Inventory && e.type == SDL_MOUSEBUTTONDOWN) {
         int row = invRowAt(e.button.x, e.button.y);
         if (row >= 0) {
+            invDelete_ = -1;
             // While choosing a replacement, clicking anything that doesn't fit backs out.
             if (invPick_ >= 0 && (row < EQ_COUNT || !invFits(row - EQ_COUNT, invPick_))) invPick_ = -1;
             invSel_ = row;
@@ -510,7 +542,11 @@ void Client::event(const SDL_Event& e) {
         else openUi(Ui::Menu);
         return;
     }
-    if (ui_ == Ui::Inventory && !kb.is(K_INVENTORY, sc) && !kb.is(K_MAP, sc)) { invAction(k); return; }
+    if (ui_ == Ui::Inventory && !kb.is(K_INVENTORY, sc) && !kb.is(K_MAP, sc)) {
+        // Holding Del must not arm and confirm destruction in one long press.
+        if (!(e.key.repeat && (k == SDLK_DELETE || k == SDLK_BACKSPACE))) invAction(k);
+        return;
+    }
     if (ui_ == Ui::Shop) { shopKey(k); return; }
     if (ui_ == Ui::Spells && !kb.is(K_SPELLBOOK, sc)) { bookKey(k); return; }
     if (ui_ == Ui::Travel) { travelKey(kb.is(K_TRAVEL, sc) ? SDLK_RETURN : k); return; }
@@ -527,7 +563,11 @@ void Client::event(const SDL_Event& e) {
     else if (kb.is(K_CHAT, sc) && ui_ == Ui::None) { openUi(Ui::Chat); return; }
     if (ui_ != Ui::None) return;
 
-    if (kb.is(K_USE, sc)) { if (!tryOpenShop(angle_)) action(A_USE); }
+    if (kb.is(K_USE, sc)) {
+        // Shift+E uses what lies at your feet (read a scroll, wear gear on the spot).
+        bool direct = (SDL_GetModState() & KMOD_SHIFT) != 0;
+        if (!tryOpenShop(angle_)) action(A_USE, direct ? 2 : 0);
+    }
     else if (kb.is(K_AUTOFIGHT, sc)) {
         autoFight_ = !autoFight_;
         addLog(autoFight_ ? "Auto-fight ON: you attack nearby awake monsters by yourself." : "Auto-fight off.", UI_HI);
@@ -1263,6 +1303,7 @@ void Client::drawInventory(Renderer& r) {
         invStep(1);
         if (invSel_ < EQ_COUNT || !invFits(invSel_ - EQ_COUNT, invPick_)) { invSel_ = invPick_; invPick_ = -1; }
     }
+    if (invDelete_ >= 0 && me_.inv[invDelete_].empty()) invDelete_ = -1;
     std::string keyRing;
     for (int c = 0; c < KEY_COUNT; c++)
         if (me_.keys[c]) keyRing += std::string(keyRing.empty() ? "" : ", ") + keyColorName(c) + (me_.keys[c] > 1 ? " x" + std::to_string(me_.keys[c]) : "");
@@ -1306,7 +1347,7 @@ void Client::drawInventory(Renderer& r) {
     // Description of the selected item
     const ItemStack& s = selStack;
     int dy = y + h - 28;
-    if (!s.empty()) {
+    if (!s.empty() && invDelete_ < 0) {
         const ItemDef& d = s.d();
         std::string info = d.desc;
         if (d.kind == ItemKind::Weapon) info = std::string(d.ranged ? "Ranged" : "Melee") + " " + d.dmg.str() + ", " + (d.finesse ? "DEX" : "STR") + ", speed " + std::to_string((int)(10 / d.cooldown) / 10.0f).substr(0, 3) + "/s. " +
@@ -1329,6 +1370,12 @@ void Client::drawInventory(Renderer& r) {
     }
     // The key hint says exactly what Enter will do with the selected row.
     std::string hint;
+    if (invDelete_ >= 0) {
+        std::string n = itemName(me_.inv[invDelete_]);
+        r.text(x + 10, dy, ("Press Del again to destroy " + n + " - this cannot be undone.").substr(0, 66), 0xFFE07060);
+        r.text(x + 10, dy + 12, "Any other key cancels.", UI_DIM);
+        return;
+    }
     if (invPick_ >= 0) {
         std::string verb = invUseLabel(s);
         verb = verb.substr(0, verb.find(" ("));
@@ -1340,7 +1387,9 @@ void Client::drawInventory(Renderer& r) {
         else if (!s.empty()) hint = "Enter/U: take off (nothing in your pack fits)   Esc: close";
         else hint = "Nothing in your pack fits here      Esc: close";
     } else if (!s.empty()) {
-        hint = "Enter: " + invUseLabel(s) + "  D: drop  G: give";
+        std::string use = invUseLabel(s);
+        use = use.substr(0, use.find(" ("));   // keep the hint short; the green slot shows the rest
+        hint = "Enter: " + use + "  D: drop  Del: destroy  G: give";
     } else {
         hint = "W/S: select   Enter: use/wear/eat   Esc: close";
     }
@@ -1458,6 +1507,11 @@ void Client::drawHelp(Renderer& r) {
         "Inventory: Enter uses, eats or",
         "wears the item. On a worn slot,",
         "Enter picks a replacement.",
+        "Shift+E reads or wears what lies",
+        "at your feet; worn gear swaps",
+        "with what you have on.",
+        "In the inventory, Del destroys",
+        "junk for good (press it twice).",
         "",
         "Keep your light burning and your",
         "belly full. Torches burn out:",
@@ -1518,14 +1572,22 @@ std::string Client::usePrompt() const {
         s.count = std::max<int>(1, items[i]->s.extra);
         std::string n = itemName(s);
         if (s.d().kind == ItemKind::Light) n = s.d().name;  // fuel unknown here
-        // Pack full: food, potions and scrolls can be used where they lie.
+        // Pack full: food, potions and scrolls can be used where they lie; Shift+E uses
+        // anything usable (or wearable) without picking it up.
         ItemKind k = s.d().kind;
         bool room = k == ItemKind::Gold || k == ItemKind::Key;
         for (auto& slot : me_.inv)
             if (slot.empty() || (slot.def == s.def && s.d().maxStack > 1 && slot.count < s.d().maxStack && k != ItemKind::Light)) room = true;
-        if (!room && (k == ItemKind::Food || k == ItemKind::Potion || k == ItemKind::Scroll))
-            return "[" + keys_->label(K_USE) + "] " + (k == ItemKind::Food ? "Eat " : k == ItemKind::Potion ? "Drink " : "Read ") + n + " (your pack is full)";
-        return "[" + keys_->label(K_USE) + "] Pick up " + n;
+        std::string direct = floorUseHint(s);
+        std::string useKey = keys_->label(K_USE);
+        if (!room) {
+            if (k == ItemKind::Food || k == ItemKind::Potion || k == ItemKind::Scroll)
+                return "[" + useKey + "] " + (k == ItemKind::Food ? "Eat " : k == ItemKind::Potion ? "Drink " : "Read ") + n + " here (pack full)";
+            if (!direct.empty()) return "[" + useKey + "] Pack full - Shift+" + useKey + ": " + direct;
+            return "[" + useKey + "] Pack full - make room to pick up " + n;
+        }
+        if (!direct.empty()) return "[" + useKey + "] Pick up " + n + "   Shift+" + useKey + ": " + direct;
+        return "[" + useKey + "] Pick up " + n;
     }
     uint8_t under = map_.at((int)pos_.x, (int)pos_.y);
     if (under == T_STAIRS_DOWN) return "[" + keys_->label(K_USE) + "] Go down the stairs";

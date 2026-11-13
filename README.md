@@ -59,8 +59,9 @@ hasn't been tested.
 | Mouse wheel | select a quick slot |
 | B | **spell book**: every spell/technique of your class and your wands and rods. Press 1-9 to put the selected one on that key, Del to take it off, Enter to choose it. New spells and devices go on a free key by themselves |
 | E / Space | use: pick up items, open/close doors, pick locks, clear rubble, take stairs (a prompt shows what E will do) |
+| Shift+E | use the item at your feet without picking it up: read a scroll, drink a potion, eat, refuel, or wear/wield gear (what you were wearing is left on the floor, a swap). Works with a full pack |
 | P | auto-pickup on/off (on by default: walking over items picks them up when your pack has room) |
-| I | inventory: W/S, arrow keys or mouse to select (Left/Right switch between the two equipment columns; Down from the bottom of either goes to item a), Enter or double-click to use, eat, wear or wield (the bottom line says what Enter will do), D drop, Shift+D drop one, G give to ally. **To swap equipment**, select a worn slot (e.g. Armor) and press Enter: the pack items that fit it are marked green, pick one with W/S and press Enter. U takes the item off. You have two ring fingers: a new ring goes on the free hand, or pick which ring to replace |
+| I | inventory: W/S, arrow keys or mouse to select (Left/Right switch between the two equipment columns; Down from the bottom of either goes to item a), Enter or double-click to use, eat, wear or wield (the bottom line says what Enter will do), D drop, Shift+D drop one, Del destroy (press twice; for junk you don't want), G give to ally. **To swap equipment**, select a worn slot (e.g. Armor) and press Enter: the pack items that fit it are marked green, pick one with W/S and press Enter. U takes the item off. You have two ring fingers: a new ring goes on the free hand, or pick which ring to replace |
 | C / J | character sheet / quest journal |
 | Tab / M | dungeon map |
 | H / X | quaff a healing potion / eat something (X picks the food that fits your hunger best; to eat a particular food, select it in the inventory and press Enter) |

@@ -1925,14 +1925,16 @@ void Server::onAction(SPlayer& p, Reader& r) {
         case A_CAST: doCast(p, x); break;
         case A_USE: {
             // x = 1: use in direction y/1000 radians (bump-to-open while strafing)
+            // x = 2: use the item at your feet directly (Shift+E), falling back to the usual use
             float saved = p.angle;
             if (x == 1) p.angle = y / 1000.0f;
-            doUse(p, x == 1);
+            doUse(p, x == 1, x == 2);
             p.angle = saved;
             break;
         }
         case A_INV_USE: useItem(p, x, y - 1); break;   // y = equipment slot + 1 (0 = where it goes)
         case A_INV_DROP: dropFromInv(p, x, y); break;
+        case A_INV_DELETE: destroyItem(p, x); break;
         case A_INV_GIVE: giveItem(p, x, y); break;
         case A_UNEQUIP: unequip(p, x); break;
         case A_SET_AUTOPICKUP: p.autoPickup = x != 0; break;
@@ -2363,7 +2365,7 @@ void Server::applyEffect(Monster& m, SpellEffect e, SPlayer* by, int power) {
     }
 }
 
-void Server::doUse(SPlayer& p, bool doorsOnly) {
+void Server::doUse(SPlayer& p, bool doorsOnly, bool useFloorItem) {
     if (p.useCd > 0) return;
     p.useCd = 0.25f;
     PlayerState& s = p.st;
@@ -2375,7 +2377,13 @@ void Server::doUse(SPlayer& p, bool doorsOnly) {
     for (auto& it : items_)   // (open chests are scenery)
         itemPos.push_back(it.item.d().kind == ItemKind::Chest && !isClosedChest(it.item) ? Vec2(-1000, -1000) : it.pos);
     int bestI = doorsOnly ? -1 : pickupCandidate(map_, p.pos, p.angle, itemPos);
-    if (bestI >= 0) { pickupItem(p, (size_t)bestI); return; }
+    if (bestI >= 0) {
+        // Shift+E uses what lies at your feet instead of putting it into the pack. Gear is
+        // worn on the spot, and whatever it replaces is left on the floor (a swap).
+        if (useFloorItem && canUseFromFloor(items_[bestI].item.d())) useFloorStack(p, (size_t)bestI);
+        else pickupItem(p, (size_t)bestI);
+        return;
+    }
 
     // 2. Stairs.
     if (doorsOnly && under != T_DOOR_OPEN) under = T_FLOOR;
@@ -2591,14 +2599,7 @@ void Server::pickupItem(SPlayer& p, size_t idx, bool quiet) {
         ItemKind k = f.item.d().kind;
         if (!quiet && (k == ItemKind::Food || k == ItemKind::Potion || k == ItemKind::Scroll)) {
             // Pack full: eat, drink or read it right where it lies.
-            ItemStack here = f.item;
-            useStack(p, here, -1, -1);
-            for (size_t i = 0; i < items_.size(); i++)   // (using it may have changed the floor)
-                if (items_[i].id == f.id) {
-                    if (here.empty()) items_.erase(items_.begin() + i);
-                    else items_[i].item = here;
-                    break;
-                }
+            useFloorStack(p, idx);
             return;
         }
         if (!quiet) text(p.st.id, COL_GREY, "Your pack is full.");
@@ -2611,18 +2612,66 @@ void Server::pickupItem(SPlayer& p, size_t idx, bool quiet) {
     if (f.item.d().kind == ItemKind::Quest) questPickup(f.item.def);
 }
 
+// What can be used straight off the floor (and worn on the spot) instead of picked up.
+bool Server::canUseFromFloor(const ItemDef& d) {
+    switch (d.kind) {
+        case ItemKind::Food:
+        case ItemKind::Potion:
+        case ItemKind::Scroll:
+        case ItemKind::Fuel:
+        case ItemKind::Light:
+        case ItemKind::Weapon:
+        case ItemKind::Armor:
+        case ItemKind::Helm:
+        case ItemKind::Ring:
+        case ItemKind::Ammo:
+        case ItemKind::Amulet:
+            return true;
+        default:
+            return false;   // wands, rods, keys, gold and quest items are still picked up
+    }
+}
+
+// Use one item from a floor pile. Consumables are consumed (one at a time); worn gear is
+// equipped and whatever it replaced is left in the pile, so picking up and wearing swap.
+void Server::useFloorStack(SPlayer& p, size_t idx) {
+    if (idx >= items_.size()) return;
+    FloorItem f = items_[idx];
+    ItemStack here = f.item;
+    useStack(p, here, -1, -1);
+    for (size_t i = 0; i < items_.size(); i++)   // (using it may have changed the floor)
+        if (items_[i].id == f.id) {
+            if (here.empty()) items_.erase(items_.begin() + i);
+            else {
+                items_[i].item = here;
+                if (here.d().id != f.item.d().id) text(p.st.id, COL_WHITE, "You leave your " + itemName(here) + " on the floor.");
+            }
+            break;
+        }
+}
+
+void Server::destroyItem(SPlayer& p, int slot) {
+    if (slot < 0 || slot >= INV_SIZE || p.st.inv[slot].empty()) return;
+    std::string n = itemName(p.st.inv[slot]);
+    // A destroyed artifact seeps back into the dungeon like a sold one, so it can be found again.
+    if (p.st.inv[slot].d().artifact) artifactsInPlay_.erase(p.st.inv[slot].def);
+    p.st.inv[slot] = ItemStack();
+    text(p.st.id, COL_WHITE, "You destroy " + n + ".");
+    p.dirty = true;
+}
+
 void Server::useItem(SPlayer& p, int slot, int target) {
     if (slot < 0 || slot >= INV_SIZE) return;
     useStack(p, p.st.inv[slot], slot, target);
 }
 
 // Use one of the items in 'it': from the pack (invSlot >= 0) or lying on the floor
-// (invSlot = -1: food, potions and scrolls only). target: equipment slot to put it in, or -1.
+// (invSlot = -1: anything canUseFromFloor() allows). target: equipment slot, or -1.
 void Server::useStack(SPlayer& p, ItemStack& it, int slot, int target) {
     PlayerState& s = p.st;
     if (it.empty()) return;
     const ItemDef& d = it.d();
-    if (slot < 0 && d.kind != ItemKind::Food && d.kind != ItemKind::Potion && d.kind != ItemKind::Scroll) return;
+    if (slot < 0 && !canUseFromFloor(d)) return;
     auto consume = [&]() { if (--it.count <= 0) it = ItemStack(); };
     p.dirty = true;
     switch (d.kind) {

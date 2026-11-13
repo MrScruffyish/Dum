@@ -628,6 +628,58 @@ int main(int argc, char** argv) {
         CHECK(sr.floorItemCount() == before, "full pack: scroll on the floor was not read (%d items, want %d)", sr.floorItemCount(), before);
         std::printf("torch stacks, two rings, reading from the floor ok\n");
     }
+    {   // Shift+E uses what lies at your feet: worn gear swaps, and junk can be destroyed.
+        auto nu = std::make_shared<ServerNet>();
+        Bot b;
+        nu->attachLoopback(b.pipe);
+        Server su(nu, 5150);
+        b.hello(0);
+        for (int t = 0; t < 5; t++) { su.tick(); b.poll(); }
+        b.action(A_SET_AUTOPICKUP, 0);   // keep the floor as we set it up
+        for (int t = 0; t < 2; t++) { su.tick(); b.poll(); }
+        PlayerState* ps = su.debugPlayer(b.id);
+        Vec2 at(su.map().startX + 0.5f, su.map().startY + 0.5f);
+        su.debugMovePlayer(b.id, at);
+        su.debugFace(b.id, 0);
+        // A dagger in hand, a war axe on the floor: Shift+E wields the axe and leaves the dagger.
+        ps->equip[EQ_WEAPON] = ItemStack();
+        ps->equip[EQ_WEAPON].def = (int16_t)gData.findItem("dagger");
+        ps->equip[EQ_WEAPON].count = 1;
+        su.debugDrop(b.id, "war_axe");
+        int before = su.floorItemCount();
+        b.action(A_USE, 2);
+        for (int t = 0; t < 10; t++) { su.tick(); b.poll(); }
+        CHECK(ps->equip[EQ_WEAPON].d().id == "war_axe", "Shift+E did not wield the floor weapon (got %s)", ps->equip[EQ_WEAPON].d().id.c_str());
+        bool swapped = false;
+        for (auto& f : su.debugItems()) if (f.item.d().id == "dagger") swapped = true;
+        CHECK(swapped && su.floorItemCount() == before, "the weapon you swapped out was not left on the floor");
+        // With a full pack, plain E must not silently swap gear; Shift+E still does.
+        su.debugItems().clear();
+        for (auto& it : ps->inv) if (it.empty()) { it.def = (int16_t)gData.findItem("dagger"); it.count = 1; }
+        su.debugDrop(b.id, "mace");
+        b.action(A_USE);
+        for (int t = 0; t < 10; t++) { su.tick(); b.poll(); }
+        CHECK(ps->equip[EQ_WEAPON].d().id == "war_axe", "a full pack: plain E swapped gear anyway");
+        b.action(A_USE, 2);
+        for (int t = 0; t < 10; t++) { su.tick(); b.poll(); }
+        CHECK(ps->equip[EQ_WEAPON].d().id == "mace", "a full pack: Shift+E did not swap in the floor weapon");
+        // A full pack does not stop Shift+E from reading a scroll where it lies.
+        su.debugItems().clear();
+        int before2 = su.floorItemCount();
+        su.debugDrop(b.id, "scroll_light");
+        b.action(A_USE, 2);
+        for (int t = 0; t < 10; t++) { su.tick(); b.poll(); }
+        CHECK(su.floorItemCount() == before2, "full pack: Shift+E did not read the scroll (%d -> %d)", before2, su.floorItemCount());
+        // Del destroys a pack item for good.
+        int slot = -1;
+        for (int i = 0; i < INV_SIZE && slot < 0; i++)
+            if (!ps->inv[i].empty() && ps->inv[i].d().id == "dagger") slot = i;
+        CHECK(slot >= 0, "no dagger in the pack to destroy");
+        if (slot >= 0) b.action(A_INV_DELETE, slot);
+        for (int t = 0; t < 3; t++) { su.tick(); b.poll(); }
+        CHECK(slot < 0 || ps->inv[slot].empty(), "destroy did not empty the pack slot");
+        std::printf("using and destroying items on the floor ok\n");
+    }
     {   // Ammo: the quiver fills at the start, shots use it up, some land on the floor;
         // with the option off nothing is used.
         for (int rule = 1; rule >= 0; rule--) {

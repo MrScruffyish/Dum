@@ -191,6 +191,12 @@ left.
 - `useItem` uses an inventory slot through `useStack`, which also works on a floor item's
   stack: with a full pack, `pickupItem` eats, drinks or reads food, potions and scrolls
   where they lie.
+- `A_USE` with `x = 2` (`Shift+E`) passes `useFloorItem` to `doUse`: if the item at your
+  feet is something `canUseFromFloor` allows, `useFloorStack` uses it in place. Wearables
+  are equipped on the spot and whatever they replaced is left in the floor pile, so gear
+  swaps work even with a full pack.
+- `A_INV_DELETE` destroys a pack stack for good. The client asks first (Del twice); a
+  destroyed artifact returns to the artifact pool like a sold one.
 - Single player pauses while a menu is open, but `Server::pausedTick` still handles the
   player's actions and sends the result, so inventory and shop changes show at once.
 

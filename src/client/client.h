@@ -146,6 +146,7 @@ private:
     Ui ui_ = Ui::None;
     int invSel_ = 0;
     int invPick_ = -1;   // equipment slot being replaced: the cursor only visits pack items that fit it
+    int invDelete_ = -1; // pack slot armed for destruction (Del twice)
     int menuSel_ = 0;
     std::string chat_;
     bool attackHeld_ = false, castHeld_ = false;
@@ -202,6 +203,7 @@ private:
     static constexpr int EQ_ROWS = 4;   // equipment rows in the inventory panel
     void invStep(int dir);
     std::string invUseLabel(const ItemStack& s) const;
+    std::string floorUseHint(const ItemStack& s) const;
 
     void drawHud(Renderer& r);
     void drawMinimap(Renderer& r, int x, int y, int w, int h, int scale, bool full);

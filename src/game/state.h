@@ -8,7 +8,7 @@
 #include "common/serialize.h"
 #include "game/data.h"
 
-constexpr uint16_t PROTOCOL_VERSION = 13;  // 8: data file checksums in C_HELLO; 9: second ring, key ring; 10: quiver slot, ammo rule; 11: floor hazard tiles; 12: lever and timed door tiles; 13: trapdoor tile
+constexpr uint16_t PROTOCOL_VERSION = 14;  // 8: data file checksums in C_HELLO; 9: second ring, key ring; 10: quiver slot, ammo rule; 11: floor hazard tiles; 12: lever and timed door tiles; 13: trapdoor tile; 14: use items on the floor and destroy items
 constexpr uint16_t DEFAULT_PORT = 27666;
 constexpr float TICK_DT = 1.0f / 30.0f;
 constexpr int INV_SIZE = 20;
@@ -42,9 +42,10 @@ enum MsgType : uint8_t {
 enum ActionId : uint8_t {
     A_ATTACK,
     A_CAST,       // a = index into class spell list
-    A_USE,        // context sensitive: stairs / pick up / door (a=1: direction b/1000 rad)
+    A_USE,        // context sensitive: stairs / pick up / door (a=1: direction b/1000 rad; a=2: use the item at your feet directly)
     A_INV_USE,    // a = inventory slot
     A_INV_DROP,   // a = inventory slot, b = count (0 = all)
+    A_INV_DELETE, // a = inventory slot (destroy it; the client asks first)
     A_INV_GIVE,   // a = inventory slot, b = player id
     A_UNEQUIP,    // a = equip slot
     A_SET_AUTOPICKUP,  // a = 1 on / 0 off
