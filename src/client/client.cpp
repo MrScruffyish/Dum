@@ -1583,7 +1583,7 @@ std::string Client::usePrompt() const {
         if (!room) {
             if (k == ItemKind::Food || k == ItemKind::Potion || k == ItemKind::Scroll)
                 return "[" + useKey + "] " + (k == ItemKind::Food ? "Eat " : k == ItemKind::Potion ? "Drink " : "Read ") + n + " here (pack full)";
-            if (!direct.empty()) return "[" + useKey + "] Pack full - Shift+" + useKey + ": " + direct;
+            if (!direct.empty()) return "[" + useKey + "] Pack full: " + n + " (Shift+" + useKey + " to " + direct + ")";
             return "[" + useKey + "] Pack full - make room to pick up " + n;
         }
         if (!direct.empty()) return "[" + useKey + "] Pick up " + n + "   Shift+" + useKey + ": " + direct;
