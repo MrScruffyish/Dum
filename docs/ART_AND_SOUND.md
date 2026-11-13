@@ -56,6 +56,7 @@ follow the rules in the last column.
 | `ceiling`, `ceiling_cave` | 64x64 | ceilings (cave ceiling above dirt floors) | power of two, seamless |
 | `door`, `door_locked` | 64x64 | closed doors (fills a whole wall tile) | power of two |
 | `door_red`, `door_blue`, `door_green`, `door_yellow` | 64x64 | doors with a coloured lock (vaults) | power of two |
+| `lever` | 64x64 | the brass lever on its wall plate (fills a whole wall tile) | power of two |
 | `rubble` | 64x64 | rubble blocking a corridor | power of two |
 | `stairs_down`, `stairs_up`, `stairs_up_ceiling` | 64x64 | floor of stair tiles, light shaft above up-stairs | power of two |
 | `monster_<id>` | 64x64 | monster, standing pose | any size, transparent background |

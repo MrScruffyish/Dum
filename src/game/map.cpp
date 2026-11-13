@@ -60,7 +60,7 @@ void Map::serialize(Writer& wr, bool hideSecrets) const {
     wr.u16((uint16_t)startX); wr.u16((uint16_t)startY);
     for (int i = 0; i < w * h; i++) {
         uint8_t t = tiles[i];
-        if (hideSecrets && t == T_DOOR_SECRET) t = T_WALL;
+        if (hideSecrets && (t == T_DOOR_SECRET || t == T_DOOR_TIMED)) t = T_WALL;
         wr.u8(t);
     }
     for (int i = 0; i < w * h; i++) wr.u8(flags[i] & (F_LIT | F_ROOM | F_CORRIDOR | F_OUTDOOR));
@@ -280,6 +280,25 @@ struct Gen {
 
     // Vaults: a dead-end room (one way in) gets a door with a coloured lock. The server puts
     // the key somewhere reachable without it, and treasure chests inside.
+    bool deadEndEntry(int r, int& ex, int& ey) const {
+        std::vector<std::pair<int, int>> entries;
+        for (int y = 1; y < m.h - 1; y++)
+            for (int x = 1; x < m.w - 1; x++) {
+                // (doors, secret doors and rubble are ways in too)
+                if (roomId[y * m.w + x] == r || m.at(x, y) == T_ROCK || m.at(x, y) == T_WALL) continue;
+                const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
+                for (int k = 0; k < 4; k++)
+                    if (roomId[(y + dy[k]) * m.w + x + dx[k]] == r) { entries.push_back({x, y}); break; }
+            }
+        if (entries.size() != 1) return false;
+        int x = entries[0].first, y = entries[0].second;
+        bool horiz = Map::tileSolid(m.at(x, y - 1)) && Map::tileSolid(m.at(x, y + 1));
+        bool vert = Map::tileSolid(m.at(x - 1, y)) && Map::tileSolid(m.at(x + 1, y));
+        if (!horiz && !vert) return false;   // must be a doorway
+        ex = x; ey = y;
+        return true;
+    }
+
     void placeVaults() {
         if (depth < 2 || !rng.chance(std::min(75, 35 + depth * 5))) return;
         int want = depth >= 6 && rng.chance(35) ? 2 : 1, made = 0;
@@ -292,24 +311,60 @@ struct Gen {
             // Never the rooms with the stairs.
             int sr = roomId[m.startY * m.w + m.startX], dr = roomId[m.downY * m.w + m.downX];
             if (r == sr || r == dr) continue;
-            // Its ways in: open cells outside the room right next to it.
-            std::vector<std::pair<int, int>> entries;
-            for (int y = 1; y < m.h - 1; y++)
-                for (int x = 1; x < m.w - 1; x++) {
-                    // (doors, secret doors and rubble are ways in too)
-                    if (roomId[y * m.w + x] == r || m.at(x, y) == T_ROCK || m.at(x, y) == T_WALL) continue;
-                    const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
-                    for (int k = 0; k < 4; k++)
-                        if (roomId[(y + dy[k]) * m.w + x + dx[k]] == r) { entries.push_back({x, y}); break; }
-                }
-            if (entries.size() != 1) continue;
-            int x = entries[0].first, y = entries[0].second;
-            bool horiz = Map::tileSolid(m.at(x, y - 1)) && Map::tileSolid(m.at(x, y + 1));
-            bool vert = Map::tileSolid(m.at(x - 1, y)) && Map::tileSolid(m.at(x + 1, y));
-            if (!horiz && !vert) continue;   // must be a doorway
+            int x, y;
+            if (!deadEndEntry(r, x, y)) continue;
             m.set(x, y, T_DOOR_KEY);
             m.wallTex[y * m.w + x] = (uint8_t)(8 + (color + made) % KEY_COUNT);   // see keyDoorColor()
             made++;
+        }
+    }
+
+    // A lever on the wall just outside a dead-end room, linked to a door that blends into
+    // the wall until pulled. The server places treasure behind it and runs the close timer.
+    void placeLeverVault() {
+        if (depth < 2 || !rng.chance(std::min(80, 30 + depth * 4))) return;
+        std::vector<int> order(m.rooms.size());
+        for (size_t i = 0; i < order.size(); i++) order[i] = (int)i;
+        for (size_t i = order.size(); i > 1; i--) std::swap(order[i - 1], order[rng.range(0, (int)i - 1)]);
+        for (int r : order) {
+            int sr = roomId[m.startY * m.w + m.startX], dr = roomId[m.downY * m.w + m.downX];
+            if (r == sr || r == dr) continue;
+            int ex, ey;
+            if (!deadEndEntry(r, ex, ey)) continue;
+            uint8_t entry = m.at(ex, ey);
+            if (entry != T_FLOOR && entry != T_DOOR) continue;   // don't take over a key/secret door
+            // The lever must be reachable from the stairs without going through the hidden
+            // door, otherwise it could be sealed inside another dead end.
+            std::vector<int> d = distances(m.startX, m.startY, ey * m.w + ex);
+            // Find a wall lever on a walkable tile outside the vault, as close to the doorway
+            // as possible. The lever must never end up locked behind its own door.
+            int bx = -1, by = -1, best = 1 << 30;
+            for (int y = ey - 8; y <= ey + 8; y++)
+                for (int x = ex - 8; x <= ex + 8; x++) {
+                    if (!m.inside(x, y) || m.at(x, y) != T_WALL) continue;
+                    if (std::abs(x - ex) + std::abs(y - ey) > 8) continue;
+                    const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
+                    for (int k = 0; k < 4; k++) {
+                        int nx = x + dx[k], ny = y + dy[k];
+                        if (!m.inside(nx, ny) || m.at(nx, ny) != T_FLOOR || roomId[ny * m.w + nx] == r) continue;
+                        if (d[ny * m.w + nx] < 0) continue;   // reachable from the stairs, outside the door
+                        int score = std::abs(x - ex) + std::abs(y - ey) + d[ny * m.w + nx] / 4;
+                        if (score < best) { best = score; bx = x; by = y; }
+                    }
+                }
+            if (bx < 0) continue;
+            // Blend the closed door into the wall it replaces, whatever the room theme.
+            const int ox[4] = {1, -1, 0, 0}, oy[4] = {0, 0, 1, -1};
+            for (int k = 0; k < 4; k++) {
+                int nx = ex + ox[k], ny = ey + oy[k];
+                if (m.inside(nx, ny) && (m.at(nx, ny) == T_WALL || m.at(nx, ny) == T_ROCK)) {
+                    m.wallTex[ey * m.w + ex] = m.wallTex[ny * m.w + nx];
+                    break;
+                }
+            }
+            m.set(ex, ey, T_DOOR_TIMED);   // hidden: looks like the surrounding wall
+            m.set(bx, by, T_LEVER);
+            return;
         }
     }
 
@@ -380,8 +435,9 @@ struct Gen {
             }
     }
 
-    // BFS distance from (sx,sy); doors/rubble count as passable.
-    std::vector<int> distances(int sx, int sy) {
+    // BFS distance from (sx,sy); doors/rubble count as passable. avoid (if >= 0) is a
+    // tile index that is treated as a wall (used for the hidden lever door).
+    std::vector<int> distances(int sx, int sy, int avoid = -1) {
         std::vector<int> d(m.w * m.h, -1);
         std::queue<int> q;
         d[sy * m.w + sx] = 0;
@@ -393,7 +449,7 @@ struct Gen {
             const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
             for (int k = 0; k < 4; k++) {
                 int nx = x + dx[k], ny = y + dy[k];
-                if (!m.inside(nx, ny) || d[ny * m.w + nx] >= 0) continue;
+                if (!m.inside(nx, ny) || d[ny * m.w + nx] >= 0 || ny * m.w + nx == avoid) continue;
                 uint8_t t = m.at(nx, ny);
                 if (t == T_ROCK || t == T_WALL) continue;
                 d[ny * m.w + nx] = d[c] + 1;
@@ -456,6 +512,7 @@ struct Gen {
         m.downX = bx; m.downY = by;
         placeHazards();
         placeVaults();
+        placeLeverVault();
         return true;
     }
 };

@@ -248,6 +248,8 @@ Lit rooms get rarer deeper down: `85 - 12 × level`%, but at least 10%.
 | …otherwise bashing it open | `10 + 6 × STR mod + level`% (max 50, makes noise) |
 | Digging through rubble | 5 points needed; each dig (every 0.5 s) adds `1 + STR mod / 2` (+1 with 30% chance). Walking into rubble digs too |
 | Monsters with `doors = yes` | open doors. Locked doors: 15% chance per try to burst them open |
+| Lever vault on a level (level 2+) | `min(80, 30 + 4 × level)`% before checking that the level has a suitable dead end |
+| Timed door stays open | `max(15, 2 × walking time from lever to door + 2)` seconds (walking is 3.4 tiles/s), and it waits while someone is in the doorway or vault |
 
 ## Difficulty
 

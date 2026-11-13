@@ -251,6 +251,33 @@ Texture keyDoorTex(uint32_t col) {
     return t;
 }
 
+// A brass lever on an iron wall plate: unmistakable, even in a dark corridor.
+Texture leverTex() {
+    Texture t = brickWall(0xFF6E6860, 0xFF3E3A34, 88);
+    fillRect(t, 20, 16, 43, 54, 0xFF181512);      // recessed housing
+    fillRect(t, 22, 18, 41, 52, 0xFF3E3832);
+    fillRect(t, 23, 19, 40, 51, 0xFF6E665A);
+    line(t, 23, 19, 40, 19, 1.5f, 0xFF9A9284);    // bevel
+    line(t, 23, 19, 23, 51, 1.5f, 0xFF8A8274);
+    for (int y : {23, 47})
+        for (int x : {26, 37}) {
+            fillCircle(t, (float)x, (float)y, 1.8f, 0xFF8A7030);
+            fillCircle(t, (float)x - 0.5f, (float)y - 0.5f, 0.8f, 0xFFFFE080);
+        }
+    fillCircle(t, 32, 36, 7, 0xFF2A2018);          // pivot
+    fillCircle(t, 32, 36, 5.5f, 0xFF9A7A30);
+    fillCircle(t, 31, 35, 3, 0xFFD8B050);
+    fillCircle(t, 30.5f, 34.5f, 1.2f, 0xFFFFF0B0);
+    line(t, 32, 36, 40, 18, 5.0f, 0xFF2A1810);     // lever arm
+    line(t, 32, 36, 40, 18, 3.0f, 0xFFC09030);
+    line(t, 32.5f, 35.5f, 39.5f, 18.5f, 1.2f, 0xFFFFD870);
+    fillCircle(t, 40, 17, 5, 0xFF7A1010);           // red grip
+    fillCircle(t, 40, 17, 3.8f, 0xFFD03028);
+    fillCircle(t, 38.8f, 15.8f, 1.5f, 0xFFFF9080);
+    fillRect(t, 28, 44, 36, 49, 0xFF1A1512);        // bracket slot
+    return t;
+}
+
 // A heap of loose rocks with a dark gap above: "the passage continues, dig through".
 Texture rubbleTex() {
     Texture t(64, 64);
@@ -1283,6 +1310,7 @@ void Assets::build() {
         for (int i = 0; i < KEY_COUNT; i++) keyDoors[i] = keyDoorTex(kc[i]);
     }
     rubble = rubbleTex();
+    leverWall = leverTex();
     floors[FT_STONE] = flagstones(0xFF6A6460, 11);
     floors[FT_DIRT] = dirtFloor(0xFF5A4A3A, 12);
     floors[FT_TILES] = checkerFloor(0xFF7A7068, 0xFF4A4440, 13);
@@ -1372,6 +1400,7 @@ std::vector<std::pair<std::string, Texture*>> Assets::namedTextures() {
     for (int i = 0; i < KEY_COUNT; i++) v.push_back({std::string("door_") + keyColorName(i), &keyDoors[i]});
     for (size_t i = 0; i < gData.stores.size() && i < 8; i++) v.push_back({"shop_" + gData.stores[i].id, &shopDoors[i]});
     v.push_back({"rubble", &rubble});
+    v.push_back({"lever", &leverWall});
     v.push_back({"ceiling", &ceiling});
     v.push_back({"ceiling_cave", &ceilingCave});
     v.push_back({"stairs_down", &stairsDown});
@@ -1463,7 +1492,7 @@ void Assets::loadOverrides(const std::string& dataDir) {
         Texture n;
         if (!loadPng(path, n)) continue;
         bool tiled = name.rfind("wall_", 0) == 0 || name.rfind("floor_", 0) == 0 || name.rfind("ceiling", 0) == 0 ||
-                     name.rfind("stairs", 0) == 0 || name.rfind("door", 0) == 0 || name == "rubble";
+                     name.rfind("stairs", 0) == 0 || name.rfind("door", 0) == 0 || name == "rubble" || name == "lever";
         if (tiled && (!isPow2(n.w) || !isPow2(n.h))) {
             std::printf("art override %s ignored: size must be a power of two (64x64, 128x128...)\n", path.c_str());
             continue;

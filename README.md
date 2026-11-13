@@ -12,7 +12,7 @@ look roughly toward a monster and your character's stats and the dice decide wha
 - Stat-based combat: d20 + skill + stat modifier vs. armor class, weapon dice, crits, sneak attacks
 - Monsters with more than damage: poison, stat drain, gold and pack theft (never your last item), light-draining, summoning, breeding, blinking and invisibility
 - Food, light fuel, mana, hit points, leveling, spells, scrolls, potions, sleeping monsters
-- Dungeon generator: rooms, caves, corridors, doors (locked and secret), rubble, lit and dark rooms, and rare static floor hazards (poison, shards, gas, lava, fire, ice)
+- Dungeon generator: rooms, caves, corridors, doors (locked and secret), rubble, lit and dark rooms, rare static floor hazards (poison, shards, gas, lava, fire, ice), and hidden lever vaults that close on a timer
 - Quests: a chain of boss quests going deeper, plus random per-level tasks
 - Co-op multiplayer over UDP (ENet): host from the game or run a dedicated server, give/drop items
 - All content in editable text files; all art and sound generated in code and replaceable by PNG/WAV files
@@ -174,6 +174,13 @@ A dedicated server runs it with `--campaign abyss`.
   E prompt says what's inside. A detected trap is much easier to disarm. Classes with a
   good eye (search skill, rogues most of all) may also notice by themselves what's odd about
   a chest they stand next to.
+- **Lever vaults:** some levels hide a small treasure vault behind a plain wall. A brass
+  **lever** on a nearby wall is always in plain sight: stand in front of it and press E to
+  pull it. The wall slides open, but only for a while, so walk over and grab what you can.
+  The door stays open at least 15 seconds, longer if the vault is far from the lever. It
+  never closes on you while you stand in the doorway or inside the vault, and the lever can
+  be pulled again, so you cannot lock yourself out. "Somewhere on this level, a wall lever
+  opens a hidden vault" tells you that one exists. Vaults hold one or two richer chests.
 
 ## Bows, crossbows, slings and ammo
 

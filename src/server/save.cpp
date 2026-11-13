@@ -355,6 +355,7 @@ bool Server::loadGame(const std::string& path, std::string& err) {
     quests_ = quests;
     projectiles_.clear();
     effects_.clear();
+    rebuildLevers();
     saved_ = chars;
     // A finished main quest chain still needs a next goal.
     bool haveMain = false;

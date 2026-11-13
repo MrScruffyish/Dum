@@ -18,6 +18,95 @@ std::string capitalize(std::string s) {
     return s;
 }
 std::string theName(const MonsterDef& d) { return d.boss ? d.name : "the " + d.name; }
+
+// Walking distance between two tiles, treating doors and rubble as passable for the purpose
+// of timing (the party can open them on the way).
+int mapWalkDistance(const Map& m, int sx, int sy, int tx, int ty) {
+    if (!m.inside(sx, sy) || !m.inside(tx, ty)) return -1;
+    std::vector<int> d(m.w * m.h, -1);
+    std::queue<int> q;
+    int s = sy * m.w + sx;
+    d[s] = 0;
+    q.push(s);
+    while (!q.empty()) {
+        int c = q.front();
+        q.pop();
+        int x = c % m.w, y = c / m.w;
+        if (x == tx && y == ty) return d[c];
+        const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
+        for (int k = 0; k < 4; k++) {
+            int nx = x + dx[k], ny = y + dy[k];
+            if (!m.inside(nx, ny)) continue;
+            int idx = ny * m.w + nx;
+            if (d[idx] >= 0) continue;
+            uint8_t t = m.at(nx, ny);
+            if (t == T_ROCK || t == T_WALL) continue;
+            d[idx] = d[c] + 1;
+            q.push(idx);
+        }
+    }
+    return -1;
+}
+
+// The room behind a hidden door: everything walkable that can be reached from the door's far
+// side without going back through the door itself.
+std::vector<uint8_t> vaultInterior(const Map& m, int doorX, int doorY) {
+    std::vector<uint8_t> inside(m.w * m.h, 0);
+    if (!m.inside(doorX, doorY)) return inside;
+    int door = doorY * m.w + doorX;
+    auto passable = [&](int x, int y, int avoid) {
+        if (!m.inside(x, y)) return false;
+        int idx = y * m.w + x;
+        return idx != avoid && !Map::tileSolid(m.at(x, y));
+    };
+    std::vector<uint8_t> fromStart(m.w * m.h, 0);
+    std::queue<int> q;
+    int s = m.startY * m.w + m.startX;
+    fromStart[s] = 1;
+    q.push(s);
+    while (!q.empty()) {
+        int c = q.front();
+        q.pop();
+        int x = c % m.w, y = c / m.w;
+        const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
+        for (int k = 0; k < 4; k++) {
+            int nx = x + dx[k], ny = y + dy[k];
+            if (!passable(nx, ny, door) || fromStart[ny * m.w + nx]) continue;
+            fromStart[ny * m.w + nx] = 1;
+            q.push(ny * m.w + nx);
+        }
+    }
+    const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
+    for (int k = 0; k < 4; k++) {
+        int nx = doorX + dx[k], ny = doorY + dy[k];
+        if (!passable(nx, ny, door) || fromStart[ny * m.w + nx]) continue;
+        int seed = ny * m.w + nx;
+        inside[seed] = 1;
+        q.push(seed);
+    }
+    while (!q.empty()) {
+        int c = q.front();
+        q.pop();
+        int x = c % m.w, y = c / m.w;
+        for (int k = 0; k < 4; k++) {
+            int nx = x + dx[k], ny = y + dy[k];
+            if (!passable(nx, ny, door)) continue;
+            int idx = ny * m.w + nx;
+            if (inside[idx] || fromStart[idx]) continue;
+            inside[idx] = 1;
+            q.push(idx);
+        }
+    }
+    return inside;
+}
+
+std::string compassDirection(int dx, int dy) {
+    if (dx == 0 && dy == 0) return "right beside you";
+    bool e = dx > 0, s = dy > 0, n = dy < 0;
+    if (std::abs(dx) > std::abs(dy) * 2) return e ? "east" : "west";
+    if (std::abs(dy) > std::abs(dx) * 2) return s ? "south" : "north";
+    return std::string(n ? "north" : "south") + "-" + (e ? "east" : "west");
+}
 }  // namespace
 
 const MonsterDef& Monster::d() const { return gData.monsters[def]; }
@@ -604,10 +693,22 @@ void Server::placeChestsAndKeys() {
             stack.push_back(ny * map_.w + nx);
         }
     }
+    std::vector<uint8_t> timedInside(map_.w * map_.h, 0);
+    std::vector<std::pair<int, int>> timedDoors;
+    for (int y = 0; y < map_.h; y++)
+        for (int x = 0; x < map_.w; x++) {
+            uint8_t t = map_.at(x, y);
+            if (t != T_DOOR_TIMED && t != T_DOOR_TIMED_OPEN) continue;
+            timedDoors.push_back({x, y});
+            std::vector<uint8_t> inside = vaultInterior(map_, x, y);
+            for (size_t i = 0; i < inside.size(); i++) timedInside[i] |= inside[i];
+        }
     auto spotIn = [&](bool inReach, Vec2& out) {
         for (int t = 0; t < 300; t++) {
             int x = rng_.range(1, map_.w - 2), y = rng_.range(1, map_.h - 2);
-            if (map_.at(x, y) != T_FLOOR || !(map_.flag(x, y) & F_ROOM) || (bool)reach[y * map_.w + x] != inReach) continue;
+            int idx = y * map_.w + x;
+            if (map_.at(x, y) != T_FLOOR || !(map_.flag(x, y) & F_ROOM) || (bool)reach[idx] != inReach) continue;
+            if (timedInside[idx]) continue;
             if (dist(Vec2(x + 0.5f, y + 0.5f), Vec2(map_.startX + 0.5f, map_.startY + 0.5f)) < 5) continue;
             out = Vec2(x + 0.5f, y + 0.5f);
             return true;
@@ -633,10 +734,88 @@ void Server::placeChestsAndKeys() {
         }
         text(-1, COL_YELLOW, "Somewhere on this level, a door with a coloured lock guards a treasure.");
     }
+    if (!timedDoors.empty()) {
+        std::vector<Vec2> spots;
+        for (int y = 1; y < map_.h - 1; y++)
+            for (int x = 1; x < map_.w - 1; x++) {
+                int idx = y * map_.w + x;
+                if (!timedInside[idx] || map_.at(x, y) != T_FLOOR || !(map_.flag(x, y) & F_ROOM)) continue;
+                if (Map::tileHazard(map_.at(x, y))) continue;
+                spots.push_back(Vec2(x + 0.5f, y + 0.5f));
+            }
+        int n = rng_.range(1, 2);
+        for (int i = 0; i < n && !spots.empty(); i++) {
+            Vec2 p = spots[rng_.range(0, (int)spots.size() - 1)];
+            dropItem(makeChest(true), p);
+        }
+        text(-1, COL_YELLOW, "Somewhere on this level, a wall lever opens a hidden vault.");
+    }
     int n = rng_.range(0, 2) + (power_ >= 5 ? 1 : 0);
     for (int i = 0; i < n; i++) {
         Vec2 p;
         if (spotIn(true, p)) dropItem(makeChest(false), p);
+    }
+}
+
+void Server::rebuildLevers() {
+    levers_.clear();
+    std::vector<std::pair<int, int>> leverPos, doorPos;
+    for (int y = 0; y < map_.h; y++)
+        for (int x = 0; x < map_.w; x++) {
+            uint8_t t = map_.at(x, y);
+            if (t == T_LEVER) leverPos.push_back({x, y});
+            else if (t == T_DOOR_TIMED || t == T_DOOR_TIMED_OPEN) doorPos.push_back({x, y});
+        }
+    std::vector<uint8_t> used(doorPos.size(), 0);
+    for (auto& [lx, ly] : leverPos) {
+        int best = -1, bestD = 1 << 30;
+        for (size_t i = 0; i < doorPos.size(); i++) {
+            if (used[i]) continue;
+            int d = std::abs(doorPos[i].first - lx) + std::abs(doorPos[i].second - ly);
+            if (d < bestD) { bestD = d; best = (int)i; }
+        }
+        if (best < 0) continue;
+        used[best] = 1;
+        LeverDoor L;
+        L.leverX = lx; L.leverY = ly;
+        L.doorX = doorPos[best].first; L.doorY = doorPos[best].second;
+        // A floor tile next to the lever is where the player stands to pull it.
+        int sx = -1, sy = -1;
+        const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
+        for (int k = 0; k < 4; k++) {
+            int nx = lx + dx[k], ny = ly + dy[k];
+            if (map_.inside(nx, ny) && !Map::tileSolid(map_.at(nx, ny))) { sx = nx; sy = ny; break; }
+        }
+        int d = sx >= 0 ? mapWalkDistance(map_, sx, sy, L.doorX, L.doorY) : -1;
+        if (d < 0) d = bestD;
+        // Twice the walking time, with a generous floor so a missed door is never a dead end.
+        L.maxTimer = std::max(15.0f, (float)d / 3.4f * 2.0f + 2.0f);
+        L.inside = vaultInterior(map_, L.doorX, L.doorY);
+        L.timer = map_.at(L.doorX, L.doorY) == T_DOOR_TIMED_OPEN ? L.maxTimer : 0;
+        levers_.push_back(std::move(L));
+    }
+}
+
+void Server::updateLevers(float dt) {
+    for (auto& L : levers_) {
+        if (L.timer <= 0) continue;
+        L.timer -= dt;
+        if (L.timer > 0) continue;
+        bool blocked = false;
+        for (auto& [id, p] : players_)
+            if (p.joined) {
+                int px = (int)p.pos.x, py = (int)p.pos.y;
+                if (px == L.doorX && py == L.doorY) blocked = true;
+                if (map_.inside(px, py) && L.inside[py * map_.w + px]) blocked = true;
+            }
+        for (auto& m : monsters_)
+            if ((int)m.pos.x == L.doorX && (int)m.pos.y == L.doorY) blocked = true;
+        if (blocked) { L.timer = 0.4f; continue; }   // try again once they move clear
+        map_.set(L.doorX, L.doorY, T_DOOR_TIMED);
+        sendTile(L.doorX, L.doorY);
+        event(EV_DOOR, Vec2(L.doorX + 0.5f, L.doorY + 0.5f));
+        text(-1, COL_GREY, "The hidden door grinds shut.");
+        L.timer = 0;
     }
 }
 
@@ -756,6 +935,7 @@ void Server::newLevel(int depth, bool down) {
     projectiles_.clear();
     effects_.clear();
     rubbleDig_.clear();
+    levers_.clear();
     // Side quests belong to a single level.
     bool abandoned = false;
     for (auto& q : quests_)
@@ -783,6 +963,7 @@ void Server::newLevel(int depth, bool down) {
             if (rng_.chance(65)) makeSideQuest();
         }
     }
+    rebuildLevers();
     for (auto& it : items_)
         if (it.item.d().artifact) { text(-1, COL_YELLOW, "You feel there is something special on this level..."); break; }
     if (abyss() && depth > 0) {
@@ -814,6 +995,7 @@ void Server::tick() {
     handleNet();
     float dt = TICK_DT;
     updatePlayers(dt);
+    updateLevers(dt);
     flowT_ -= dt;
     if (flowT_ <= 0) { computeFlow(); flowT_ = 0.4f; }
     updateMonsters(dt);
@@ -2215,6 +2397,27 @@ void Server::doUse(SPlayer& p, bool doorsOnly) {
     if (!useTileInFront(map_, p.pos, p.angle, x, y)) return;
     {
         uint8_t t = map_.at(x, y);
+        if (t == T_LEVER) {
+            p.useCd = 0.6f;
+            for (auto& L : levers_) {
+                if (L.leverX != x || L.leverY != y) continue;
+                bool wasOpen = L.timer > 0;
+                map_.set(L.doorX, L.doorY, T_DOOR_TIMED_OPEN);
+                L.timer = L.maxTimer;
+                sendTile(L.doorX, L.doorY);
+                event(EV_DOOR, Vec2(L.doorX + 0.5f, L.doorY + 0.5f));
+                std::string dir = compassDirection(L.doorX - x, L.doorY - y);
+                if (wasOpen)
+                    text(-1, COL_YELLOW, s.name + " pulls the lever again. The stone door stays open to the " + dir + ".");
+                else
+                    text(-1, COL_YELLOW, s.name + " pulls a brass lever. Stone grinds to the " + dir + ".");
+                text(s.id, COL_GREY, "The hidden door will stay open for about " +
+                                         std::to_string((int)std::lround(L.maxTimer)) + " seconds.");
+                return;
+            }
+            text(s.id, COL_GREY, "The lever is stuck.");
+            return;
+        }
         if (t == T_DOOR) {
             map_.set(x, y, T_DOOR_OPEN);
             sendTile(x, y);

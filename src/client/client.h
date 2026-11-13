@@ -138,6 +138,7 @@ private:
     float hurtFlash_ = 0, healFlash_ = 0, levelFlash_ = 0;
     float stepT_ = 0, bumpCd_ = 0, digShake_ = 0;
     bool rubbleHinted_ = false;
+    bool leverHinted_ = false;
     int shopIdx_ = 0, shopSel_ = 0, shopSide_ = 0;   // shop window: side 0 = buy, 1 = sell
     int shopX_ = 0, shopY_ = 0;
     int selSpell_ = 0;
@@ -188,6 +189,7 @@ private:
     std::vector<Dying> dying_;
     std::string usePrompt() const;
     void hintRubble();
+    void hintLever();
     bool tryOpenShop(float angle);
     void shopKey(SDL_Keycode k);
     int shopRowAt(int mx, int my, int& side) const;

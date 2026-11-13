@@ -99,12 +99,18 @@ void Client::handleMessage(const std::vector<uint8_t>& data) {
             autoWalk_ = false;
             visitedItems_.clear();
             seenMonsters_.clear();
+            leverHinted_ = false;
             break;
         }
         case S_TILE: {
             int x = r.u16(), y = r.u16();
             uint8_t t = r.u8();
-            if (r.ok) map_.set(x, y, t);
+            if (r.ok) {
+                map_.set(x, y, t);
+                // The lever pulls the hidden door into view on the map, even from across the level.
+                if ((t == T_DOOR_TIMED || t == T_DOOR_TIMED_OPEN) && map_.inside(x, y))
+                    map_.flags[y * map_.w + x] |= F_SEEN;
+            }
             break;
         }
         case S_SNAPSHOT: {
@@ -696,6 +702,7 @@ void Client::update(float dt) {
     hurtFlash_ = std::max(0.0f, hurtFlash_ - dt * 2);
     digShake_ = std::max(0.0f, digShake_ - dt);
     hintRubble();
+    hintLever();
     healFlash_ = std::max(0.0f, healFlash_ - dt * 2);
     levelFlash_ = std::max(0.0f, levelFlash_ - dt);
 
@@ -751,6 +758,14 @@ void Client::draw(Renderer& r) {
         if (e.s.type == ET_PLAYER && e.s.extra > 0) lights.push_back({e.rpos, e.s.extra / 10.0f + 0.5f, flicker});
         if (e.s.type == ET_PROJECTILE && e.s.def != 0xFFFF) lights.push_back({e.rpos, 2.5f, 0.8f});
         if (e.s.type == ET_EFFECT) lights.push_back({e.rpos, e.s.extra / 10.0f + 2.5f, 1.2f * (1.0f - e.s.hp / 255.0f)});
+    }
+    // A lever is a clear landmark: give it a faint shine so it is never lost in the dark.
+    {
+        int px = (int)pos_.x, py = (int)pos_.y;
+        for (int y = py - 9; y <= py + 9; y++)
+            for (int x = px - 9; x <= px + 9; x++)
+                if (map_.inside(x, y) && map_.at(x, y) == T_LEVER)
+                    lights.push_back({Vec2(x + 0.5f, y + 0.5f), 2.8f, 0.5f});
     }
     r.setupLights(map_, lights);
 
@@ -1200,6 +1215,9 @@ void Client::drawMinimap(Renderer& r, int x0, int y0, int w, int h, int scale, b
                     break;
                 }
                 case T_DOOR_OPEN: c = 0xFF704820; break;
+                case T_DOOR_TIMED: c = 0xFF60C0FF; break;
+                case T_DOOR_TIMED_OPEN: c = 0xFF60FFB0; break;
+                case T_LEVER: c = 0xFFFFD040; break;
                 case T_STAIRS_DOWN: c = 0xFFFFFF40; break;
                 case T_STAIRS_UP: c = 0xFF40FFFF; break;
                 case T_RUBBLE: c = 0xFFC08040; break;
@@ -1526,6 +1544,7 @@ std::string Client::usePrompt() const {
                 return std::string("A ") + keyColorName(c) + " lock: you need the " + keyColorName(c) + " key";
             }
             case T_RUBBLE: return "[" + keys_->label(K_USE) + "] Dig through the rubble (or walk into it)";
+            case T_LEVER: return "[" + keys_->label(K_USE) + "] Pull the brass lever";
             default: break;
         }
     }
@@ -1542,6 +1561,20 @@ void Client::hintRubble() {
             if (!map_.los(pos_, Vec2(x + 0.5f, y + 0.5f))) continue;
             rubbleHinted_ = true;
             addLog("Rubble blocks a passage ahead. Walk into it (or press " + keys_->label(K_USE) + ") to dig through.", UI_HI);
+            return;
+        }
+}
+
+// The first time a lever comes into view, explain it (the lever itself is always obvious).
+void Client::hintLever() {
+    if (leverHinted_) return;
+    int px = (int)pos_.x, py = (int)pos_.y;
+    for (int y = py - 6; y <= py + 6; y++)
+        for (int x = px - 6; x <= px + 6; x++) {
+            if (map_.at(x, y) != T_LEVER || !(map_.flag(x, y) & F_SEEN)) continue;
+            if (!map_.los(pos_, Vec2(x + 0.5f, y + 0.5f))) continue;
+            leverHinted_ = true;
+            addLog("A brass lever juts from the wall. Face it and press " + keys_->label(K_USE) + " to pull it.", UI_HI);
             return;
         }
 }

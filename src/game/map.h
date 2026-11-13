@@ -28,6 +28,11 @@ enum Tile : uint8_t {
     T_LAVA,
     T_FIRE,
     T_ICE,
+    // Mechanisms. A lever is a wall tile with a clear brass handle; the timed door is a
+    // wall until its lever opens it, and closes again by itself.
+    T_LEVER,
+    T_DOOR_TIMED,       // closed: looks and behaves like a wall
+    T_DOOR_TIMED_OPEN,  // open: walkable until the timer runs out
 };
 
 // Colours of key doors and keys.
@@ -81,7 +86,7 @@ struct Map {
 
     static bool tileSolid(uint8_t t) {
         return t == T_ROCK || t == T_WALL || t == T_DOOR || t == T_DOOR_LOCKED || t == T_DOOR_SECRET || t == T_RUBBLE || t == T_SHOP ||
-               t == T_DOOR_KEY;
+               t == T_DOOR_KEY || t == T_DOOR_TIMED || t == T_LEVER;
     }
     static bool tileIsDoor(uint8_t t) { return t == T_DOOR || t == T_DOOR_OPEN || t == T_DOOR_LOCKED; }
     static bool tileHazard(uint8_t t) { return t >= T_POISON && t <= T_ICE; }

@@ -96,6 +96,17 @@ struct SavedChar {
     int depth = 1;
 };
 
+// A wall lever linked to a hidden, timed door. The door looks like wall until pulled and then
+// closes again after a walk-based timer. `inside` holds the vault tiles, so the door never
+// closes with a player trapped behind it.
+struct LeverDoor {
+    int leverX = 0, leverY = 0;
+    int doorX = 0, doorY = 0;
+    float timer = 0;      // seconds of opening left (0 = closed)
+    float maxTimer = 15;  // full opening time, based on the walk from lever to door
+    std::vector<uint8_t> inside;   // vault interior mask (0/1 per tile)
+};
+
 // Summary of a save file, for menus.
 struct SaveInfo {
     bool ok = false;
@@ -175,6 +186,16 @@ public:
         if (sp) { sp->st.level = level; fixupChar(sp->st); sp->dirty = true; }
     }
     const std::vector<Monster>& monsters() const { return monsters_; }
+    void debugClearMonsters() { monsters_.clear(); }
+    // Testing/debug: lever mechanisms on the current level.
+    int debugLeverCount() const { return (int)levers_.size(); }
+    int debugLeverX(int i) const { return i >= 0 && i < (int)levers_.size() ? levers_[i].leverX : -1; }
+    int debugLeverY(int i) const { return i >= 0 && i < (int)levers_.size() ? levers_[i].leverY : -1; }
+    int debugLeverDoorX(int i) const { return i >= 0 && i < (int)levers_.size() ? levers_[i].doorX : -1; }
+    int debugLeverDoorY(int i) const { return i >= 0 && i < (int)levers_.size() ? levers_[i].doorY : -1; }
+    float debugLeverTimer(int i) const { return i >= 0 && i < (int)levers_.size() ? levers_[i].timer : 0; }
+    float debugLeverMaxTimer(int i) const { return i >= 0 && i < (int)levers_.size() ? levers_[i].maxTimer : 0; }
+    void debugSetLeverTimer(int i, float t) { if (i >= 0 && i < (int)levers_.size()) levers_[i].timer = t; }
     // Debug: spawn monsters (comma separated ids) in front of the first player, awake or asleep.
     void debugSpawn(const std::string& ids, bool awake);
     // Testing/debug: move a player directly (bypasses movement validation).
@@ -218,6 +239,7 @@ private:
     void collapseQuests();
     std::set<int> artifactsInPlay_;             // item defs of artifacts that exist somewhere
     std::map<int, int> rubbleDig_;                 // tile -> digging progress
+    std::vector<LeverDoor> levers_;                // lever/timed-door mechanisms on this level
     std::map<std::string, SavedChar> saved_;   // by lower-case name
     std::string savePath_;
     bool adoptAny_ = false;
@@ -269,6 +291,8 @@ private:
     void newLevel(int depth, bool down);
     void populate(const std::vector<int>* pool = nullptr);
     void placeChestsAndKeys();
+    void rebuildLevers();
+    void updateLevers(float dt);
     ItemStack makeChest(bool rich);
     void openChest(SPlayer& p, size_t idx);
     void springTrap(SPlayer& p, int trap, Vec2 pos);

@@ -108,9 +108,9 @@ int main(int argc, char** argv) {
         for (int y = 0; y < m.h; y++) {
             std::string row;
             for (int x = 0; x < m.w; x++) {
-                // T_ROCK ... T_ICE: rock, wall, floor, doors, stairs, rubble, shop, key door,
-                // poison, shards, gas, lava, fire, ice.
-                static const char* c = " #.+'LS><:$kpsglfi";
+                // T_ROCK ... T_DOOR_TIMED_OPEN: rock, wall, floor, doors, stairs, rubble, shop, key door,
+                // poison, shards, gas, lava, fire, ice, lever, timed door (closed/open).
+                static const char* c = " #.+'LS><:$kpsglfiVTo";
                 row += c[m.at(x, y)];
             }
             std::printf("%s\n", row.c_str());
@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
     std::printf("data: %zu classes, %zu items, %zu monsters, %zu spells\n", gData.classes.size(), gData.items.size(), gData.monsters.size(), gData.spells.size());
 
     // 1. Dungeon generation: many seeds/depths, all connected, deterministic.
-    int hazardLevels = 0;
+    int hazardLevels = 0, leverLevels = 0;
     for (uint32_t seed = 1; seed <= 60; seed++)
         for (int depth = 1; depth <= 10; depth += 3) {
             Map a, b;
@@ -139,6 +139,54 @@ int main(int argc, char** argv) {
                     }
             CHECK(hazards <= 26, "too many hazard tiles seed %u depth %d: %d", seed, depth, hazards);
             if (hazards) hazardLevels++;
+            // Lever vaults are always a visible, reachable lever outside a hidden door.
+            int levers = 0, timedDoors = 0, lx = -1, ly = -1, dx = -1, dy = -1;
+            for (int y = 0; y < a.h; y++)
+                for (int x = 0; x < a.w; x++) {
+                    if (a.at(x, y) == T_LEVER) { levers++; lx = x; ly = y; }
+                    if (a.at(x, y) == T_DOOR_TIMED) { timedDoors++; dx = x; dy = y; }
+                }
+            CHECK(levers == timedDoors, "lever/timed door mismatch seed %u depth %d: %d/%d", seed, depth, levers, timedDoors);
+            CHECK(levers <= 1, "too many levers seed %u depth %d: %d", seed, depth, levers);
+            if (levers) {
+                leverLevels++;
+                CHECK(std::abs(lx - dx) + std::abs(ly - dy) <= 8, "lever too far from its door seed %u depth %d", seed, depth);
+                // Walk from the stairs, but never through the hidden door: the lever must be
+                // reachable from outside, and the vault must stay sealed until it is pulled.
+                std::vector<uint8_t> seen(a.w * a.h, 0);
+                std::vector<std::pair<int, int>> q;
+                seen[a.startY * a.w + a.startX] = 1;
+                q.push_back({a.startX, a.startY});
+                for (size_t i = 0; i < q.size(); i++) {
+                    const int ox[4] = {1, -1, 0, 0}, oy[4] = {0, 0, 1, -1};
+                    for (int k = 0; k < 4; k++) {
+                        int nx = q[i].first + ox[k], ny = q[i].second + oy[k];
+                        if (!a.inside(nx, ny)) continue;
+                        uint8_t t = a.at(nx, ny);
+                        if (t == T_ROCK || t == T_WALL || t == T_LEVER || t == T_DOOR_TIMED) continue;
+                        int idx = ny * a.w + nx;
+                        if (seen[idx]) continue;
+                        seen[idx] = 1;
+                        q.push_back({nx, ny});
+                    }
+                }
+                auto neighbours = [&](int x, int y, int& reachable, int& walled) {
+                    reachable = walled = 0;
+                    const int ox[4] = {1, -1, 0, 0}, oy[4] = {0, 0, 1, -1};
+                    for (int k = 0; k < 4; k++) {
+                        int nx = x + ox[k], ny = y + oy[k];
+                        if (!a.inside(nx, ny) || Map::tileSolid(a.at(nx, ny))) continue;
+                        if (seen[ny * a.w + nx]) reachable++;
+                        else walled++;
+                    }
+                };
+                int lr, lw, dr, dw;
+                neighbours(lx, ly, lr, lw);
+                neighbours(dx, dy, dr, dw);
+                CHECK(lr > 0, "lever unreachable from the stairs seed %u depth %d", seed, depth);
+                CHECK(dr > 0, "timed door unreachable from the stairs seed %u depth %d", seed, depth);
+                CHECK(dw > 0, "timed door has no sealed vault behind it seed %u depth %d", seed, depth);
+            }
             // serialization round trip
             Writer w;
             a.serialize(w, false);
@@ -147,7 +195,8 @@ int main(int argc, char** argv) {
             CHECK(c.deserialize(r) && c.tiles == a.tiles, "map serialization");
         }
     CHECK(hazardLevels > 0, "no floor hazards generated at all");
-    std::printf("dungeon generation ok (%d/%d levels with floor hazards)\n", hazardLevels, 60 * 4);
+    CHECK(leverLevels > 0, "no lever vaults generated at all");
+    std::printf("dungeon generation ok (%d/%d levels with floor hazards, %d with a lever vault)\n", hazardLevels, 60 * 4, leverLevels);
 
     {   // Corridor assist: walking at a wall just beside a corridor opening slides you into it.
         Map m;
@@ -420,6 +469,65 @@ int main(int argc, char** argv) {
                 y = m.h; break;
             }
         std::printf("keys and chests ok (%d vaults, %d chests)\n", vaults, chests);
+    }
+    {   // A visible lever opens a hidden vault door, which closes on a timer.
+        auto nl = std::make_shared<ServerNet>();
+        Bot b;
+        nl->attachLoopback(b.pipe);
+        Server sl(nl, 8181);
+        b.hello(0);
+        for (int t = 0; t < 5; t++) { sl.tick(); b.poll(); }
+        bool found = false;
+        for (int attempt = 0; attempt < 30 && !found; attempt++) {
+            sl.debugGoto(2 + attempt % 10);
+            for (int t = 0; t < 2; t++) { sl.tick(); b.poll(); }
+            if (sl.debugLeverCount() == 0) continue;
+            int lx = sl.debugLeverX(0), ly = sl.debugLeverY(0);
+            const Map& m = sl.map();
+            int sx = -1, sy = -1;
+            for (int k = 0; k < 4; k++) {
+                int nx = lx + (k == 0) - (k == 1), ny = ly + (k == 2) - (k == 3);
+                if (m.inside(nx, ny) && !Map::tileSolid(m.at(nx, ny))) { sx = nx; sy = ny; break; }
+            }
+            if (sx < 0) continue;
+            sl.debugMovePlayer(b.id, Vec2(sx + 0.5f, sy + 0.5f));
+            sl.debugFace(b.id, std::atan2((float)(ly - sy), (float)(lx - sx)));
+            b.action(A_USE);
+            for (int t = 0; t < 3; t++) { sl.tick(); b.poll(); }
+            int dx = sl.debugLeverDoorX(0), dy = sl.debugLeverDoorY(0);
+            if (sl.map().at(dx, dy) == T_DOOR_TIMED_OPEN) found = true;
+        }
+        CHECK(found, "a lever never opened its hidden door");
+        if (found) {
+            int lx = sl.debugLeverX(0), ly = sl.debugLeverY(0);
+            int dx = sl.debugLeverDoorX(0), dy = sl.debugLeverDoorY(0);
+            CHECK(sl.debugLeverTimer(0) > 0, "opened lever door has no timer");
+            CHECK(sl.debugLeverMaxTimer(0) >= 15.0f, "lever timer too short: %.1f", sl.debugLeverMaxTimer(0));
+            sl.debugClearMonsters();
+            // It must never close on someone standing in the doorway.
+            sl.debugMovePlayer(b.id, Vec2(dx + 0.5f, dy + 0.5f));
+            sl.debugSetLeverTimer(0, 0.05f);
+            for (int t = 0; t < 6; t++) { sl.tick(); b.poll(); }
+            CHECK(sl.map().at(dx, dy) == T_DOOR_TIMED_OPEN, "timed door closed on a player");
+            // Clear of the doorway, it grinds shut again.
+            int sx = -1, sy = -1;
+            for (int k = 0; k < 4; k++) {
+                int nx = lx + (k == 0) - (k == 1), ny = ly + (k == 2) - (k == 3);
+                if (sl.map().inside(nx, ny) && !Map::tileSolid(sl.map().at(nx, ny))) { sx = nx; sy = ny; break; }
+            }
+            if (sx >= 0) {
+                sl.debugMovePlayer(b.id, Vec2(sx + 0.5f, sy + 0.5f));
+                sl.debugSetLeverTimer(0, 0.05f);
+                for (int t = 0; t < 6; t++) { sl.tick(); b.poll(); }
+                CHECK(sl.map().at(dx, dy) == T_DOOR_TIMED, "timed door did not close");
+                // Pulling it again reopens it, so a missed door is never a dead end.
+                sl.debugFace(b.id, std::atan2((float)(ly - sy), (float)(lx - sx)));
+                b.action(A_USE);
+                for (int t = 0; t < 3; t++) { sl.tick(); b.poll(); }
+                CHECK(sl.map().at(dx, dy) == T_DOOR_TIMED_OPEN, "lever could not be pulled a second time");
+            }
+        }
+        std::printf("lever and timed door ok\n");
     }
     {   // Torches stack, two rings, and a full pack uses scrolls from the floor.
         auto nr = std::make_shared<ServerNet>();
