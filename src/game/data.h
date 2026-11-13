@@ -162,6 +162,8 @@ struct DifficultyRules {
     bool wipeRestarts = true; // whole party dead: start over (else revive at the stairs)
     float xp = 1, gold = 1;
     float monsterCount = 1;   // multiplier for the number of monster groups
+    int monsterDepthBias = 0; // added to the dungeon level when choosing monsters: + = tougher kinds appear sooner
+    float danger = 1;         // multiplier for traps, floor hazards, trapdoors and vaults per level
     // The Abyss: every dungeon level below the first adds per_level (e.g. 0.5 = +50%) of the
     // base monster health, damage, xp and gold, and count_per_level of the monster count.
     // Hidden = not in the difficulty menu.
@@ -174,6 +176,7 @@ struct DifficultyRules {
         float f = 1 + perLevel * (depth - 1), fc = 1 + countPerLevel * (depth - 1);
         r.monsterCount *= fc; r.monsterHp *= f; r.monsterDamage *= f;
         r.xp *= f; r.gold *= f;
+        r.danger *= fc;
         r.monsterToHit += (depth - 1) / 2;
         return r;
     }

@@ -706,6 +706,34 @@ int main(int argc, char** argv) {
         CHECK(sleeperSeen, "an ordinary monster never started asleep");
         std::printf("roaming prowlers ok\n");
     }
+    {   // Difficulty: the presets carry a monster depth bias and a danger multiplier, and a
+        // higher danger really does put more traps and hazards on a level.
+        int si = gData.findDifficulty("story"), ni = gData.findDifficulty("nightmare");
+        CHECK(si >= 0 && ni >= 0, "difficulty presets missing (story %d, nightmare %d)", si, ni);
+        if (si >= 0 && ni >= 0) {
+            CHECK(difficultyRules(si).monsterDepthBias < 0 && difficultyRules(ni).monsterDepthBias > 0,
+                  "monster_depth: story %d, nightmare %d", difficultyRules(si).monsterDepthBias, difficultyRules(ni).monsterDepthBias);
+            CHECK(difficultyRules(si).danger < 1 && difficultyRules(ni).danger > 1,
+                  "danger: story %.2f, nightmare %.2f", difficultyRules(si).danger, difficultyRules(ni).danger);
+        }
+        // Count the tiles danger scales: locked doors, floor hazards and trapdoors.
+        auto countDanger = [](float danger) {
+            long n = 0;
+            for (uint32_t seed = 1; seed <= 120; seed++) {
+                Map m;
+                generateLevel(m, seed, 8, danger);
+                for (int y = 0; y < m.h; y++)
+                    for (int x = 0; x < m.w; x++) {
+                        uint8_t t = m.at(x, y);
+                        if (t == T_DOOR_LOCKED || t == T_TRAPDOOR || Map::tileHazard(t)) n++;
+                    }
+            }
+            return n;
+        };
+        long low = countDanger(0.35f), high = countDanger(2.2f);
+        CHECK(high > low * 2, "danger did not add traps/hazards: %.2f -> %ld, %.2f -> %ld", 0.35f, low, 2.2f, high);
+        std::printf("difficulty scaling ok (%ld danger tiles at x0.35, %ld at x2.2)\n", low, high);
+    }
     {   // Ammo: the quiver fills at the start, shots use it up, some land on the floor;
         // with the option off nothing is used.
         for (int rule = 1; rule >= 0; rule--) {

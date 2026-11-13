@@ -9,7 +9,11 @@
 # respawn:       seconds until a dead player gets back up (while someone lives)
 # party_wipe:    restart = the whole party dead starts a new game; revive = everyone gets up
 # xp / gold:     multipliers for experience and gold found
-# monster_count: multiplier for the number of monster groups
+# monster_count: multiplier for the number of monster groups (on top of extra_groups)
+# monster_depth: added to the dungeon level when picking monsters. +1 makes the kinds that
+#                normally wait until one level deeper appear now; -1 holds them back.
+# danger:        multiplier for traps and dangers placed on a level: locked doors, vaults,
+#                lever vaults, trapdoors and static floor hazards (1 = the normal amount)
 # per_level:     each dungeon level below the first adds this much (0.5 = +50%) of the base
 #                monster health, damage, xp and gold; monster to-hit +1 every 2 levels
 # count_per_level: the same for the number of monsters (default: per_level)
@@ -24,6 +28,8 @@ monster_tohit = -4
 alertness = 0.4
 monster_speed = 0.8
 extra_groups = -3
+monster_depth = -3
+danger = 0.35
 hunger = 0.5
 fuel = 0.5
 respawn = 3
@@ -40,6 +46,8 @@ monster_tohit = -2
 alertness = 0.6
 monster_speed = 0.9
 extra_groups = -2
+monster_depth = -2
+danger = 0.6
 hunger = 0.7
 fuel = 0.7
 respawn = 6
@@ -48,6 +56,8 @@ party_wipe = revive
 [difficulty normal]
 name = Normal
 desc = The intended experience.
+monster_depth = 0
+danger = 1
 
 [difficulty hard]
 name = Hard
@@ -58,6 +68,8 @@ monster_tohit = 2
 alertness = 1.4
 monster_speed = 1.1
 extra_groups = 2
+monster_depth = 1
+danger = 1.6
 hunger = 1.25
 fuel = 1.25
 respawn = 20
@@ -73,6 +85,8 @@ monster_tohit = 4
 alertness = 1.8
 monster_speed = 1.2
 extra_groups = 4
+monster_depth = 2
+danger = 2.2
 hunger = 1.5
 fuel = 1.5
 respawn = 30
@@ -95,6 +109,8 @@ monster_tohit = -2
 alertness = 0.8
 monster_speed = 0.9
 extra_groups = -2
+monster_depth = -1
+danger = 0.6
 hunger = 0.7
 fuel = 0.7
 respawn = 8

@@ -489,17 +489,19 @@ bool Server::randomFloor(Vec2& out, bool awayFromStart, int room) {
 
 int Server::pickMonster(int depth, const std::vector<int>* pool) {
     if (pool && !pool->empty()) return (*pool)[rng_.range(0, (int)pool->size() - 1)];
+    // Harder difficulties treat the level as a little deeper, so tougher kinds show up sooner.
+    int eff = std::max(1, depth + rules().monsterDepthBias);
     // Weighted by rarity; occasionally out-of-depth monsters appear.
-    int maxDepth = depth + (rng_.chance(10) ? 2 : 0);
+    int maxDepth = eff + (rng_.chance(10) ? 2 : 0);
     int total = 0;
     for (auto& m : gData.monsters)
-        if (!m.boss && m.rarity > 0 && m.depth <= maxDepth) total += m.rarity * (m.depth >= depth - 2 ? 3 : 1);
+        if (!m.boss && m.rarity > 0 && m.depth <= maxDepth) total += m.rarity * (m.depth >= eff - 2 ? 3 : 1);
     if (total == 0) return 0;
     int r = rng_.range(1, total);
     for (size_t i = 0; i < gData.monsters.size(); i++) {
         auto& m = gData.monsters[i];
         if (m.boss || m.rarity <= 0 || m.depth > maxDepth) continue;
-        r -= m.rarity * (m.depth >= depth - 2 ? 3 : 1);
+        r -= m.rarity * (m.depth >= eff - 2 ? 3 : 1);
         if (r <= 0) return (int)i;
     }
     return 0;
@@ -957,12 +959,14 @@ void Server::newLevel(int depth, bool down) {
     maxDepth_ = std::max(maxDepth_, depth);
     recallT_ = 0;
     descentT_ = 0;
+    // Difficulty decides how many traps and hazards this level gets (The Abyss grows with depth).
+    float danger = difficultyRules(difficulty_).atDepth(std::max(1, depth)).danger;
     if (campaignLevel) {
         addCampaignGoal(depth);
         map_.seed = seed;
-        if (!buildCampaignLevel(depth)) { generateLevel(map_, seed, depth); map_.depth = depth; power_ = depth; populate(); }
+        if (!buildCampaignLevel(depth)) { generateLevel(map_, seed, depth, danger); map_.depth = depth; power_ = depth; populate(); }
     } else {
-        generateLevel(map_, seed, depth);
+        generateLevel(map_, seed, depth, danger);
         power_ = std::max(1, depth);
         collapseQuests();
         if (depth > 0) {
@@ -3222,7 +3226,7 @@ bool Server::buildCampaignLevel(int level) {
             }
         }
     } else {
-        generateLevel(map_, map_.seed, L.depth);
+        generateLevel(map_, map_.seed, L.depth, difficultyRules(difficulty_).atDepth(std::max(1, L.depth)).danger);
         power_ = L.depth;
         map_.depth = level;
         populate(L.monsters.empty() ? nullptr : &L.monsters);

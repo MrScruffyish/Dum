@@ -365,6 +365,11 @@ The town makes a door for every shop. Its door picture can be replaced with
 Add a section to `data/difficulty.txt`. Every setting is a multiplier or bonus on Normal,
 explained at the top of the file. It shows up in the main menu's Difficulty list.
 
+`monster_count` and `extra_groups` change how many monsters a level has; `monster_depth`
+shifts which kinds appear (added to the dungeon level, so `+2` lets the kinds that normally
+wait two levels longer appear now); `danger` scales traps and hazards (locked doors, vaults,
+lever vaults, trapdoors, floor hazards).
+
 ## Sharing your content
 
 Everything lives in `data/`. Zip that folder (or just the files you changed) and share it.

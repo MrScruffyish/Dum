@@ -262,6 +262,13 @@ stored in the save. Each level sets multipliers for monster damage, hit points, 
 alertness, monster accuracy, extra monster groups, hunger and light burn rate, respawn time,
 what happens when the whole party dies (`restart` or `revive`), and XP/gold rewards.
 
+Monster numbers are set two ways: `monster_count` and `extra_groups` change how many groups
+a level holds, while `monster_depth` shifts which kinds can appear — it is added to the
+dungeon level when picking monsters, so `+1` brings the kinds that normally wait a level
+longer in one level early. `danger` scales the traps and hazards a level gets: locked doors,
+vaults, lever vaults, trapdoors and static floor hazards. The main menu shows the chosen
+level's monster count, depth bias and danger multiplier under the difficulty name.
+
 ## Death
 
 While anyone in the party is alive, a dead player respawns at the up staircase after

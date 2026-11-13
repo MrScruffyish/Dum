@@ -89,9 +89,13 @@ struct Gen {
     Map& m;
     Rng rng;
     int depth;
+    float danger;              // difficulty multiplier for traps, hazards, trapdoors and vaults
     std::vector<int> roomId;   // -1 = none
 
-    Gen(Map& map, uint32_t seed, int d) : m(map), rng(seed), depth(d) {}
+    Gen(Map& map, uint32_t seed, int d, float dg) : m(map), rng(seed), depth(d), danger(dg) {}
+
+    // Scale a percentage chance by the danger multiplier, kept in 0..100.
+    int dangerPct(int base) const { return std::max(0, std::min(100, (int)std::lround(base * danger))); }
 
     bool isFloorish(int x, int y) const {
         uint8_t t = m.at(x, y);
@@ -270,7 +274,7 @@ struct Gen {
                     if (std::abs(p.first - x) <= 1 && std::abs(p.second - y) <= 1) near = true;
                 if (near || !rng.chance(70)) continue;
                 int r = rng.range(0, 99);
-                int lockedPct = std::min(25, 6 + depth * 2);
+                int lockedPct = dangerPct(std::min(25, 6 + depth * 2));
                 uint8_t t = r < lockedPct ? T_DOOR_LOCKED : (r < lockedPct + 12 ? T_DOOR_SECRET : (r < 85 ? T_DOOR : T_DOOR_OPEN));
                 m.set(x, y, t);
                 m.wallTex[y * m.w + x] = m.wallTex[(y + (horiz ? 1 : 0)) * m.w + x + (horiz ? 0 : 1)];
@@ -300,8 +304,11 @@ struct Gen {
     }
 
     void placeVaults() {
-        if (depth < 2 || !rng.chance(std::min(75, 35 + depth * 5))) return;
-        int want = depth >= 6 && rng.chance(35) ? 2 : 1, made = 0;
+        if (depth < 2 || !rng.chance(dangerPct(std::min(75, 35 + depth * 5)))) return;
+        int want = 1;
+        if (depth >= 6 && rng.chance(dangerPct(35))) want = 2;
+        if (want == 2 && danger >= 1.8f && rng.chance(dangerPct(35))) want = 3;
+        int made = 0;
         int color = rng.range(0, KEY_COUNT - 1);
         std::vector<int> order(m.rooms.size());
         for (size_t i = 0; i < order.size(); i++) order[i] = (int)i;
@@ -322,7 +329,7 @@ struct Gen {
     // A lever on the wall just outside a dead-end room, linked to a door that blends into
     // the wall until pulled. The server places treasure behind it and runs the close timer.
     void placeLeverVault() {
-        if (depth < 2 || !rng.chance(std::min(80, 30 + depth * 4))) return;
+        if (depth < 2 || !rng.chance(dangerPct(std::min(80, 30 + depth * 4)))) return;
         std::vector<int> order(m.rooms.size());
         for (size_t i = 0; i < order.size(); i++) order[i] = (int)i;
         for (size_t i = order.size(); i > 1; i--) std::swap(order[i - 1], order[rng.range(0, (int)i - 1)]);
@@ -369,8 +376,10 @@ struct Gen {
     }
 
     void placeTrapdoors() {
-        if (depth < 2 || !rng.chance(std::min(60, 25 + depth * 3))) return;
-        int want = depth >= 8 && rng.chance(25) ? 2 : 1;
+        if (depth < 2 || !rng.chance(dangerPct(std::min(60, 25 + depth * 3)))) return;
+        int want = 1;
+        if (depth >= 8 && rng.chance(dangerPct(25))) want = 2;
+        if (want == 2 && danger >= 1.8f && rng.chance(dangerPct(25))) want = 3;
         // Reachable from the stairs without a coloured key or the hidden lever door, so a
         // trapdoor never sits inside a vault that the party has not opened yet.
         std::vector<int> d(m.w * m.h, -1);
@@ -426,13 +435,15 @@ struct Gen {
     }
 
     // A few static patches of dangerous floor. They are rare: most levels have none, and no
-    // level gets more than two. Patches are small, walkable blobs in rooms (now and then a
-    // corridor), never on or next to the stairs or a doorway.
+    // level gets more than a couple (a little more on harder difficulties). Patches are small,
+    // walkable blobs in rooms (now and then a corridor), never on or next to the stairs or a
+    // doorway.
     void placeHazards() {
         if (depth < 2) return;
         static const uint8_t kinds[6] = {T_POISON, T_SHARDS, T_GAS, T_LAVA, T_FIRE, T_ICE};
-        int count = rng.chance(std::min(55, 22 + depth * 3)) ? 1 : 0;
-        if (count && depth >= 7 && rng.chance(25)) count = 2;
+        int count = rng.chance(dangerPct(std::min(55, 22 + depth * 3))) ? 1 : 0;
+        if (count && depth >= 7 && rng.chance(dangerPct(25))) count = 2;
+        if (count == 2 && danger >= 1.8f && rng.chance(dangerPct(25))) count = 3;
         for (int p = 0; p < count; p++) {
             uint8_t kind = kinds[rng.range(0, 5)];
             int rad = rng.chance(30) ? 2 : 1;
@@ -635,10 +646,10 @@ void generateTown(Map& m, uint32_t seed) {
 
 int gTownStores = 5;
 
-void generateLevel(Map& m, uint32_t seed, int depth) {
+void generateLevel(Map& m, uint32_t seed, int depth, float danger) {
     if (depth <= 0) { generateTown(m, seed); return; }
     for (uint32_t attempt = 0;; attempt++) {
-        Gen g(m, seed * 7919u + attempt * 104729u + (uint32_t)depth, depth);
+        Gen g(m, seed * 7919u + attempt * 104729u + (uint32_t)depth, depth, danger);
         if (g.run()) break;
     }
     m.depth = depth;

@@ -111,7 +111,8 @@ struct Map {
 };
 
 // Build a level. Deterministic for a given seed and depth. Depth 0 is the town.
-void generateLevel(Map& m, uint32_t seed, int depth);
+// 'danger' scales traps, floor hazards, trapdoors and vaults (1 = the normal amount).
+void generateLevel(Map& m, uint32_t seed, int depth, float danger = 1.0f);
 void generateTown(Map& m, uint32_t seed);
 extern int gTownStores;   // number of shops in town (set from the data files)
 

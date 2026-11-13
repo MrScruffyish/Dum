@@ -683,8 +683,20 @@ struct App {
         if (screen == Screen::Main) {
             auto items = mainItems();
             if (sel >= 0 && sel < (int)items.size() && items[sel].first == M_DIFFICULTY) {
-                const std::string& d = difficultyRules(set.difficulty).desc;
-                R.text((R.W - R.textW(d)) / 2, R.H - 28, d, 0xFFB0A890);
+                if (abyssChosen()) {
+                    std::string d = "Each level down: monsters +50% stronger, +20% more, and more traps.";
+                    R.text((R.W - R.textW(d)) / 2, R.H - 28, d, 0xFFB0A890);
+                } else {
+                    const DifficultyRules& dr = difficultyRules(set.difficulty);
+                    R.text((R.W - R.textW(dr.desc)) / 2, R.H - 40, dr.desc, 0xFFB0A890);
+                    std::string md = dr.monsterDepthBias == 0 ? "usual kinds"
+                                    : dr.monsterDepthBias > 0 ? std::to_string(dr.monsterDepthBias) + " level" + (dr.monsterDepthBias > 1 ? "s" : "") + " early"
+                                                               : std::to_string(-dr.monsterDepthBias) + " level" + (-dr.monsterDepthBias > 1 ? "s" : "") + " late";
+                    char buf[192];
+                    std::snprintf(buf, sizeof buf, "Monsters x%.2g groups, %s   Traps & hazards x%.2g", dr.monsterCount, md.c_str(), dr.danger);
+                    std::string det = buf;
+                    R.text((R.W - R.textW(det)) / 2, R.H - 28, det, 0xFF908070);
+                }
             }
             if (sel >= 0 && sel < (int)items.size() && items[sel].first == M_ADVENTURE) {
                 int ci = gData.findCampaign(set.adventure);

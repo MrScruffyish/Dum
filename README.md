@@ -224,8 +224,9 @@ pebbles**.
   their character back, and a player who leaves keeps their character and belongings.
 - **Difficulty** (main menu): Story, Easy, Normal, Hard or Nightmare (editable in
   `data/difficulty.txt`). It changes monster damage, health, accuracy, alertness and speed,
-  how many monsters there are, hunger and torch burn rate, respawn time, rewards, and whether
-  a dead party starts over or gets back up.
+  how many monsters there are and how soon the tougher kinds appear, how many traps and
+  hazards a level holds, hunger and torch burn rate, respawn time, rewards, and whether a
+  dead party starts over or gets back up.
   The host's setting applies in co-op. See [docs/BALANCING.md](docs/BALANCING.md).
 - **Torches:** spare torches with the same time left stack ("2 x Torch (10:00)"). Use a spare
   torch while holding one to combine them (more fuel, and a bit brighter).
