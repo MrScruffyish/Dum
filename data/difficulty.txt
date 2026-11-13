@@ -93,13 +93,15 @@ respawn = 30
 xp = 1.25
 gold = 1.25
 
-# The Abyss (Adventure: The Abyss): starts like Easy; every level the monsters get 50% (of
-# level 1's) stronger and 20% more numerous - besides the deeper, tougher kinds every
-# dungeon level brings anyway. Death sends the party back to half the depth. The deepest level goes on the high
-# score list.
+# The Abyss (Adventure: The Abyss): an endless mode that keeps a high-score list. It starts
+# like Easy, and every level down it keeps growing without bound: per_level adds 50% (of
+# level 1's) to monster health, damage, xp and gold, count_per_level adds 20% more monsters,
+# and the traps grow with them. Monsters appear at their normal depth (monster_depth = 0), so
+# the deeper kinds arrive on the level they are meant to. Death sends the party back to half
+# the depth; the deepest level reached goes on the high-score list.
 [difficulty abyss]
 name = The Abyss
-desc = Starts easy; every level down, monsters get 50% stronger and 20% more numerous.
+desc = Endless: every level down, monsters get 50% stronger and 20% more numerous, forever.
 hidden = yes
 per_level = 0.5
 count_per_level = 0.2
@@ -109,7 +111,7 @@ monster_tohit = -2
 alertness = 0.8
 monster_speed = 0.9
 extra_groups = -2
-monster_depth = -1
+monster_depth = 0
 danger = 0.6
 hunger = 0.7
 fuel = 0.7
