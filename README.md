@@ -131,11 +131,14 @@ about Easy, and every level down the monsters get another 50% of level 1's healt
 them (level 6 = 2x as many). That comes on top of the deeper, tougher kinds of monster every
 dungeon level brings anyway. XP and gold grow with the strength, so you can keep up for a
 while. The Abyss ignores the Difficulty setting in the menu: everyone climbs the same ladder,
-so the high scores compare. When the whole party dies you wake up halfway back
-up (die on level 9 and you're back on level 5) with everything you carry. The deepest level
-reached, the number of deaths and where you first died go on **High scores: The Abyss** in
-the main menu (`abyss_scores.txt` next to the saves). Levels don't collapse in The Abyss. The
-numbers are in `[difficulty abyss]` in `data/difficulty.txt` (`per_level = 0.5`,
+so the high scores compare. The Abyss remembers your deepest descent: when the whole party
+dies you wake up only two levels above it (never below level 1), keeping your gear—but the
+Abyss takes a fifth of the gold you still carry and a tenth of your experience. Runs are
+ranked by a score of **deepest level minus two per death**, so a clean climb can beat one
+that went a little deeper but died more. The deepest level reached, the number of deaths and
+where you first died go on **High scores: The Abyss** in the main menu
+(`abyss_scores.txt` next to the saves). Levels don't collapse in The Abyss. The numbers are
+in `[difficulty abyss]` in `data/difficulty.txt` (`per_level = 0.5`,
 `count_per_level = 0.2`).
 A dedicated server runs it with `--campaign abyss`.
 

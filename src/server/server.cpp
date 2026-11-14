@@ -12,6 +12,11 @@ constexpr uint32_t COL_WHITE = 0xFFFFFFFF, COL_YELLOW = 0xFFFFE060, COL_RED = 0x
                    COL_GREEN = 0xFF70FF70, COL_CYAN = 0xFF60E0FF, COL_GREY = 0xFFA0A0A0,
                    COL_ORANGE = 0xFFFFA040, COL_PURPLE = 0xFFE080FF;
 constexpr float SNAPSHOT_RANGE = 28.0f;
+// The Abyss: a wipe wakes the party this many levels above the deepest descent, and takes
+// part of what they carry so that keeping their gear is not free.
+constexpr int ABYSS_WIPE_LEVELS = 2;
+constexpr int ABYSS_GOLD_LOSS_PCT = 20;
+constexpr int ABYSS_XP_LOSS_PCT = 10;
 
 std::string capitalize(std::string s) {
     if (!s.empty() && s[0] >= 'a' && s[0] <= 'z') s[0] = (char)(s[0] - 'a' + 'A');
@@ -1175,6 +1180,24 @@ void Server::checkPartyWipe(float dt) {
             if (!abyssFirstDeath_) abyssFirstDeath_ = map_.depth;
             text(-1, COL_RED, "The Abyss claims the party on level " + std::to_string(map_.depth) + ". Deepest level reached: " +
                                   std::to_string(maxDepth_) + ".");
+            // Death costs: part of the gold you still carry and part of your experience.
+            int goldLost = 0, xpLost = 0;
+            for (auto& [id, p] : players_) {
+                if (!p.joined) continue;
+                PlayerState& s = p.st;
+                int g = s.gold * ABYSS_GOLD_LOSS_PCT / 100;
+                s.gold -= g;
+                goldLost += g;
+                // Never drop below the experience that earned the current level.
+                int levelXp = 5 * (s.level - 1) * s.level;
+                int x = std::min(s.xp * ABYSS_XP_LOSS_PCT / 100, std::max(0, s.xp - levelXp));
+                s.xp -= x;
+                xpLost += x;
+                p.dirty = true;
+            }
+            if (goldLost > 0 || xpLost > 0)
+                text(-1, COL_RED, "The Abyss takes " + std::to_string(goldLost) + " gold and " + std::to_string(xpLost) +
+                                      " experience from the party.");
             recordScore();
         } else {
             text(-1, COL_RED, rules().wipeRestarts ? "The whole party has perished. A new party will enter the dungeon..."
@@ -1185,12 +1208,14 @@ void Server::checkPartyWipe(float dt) {
     if (partyWipeT_ > 0) return;
     partyWipeT_ = -1;
     if (abyss()) {
-        // The Abyss: everyone wakes up halfway back up, keeping what they carry.
-        int back = std::max(1, (map_.depth + 1) / 2);
+        // The Abyss remembers how deep the party has been: a wipe only sends them a couple of
+        // levels above their deepest descent, never all the way back up.
+        int deepest = std::max(map_.depth, maxDepth_);
+        int back = std::max(1, deepest - ABYSS_WIPE_LEVELS);
         newLevel(back, false);
         for (auto& [id, p] : players_)
             if (p.joined && p.st.dead) p.st.respawnT = 0.01f;
-        text(-1, COL_YELLOW, "You wake up on level " + std::to_string(back) + ", halfway back up. Deaths in this run: " +
+        text(-1, COL_YELLOW, "You wake up on level " + std::to_string(back) + ", close to your deepest descent. Deaths in this run: " +
                                  std::to_string(abyssDeaths_) + ".");
         return;
     }

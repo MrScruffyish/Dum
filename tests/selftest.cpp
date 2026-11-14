@@ -869,7 +869,8 @@ int main(int argc, char** argv) {
         CHECK(sd.playerCount() == 0, "different data: %d players in the game", sd.playerCount());
         std::printf("data file check ok\n");
     }
-    {   // The Abyss: harder every level, a wipe sends the party halfway back up, scores are kept.
+    {   // The Abyss: harder every level; a wipe only drops the party two levels, costs gold and
+        // experience, and scores reward a clean climb.
         auto na = std::make_shared<ServerNet>();
         Bot b;
         na->attachLoopback(b.pipe);
@@ -886,12 +887,21 @@ int main(int argc, char** argv) {
         PlayerState* ps = sa.debugPlayer(b.id);
         ps->hp = 0;
         ps->dead = true;
+        ps->gold = 100;
+        ps->xp = 1000;
         ps->respawnT = 100;   // as when killed (8 s in the Abyss)
         for (int t = 0; t < 30 * 8; t++) { sa.tick(); b.poll(); }
-        CHECK(sa.map().depth == 5, "abyss wipe on 9 went to depth %d (want 5)", sa.map().depth);
+        CHECK(sa.map().depth == 7, "abyss wipe on 9 went to depth %d (want 7)", sa.map().depth);
         CHECK(!sa.debugPlayer(b.id)->dead, "abyss: party not revived");
+        CHECK(ps->gold == 80, "abyss wipe took %d gold (want 20 of 100)", 100 - ps->gold);
+        CHECK(ps->xp == 900, "abyss wipe took %d experience (want 100 of 1000)", 1000 - ps->xp);
         auto list = loadAbyssScores(scores);
         CHECK(list.size() == 1 && list[0].deepest == 9 && list[0].deaths == 1 && list[0].firstDeath == 9, "abyss score not recorded");
+        // A deeper run with many deaths does not outrank a clean, slightly shallower one.
+        AbyssScore clean, messy;
+        clean.run = 1; clean.deepest = 8; clean.deaths = 0;
+        messy.run = 2; messy.deepest = 9; messy.deaths = 3;
+        CHECK(abyssBetter(clean, messy), "abyss ranking does not reward fewest deaths");
         std::remove(scores.c_str());
         std::printf("abyss ok\n");
     }

@@ -292,7 +292,9 @@ level's monster count, depth bias and danger multiplier under the difficulty nam
 
 While anyone in the party is alive, a dead player respawns at the up staircase after
 `respawn` seconds (see `difficulty.txt`) with half HP, and drops half their gold where they died. If the whole party
-dies, everyone starts again on level 1 with new characters.
+dies, everyone starts again on level 1 with new characters. The Abyss is the exception: a
+wipe costs 20% of the party's remaining gold and 10% of its experience, then revives everyone
+two levels above the deepest descent reached so far (`ABYSS_*` constants in `server.cpp`).
 
 ## Constants in the code
 
@@ -303,6 +305,7 @@ A few values are not in data files yet:
 | Walk / run speed (3.4 / 5.2) | `src/client/client.cpp` (`WALK_SPEED`, `RUN_SPEED`) |
 | Food maximum, tick rate, player/monster size | `src/game/state.h` |
 | Food per second, regeneration, respawn time, wake-up formula, lock picking | `src/server/server.cpp` (`updatePlayers`, `updateMonsters`, `doUse`) |
+| Abyss wipe distance (2 levels), gold loss (20%), XP loss (10%) | `src/server/server.cpp` (`ABYSS_WIPE_LEVELS`, `ABYSS_GOLD_LOSS_PCT`, `ABYSS_XP_LOSS_PCT`) |
 | Level contents (group counts, item counts) | `src/server/server.cpp` (`populate`) |
 | Map size, room count, door chances | `src/game/map.cpp` |
 | XP curve, AC, spell power | `src/game/state.cpp` / `state.h` |

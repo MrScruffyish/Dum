@@ -21,10 +21,16 @@ struct AbyssScore {
     std::string party;       // "Gunnar the Warrior, Ann the Wizard"
 };
 
-// Best first: deeper, then fewer deaths, then deeper before the first death.
+// The Abyss rewards a clean climb: each death costs two levels of depth, so a careful run with
+// few deaths can beat one that went a little deeper but died repeatedly.
+inline int abyssScore(const AbyssScore& s) { return s.deepest - 2 * s.deaths; }
+
+// Best first: highest score, then fewest deaths, then deepest, then deeper before the first death.
 inline bool abyssBetter(const AbyssScore& a, const AbyssScore& b) {
-    if (a.deepest != b.deepest) return a.deepest > b.deepest;
+    int sa = abyssScore(a), sb = abyssScore(b);
+    if (sa != sb) return sa > sb;
     if (a.deaths != b.deaths) return a.deaths < b.deaths;
+    if (a.deepest != b.deepest) return a.deepest > b.deepest;
     return a.firstDeath > b.firstDeath;
 }
 

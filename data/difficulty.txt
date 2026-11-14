@@ -97,8 +97,9 @@ gold = 1.25
 # like Easy, and every level down it keeps growing without bound: per_level adds 50% (of
 # level 1's) to monster health, damage, xp and gold, count_per_level adds 20% more monsters,
 # and the traps grow with them. Monsters appear at their normal depth (monster_depth = 0), so
-# the deeper kinds arrive on the level they are meant to. Death sends the party back to half
-# the depth; the deepest level reached goes on the high-score list.
+# the deeper kinds arrive on the level they are meant to. A wipe sends the party two levels
+# above its deepest descent (never below level 1) and takes part of its gold and experience;
+# the deepest level reached goes on the high-score list.
 [difficulty abyss]
 name = The Abyss
 desc = Endless: every level down, monsters get 50% stronger and 20% more numerous, forever.

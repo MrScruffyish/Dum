@@ -260,8 +260,12 @@ monster health, damage, xp and gold by `1 + per_level x (depth - 1)`, the monste
 `1 + count_per_level x (depth - 1)`, and adds to-hit every 2 levels. It replaces the menu's
 difficulty completely. `Server::rules()` returns that, cached per depth. Monster groups
 are capped at 45 per level. `Server::abyss()` is simply "the difficulty has `per_level`".
-A party wipe there doesn't restart: `checkPartyWipe` counts a death, records the score,
-and after 6 s revives everyone on level `(depth + 1) / 2`. Levels never collapse in the
-Abyss. Scores live in `abyss_scores.txt` next to the saves (`src/game/scores.h`: one line
-per run, keyed by the run's seed, updated whenever the run goes deeper or dies). The save
-file (version 9) stores the death count and first death.
+A party wipe there doesn't restart: `checkPartyWipe` counts a death, takes 20% of the party's
+remaining gold and 10% of its experience (never below the experience that earned the current
+level), records the score, and after 6 s revives everyone on level `max(1, deepest - 2)`.
+The respawn depth uses `maxDepth_`, so a wipe while re-climbing still returns the party near
+its best run. Levels never collapse in the Abyss. Scores live in `abyss_scores.txt` next to
+the saves (`src/game/scores.h`: one line per run, keyed by the run's seed, updated whenever
+the run goes deeper or dies). `abyssScore()` is `deepest - 2 * deaths`, so fewer deaths rank
+higher and can beat a slightly deeper but much bloodier run. The save file (version 9) stores
+the death count and first death.

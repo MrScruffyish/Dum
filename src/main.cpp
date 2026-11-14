@@ -585,7 +585,7 @@ struct App {
             y += 16;
             auto scores = loadAbyssScores(scorePath());
             int lx = R.W / 2 - 300;
-            R.text(lx, y, "  #  Level  Deaths  1st death  Char lvl  Date        Party", 0xFF908070);
+            R.text(lx, y, "  #  Score  Level  Deaths  1st death  Char lvl  Date        Party", 0xFF908070);
             y += 12;
             if (scores.empty()) {
                 std::string e = "No runs yet. Choose Adventure: The Abyss and start a new game.";
@@ -594,12 +594,13 @@ struct App {
             for (size_t i = 0; i < scores.size() && i < 15; i++) {
                 const AbyssScore& sc = scores[i];
                 char buf[96];
-                std::snprintf(buf, sizeof buf, "%3d  %5d  %6d  %9s  %8d  %s  ", (int)i + 1, sc.deepest, sc.deaths,
-                              sc.firstDeath ? std::to_string(sc.firstDeath).c_str() : "-", sc.level, sc.date.c_str());
+                std::snprintf(buf, sizeof buf, "%3d  %5d  %5d  %6d  %9s  %8d  %s  ", (int)i + 1, abyssScore(sc),
+                              sc.deepest, sc.deaths, sc.firstDeath ? std::to_string(sc.firstDeath).c_str() : "-", sc.level,
+                              sc.date.c_str());
                 R.text(lx, y, buf + sc.party.substr(0, 40), i == 0 ? 0xFFFFE080 : 0xFFD0C8B8);
                 y += 11;
             }
-            std::string h = "Score = deepest level reached. Esc: back";
+            std::string h = "Score = deepest level - 2 per death. Esc: back";
             R.text((R.W - R.textW(h)) / 2, R.H - 30, h, 0xFF908070);
         } else if (screen == Screen::HostChoice) {
             SaveInfo si = Server::peekSave(savePath(Mode::Host));
@@ -700,7 +701,7 @@ struct App {
             }
             if (sel >= 0 && sel < (int)items.size() && items[sel].first == M_ADVENTURE) {
                 int ci = gData.findCampaign(set.adventure);
-                std::string d = abyssChosen() ? "Starts easy; monsters +50% stronger, +20% more each level. Dying sends you halfway up."
+                std::string d = abyssChosen() ? "Starts easy; monsters +50% stronger, +20% more each level. Death costs gold and XP; fewest deaths ranks best."
                                 : ci < 0 ? "Descend forever. Bosses wait on levels 3, 6, 9, 12, 15 and 20." : gData.campaigns[ci].desc;
                 R.text((R.W - R.textW(d)) / 2, R.H - 28, d.substr(0, 104), 0xFFB0A890);
             }
