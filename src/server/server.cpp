@@ -411,11 +411,13 @@ void Server::rollCharacter(SPlayer& p, int cls) {
         if (eq >= 0 && s.equip[eq].empty()) { s.equip[eq] = st; continue; }
         // stack with existing
         bool merged = false;
+        int limit = itemStackLimit(d);
         for (int i = 0; i < slot; i++)
-            if (s.inv[i].def == st.def && s.inv[i].count < d.maxStack) { s.inv[i].count++; merged = true; break; }
+            if (s.inv[i].def == st.def && s.inv[i].count < limit) { s.inv[i].count++; merged = true; break; }
         if (!merged && slot < INV_SIZE) s.inv[slot++] = st;
     }
     fixupChar(s);
+    sortInventory(s);
     p.dirty = true;
 }
 
@@ -1144,7 +1146,9 @@ void Server::tick() {
 void Server::pausedTick() {
     handleNet();
     for (auto& [pid, p] : players_) {
-        if (!p.joined || !p.dirty) continue;
+        if (!p.joined) continue;
+        if (sortInventory(p.st)) p.dirty = true;
+        if (!p.dirty) continue;
         Writer w;
         w.u8(S_PSTATE);
         w.u32(tickNo_);
@@ -2634,20 +2638,85 @@ void Server::doUse(SPlayer& p, bool doorsOnly, bool useFloorItem) {
 
 // Same item, stackable, and (lights) the same fuel left: two fresh torches make "2 x Torch".
 static bool stacksWith(const ItemStack& a, const ItemStack& b) {
-    if (a.def != b.def || a.empty() || b.empty() || a.d().maxStack <= 1) return false;
+    if (a.def != b.def || a.empty() || b.empty()) return false;
+    if (itemStackLimit(a.d()) <= 1) return false;
     return a.d().kind != ItemKind::Light || a.fuel == b.fuel;
+}
+
+// Pack order: weapons, armor, light, ammo, devices, potions, scrolls, food, fuel, jewellery,
+// then anything else. Within a group the name decides, so identical finds sit together.
+static int invCategory(const ItemDef& d) {
+    switch (d.kind) {
+        case ItemKind::Weapon: return 0;
+        case ItemKind::Armor: return 1;
+        case ItemKind::Helm: return 2;
+        case ItemKind::Light: return 3;
+        case ItemKind::Ammo: return 4;
+        case ItemKind::Wand:
+        case ItemKind::Rod: return 5;
+        case ItemKind::Potion: return 6;
+        case ItemKind::Scroll: return 7;
+        case ItemKind::Food: return 8;
+        case ItemKind::Fuel: return 9;
+        case ItemKind::Ring: return 10;
+        case ItemKind::Amulet: return 11;
+        default: return 12;
+    }
+}
+
+static bool invSlotLess(const ItemStack& a, const ItemStack& b) {
+    if (a.empty() != b.empty()) return !a.empty();   // empty slots last
+    if (a.empty()) return false;
+    const ItemDef& da = a.d(), & db = b.d();
+    int ca = invCategory(da), cb = invCategory(db);
+    if (ca != cb) return ca < cb;
+    if (da.name != db.name) return da.name < db.name;
+    if (da.id != db.id) return da.id < db.id;
+    if (a.fuel != b.fuel) return a.fuel > b.fuel;   // fuller torches, better-charged wands first
+    return a.def < b.def;
+}
+
+static bool sameStack(const ItemStack& a, const ItemStack& b) {
+    return a.def == b.def && a.count == b.count && a.fuel == b.fuel;
+}
+
+// Compact and sort the pack. Returns true when anything moved or merged.
+bool Server::sortInventory(PlayerState& s) {
+    ItemStack old[INV_SIZE];
+    std::copy(s.inv, s.inv + INV_SIZE, old);
+    std::vector<ItemStack> stacks;
+    for (int i = 0; i < INV_SIZE; i++) {
+        ItemStack cur = s.inv[i];
+        s.inv[i] = ItemStack();
+        if (cur.empty()) continue;
+        for (auto& dst : stacks) {
+            if (!stacksWith(dst, cur)) continue;
+            int add = std::min(cur.count, itemStackLimit(dst.d()) - dst.count);
+            if (add <= 0) continue;
+            dst.count += add;
+            cur.count -= add;
+            if (cur.count <= 0) break;
+        }
+        if (!cur.empty() && cur.count > 0) stacks.push_back(cur);
+    }
+    std::stable_sort(stacks.begin(), stacks.end(), invSlotLess);
+    for (int i = 0; i < INV_SIZE; i++) s.inv[i] = i < (int)stacks.size() ? stacks[i] : ItemStack();
+    for (int i = 0; i < INV_SIZE; i++)
+        if (!sameStack(old[i], s.inv[i])) return true;
+    return false;
 }
 
 bool Server::canCarry(const SPlayer& p, const ItemStack& it) const {
     const ItemDef& d = it.d();
     if (d.kind == ItemKind::Gold || d.kind == ItemKind::Key) return true;   // purse and key ring
     int left = it.count;
+    int limit = itemStackLimit(d);
     const ItemStack& q = p.st.equip[EQ_QUIVER];
-    if (d.kind == ItemKind::Ammo && stacksWith(q, it)) left -= d.maxStack - q.count;   // the loaded kind
+    if (d.kind == ItemKind::Ammo && stacksWith(q, it)) left -= limit - q.count;   // the loaded kind
     if (left <= 0) return true;
     for (auto& slot : p.st.inv) {
-        if (slot.empty()) left -= d.maxStack;
-        else if (stacksWith(slot, it)) left -= d.maxStack - slot.count;
+        if (slot.empty()) left -= limit;
+        else if (stacksWith(slot, it)) left -= limit - slot.count;
         if (left <= 0) return true;
     }
     return left <= 0;
@@ -2659,9 +2728,10 @@ bool Server::addToInventory(SPlayer& p, const ItemStack& it) {
     const ItemDef& d = it.d();
     if (d.kind == ItemKind::Gold) { s.gold += it.count; p.dirty = true; return true; }
     int left = it.count;
+    int limit = itemStackLimit(d);
     ItemStack& q = s.equip[EQ_QUIVER];
     if (d.kind == ItemKind::Ammo && stacksWith(q, it)) {   // more of what is loaded: into the quiver
-        int add = std::min(left, d.maxStack - q.count);
+        int add = std::min(left, limit - q.count);
         q.count += add;
         left -= add;
         p.dirty = true;
@@ -2672,10 +2742,10 @@ bool Server::addToInventory(SPlayer& p, const ItemStack& it) {
         p.dirty = true;
         return true;
     }
-    if (d.maxStack > 1)
+    if (limit > 1)
         for (auto& slot : s.inv)
-            if (stacksWith(slot, it) && slot.count < d.maxStack) {
-                int add = std::min(left, d.maxStack - slot.count);
+            if (stacksWith(slot, it) && slot.count < limit) {
+                int add = std::min(left, limit - slot.count);
                 slot.count += add;
                 left -= add;
                 if (!left) break;
@@ -2686,7 +2756,7 @@ bool Server::addToInventory(SPlayer& p, const ItemStack& it) {
             if (s.inv[i].empty()) { free = i; break; }
         if (free < 0) return false;
         s.inv[free] = it;
-        s.inv[free].count = std::min(left, d.maxStack);
+        s.inv[free].count = std::min(left, limit);
         left -= s.inv[free].count;
     }
     if (d.kind == ItemKind::Wand || d.kind == ItemKind::Rod) s.autoQuick(QUICK_ITEM + it.def);
@@ -2904,7 +2974,7 @@ void Server::giveItem(SPlayer& p, int slot, int toPlayer) {
     if (!o || o == &p || o->st.dead) { text(p.st.id, COL_GREY, "There is nobody to give it to."); return; }
     if (dist(o->pos, p.pos) > 3.0f) { text(p.st.id, COL_GREY, o->st.name + " is too far away."); return; }
     ItemStack it = p.st.inv[slot];
-    if (it.d().maxStack > 1 && it.count > 1) it.count = 1;  // give one at a time from stacks
+    if (itemStackLimit(it.d()) > 1 && it.count > 1) it.count = 1;  // give one at a time from stacks
     if (!addToInventory(*o, it)) { text(p.st.id, COL_GREY, o->st.name + "'s pack is full."); return; }
     p.st.inv[slot].count -= it.count;
     if (p.st.inv[slot].count <= 0) p.st.inv[slot] = ItemStack();
@@ -3120,6 +3190,7 @@ void Server::sendSnapshots() {
 void Server::sendPlayerStates() {
     for (auto& [pid, p] : players_) {
         if (!p.joined) continue;
+        if (sortInventory(p.st)) p.dirty = true;
         bool periodic = (tickNo_ + pid) % 3 == 0;
         if (!p.dirty && !periodic) continue;
         Writer w;

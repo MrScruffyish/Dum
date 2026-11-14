@@ -231,6 +231,9 @@ pebbles**.
   The host's setting applies in co-op. See [docs/BALANCING.md](docs/BALANCING.md).
 - **Torches:** spare torches with the same time left stack ("2 x Torch (10:00)"). Use a spare
   torch while holding one to combine them (more fuel, and a bit brighter).
+- **Pack order:** the pack is grouped by kind (weapons, armor, lights, ammo, devices, potions,
+  scrolls, food, fuel, jewellery). Identical plain weapons, armor and jewellery share one slot
+  ("2 x Elven Bow"), so they stay together.
 - **Pack full?** Press E on food, a potion or a scroll lying on the floor to eat, drink or read
   it right there (the prompt says so).
 - **Rubble** (rocks with a dark gap above them) blocks some passages. Walk into it or press E

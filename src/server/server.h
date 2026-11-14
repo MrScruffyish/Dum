@@ -351,6 +351,7 @@ private:
     void giveItem(SPlayer& p, int slot, int toPlayer);
     void unequip(SPlayer& p, int slot);
     bool addToInventory(SPlayer& p, const ItemStack& it);
+    bool sortInventory(PlayerState& s);
     bool canCarry(const SPlayer& p, const ItemStack& it) const;
     bool nearShop(const SPlayer& p, int store) const;
     void shopBuy(SPlayer& p, int store, int ware);

@@ -266,12 +266,19 @@ int main(int argc, char** argv) {
         for (int i = 0; i < INV_SIZE; i++)
             if (!bots[0].st.inv[i].empty() && bots[0].st.inv[i].d().id == "torch") slot = i;
         CHECK(slot >= 0, "no spare torch");
+        auto torches = [&] {
+            int n = 0;
+            for (const ItemStack& it : bots[0].st.inv)
+                if (!it.empty() && it.d().id == "torch") n += it.count;
+            return n;
+        };
+        int spare = torches();
         int before = bots[0].st.equip[EQ_LIGHT].fuel;
         int radius = bots[0].st.lightRadius();
         bots[0].action(A_INV_USE, slot);
         for (int t = 0; t < 5; t++) { server.tick(); bots[0].poll(); }
         CHECK(bots[0].st.equip[EQ_LIGHT].fuel > before + 500, "torch fuel %d -> %d", before, bots[0].st.equip[EQ_LIGHT].fuel);
-        CHECK(slot < 0 || bots[0].st.inv[slot].empty(), "spare torch not used up");
+        CHECK(torches() < spare, "spare torch not used up (%d -> %d)", spare, torches());
         CHECK(bots[0].st.lightRadius() == radius + 1, "combined torch not brighter");
         std::printf("torch combining ok\n");
     }
@@ -628,6 +635,33 @@ int main(int argc, char** argv) {
         CHECK(sr.floorItemCount() == before, "full pack: scroll on the floor was not read (%d items, want %d)", sr.floorItemCount(), before);
         std::printf("torch stacks, two rings, reading from the floor ok\n");
     }
+    {   // The pack is grouped by kind, and identical plain gear shares one slot.
+        auto nc = std::make_shared<ServerNet>();
+        Bot b;
+        nc->attachLoopback(b.pipe);
+        Server sc(nc, 4242);
+        b.hello(0);
+        for (int t = 0; t < 5; t++) { sc.tick(); b.poll(); }
+        PlayerState* ps = sc.debugPlayer(b.id);
+        for (auto& it : ps->inv) it = ItemStack();
+        sc.debugGive(b.id, "scroll_light,ring_protection,potion_heal,leather_armor,elven_bow,elven_bow,dagger");
+        for (int t = 0; t < 3; t++) { sc.tick(); b.poll(); }
+        auto slotOf = [&](const char* id) {
+            for (int i = 0; i < INV_SIZE; i++)
+                if (!ps->inv[i].empty() && ps->inv[i].d().id == id) return i;
+            return -1;
+        };
+        int bowSlots = 0, bows = 0;
+        for (const ItemStack& it : ps->inv)
+            if (!it.empty() && it.d().id == "elven_bow") { bowSlots++; bows += it.count; }
+        CHECK(bowSlots == 1 && bows == 2, "two Elven Bows: %d in %d slots (want 2 in 1)", bows, bowSlots);
+        int bow = slotOf("elven_bow"), dagger = slotOf("dagger"), armor = slotOf("leather_armor"),
+            potion = slotOf("potion_heal"), scroll = slotOf("scroll_light"), ring = slotOf("ring_protection");
+        CHECK(bow >= 0 && dagger >= 0 && armor >= 0 && potion >= 0 && scroll >= 0 && ring >= 0, "pack items missing");
+        CHECK(bow < armor && dagger < armor, "weapons are not before armor");
+        CHECK(armor < potion && potion < scroll && scroll < ring, "pack is not grouped by kind (%d %d %d %d)", armor, potion, scroll, ring);
+        std::printf("pack grouping and stacking ok\n");
+    }
     {   // Shift+E uses what lies at your feet: worn gear swaps, and junk can be destroyed.
         auto nu = std::make_shared<ServerNet>();
         Bot b;
@@ -671,13 +705,20 @@ int main(int argc, char** argv) {
         for (int t = 0; t < 10; t++) { su.tick(); b.poll(); }
         CHECK(su.floorItemCount() == before2, "full pack: Shift+E did not read the scroll (%d -> %d)", before2, su.floorItemCount());
         // Del destroys a pack item for good.
+        auto daggers = [&] {
+            int n = 0;
+            for (const ItemStack& it : ps->inv)
+                if (!it.empty() && it.d().id == "dagger") n += it.count;
+            return n;
+        };
         int slot = -1;
         for (int i = 0; i < INV_SIZE && slot < 0; i++)
             if (!ps->inv[i].empty() && ps->inv[i].d().id == "dagger") slot = i;
         CHECK(slot >= 0, "no dagger in the pack to destroy");
+        int beforeDaggers = daggers();
         if (slot >= 0) b.action(A_INV_DELETE, slot);
         for (int t = 0; t < 3; t++) { su.tick(); b.poll(); }
-        CHECK(slot < 0 || ps->inv[slot].empty(), "destroy did not empty the pack slot");
+        CHECK(daggers() < beforeDaggers, "destroy did not remove a dagger (%d -> %d)", beforeDaggers, daggers());
         std::printf("using and destroying items on the floor ok\n");
     }
     {   // Prowlers (roam = yes) start awake so levels feel lived-in; ordinary monsters

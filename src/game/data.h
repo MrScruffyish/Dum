@@ -88,6 +88,20 @@ struct ItemDef {
     int maxStack = 1;
 };
 
+// Plain gear has no random stats in Dum, so identical weapons, armor and jewellery can share
+// one pack slot ("2 x Elven Bow"). Charged and unique items keep their own slots.
+inline int itemStackLimit(const ItemDef& d) {
+    if (d.artifact) return 1;
+    switch (d.kind) {
+        case ItemKind::Weapon:
+        case ItemKind::Armor:
+        case ItemKind::Helm:
+        case ItemKind::Ring:
+        case ItemKind::Amulet: return std::max(20, d.maxStack);
+        default: return d.maxStack;
+    }
+}
+
 struct MonsterDef {
     std::string id, name, plural, sprite;
     uint32_t color = 0xFF808080, color2 = 0xFFFF0000;

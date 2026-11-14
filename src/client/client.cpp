@@ -1617,7 +1617,7 @@ std::string Client::usePrompt() const {
         ItemKind k = s.d().kind;
         bool room = k == ItemKind::Gold || k == ItemKind::Key;
         for (auto& slot : me_.inv)
-            if (slot.empty() || (slot.def == s.def && s.d().maxStack > 1 && slot.count < s.d().maxStack && k != ItemKind::Light)) room = true;
+            if (slot.empty() || (slot.def == s.def && itemStackLimit(s.d()) > 1 && slot.count < itemStackLimit(s.d()) && k != ItemKind::Light)) room = true;
         std::string direct = floorUseHint(s);
         std::string useKey = keys_->label(K_USE);
         if (!room) {
