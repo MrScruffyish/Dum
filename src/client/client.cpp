@@ -278,6 +278,44 @@ void Client::quickUse(ItemKind kind) {
     addLog("You have no healing potions!", UI_DIM);
 }
 
+// Ready the best weapon of the other kind (melee <-> ranged) from your pack, so you can
+// loose an arrow at a distance and go back to the sword without opening the inventory.
+void Client::swapWeapon() {
+    if (!inGame() || me_.dead) return;
+    const ItemDef* cur = me_.weapon();
+    bool wantRanged = !cur || !cur->ranged;
+    auto score = [](const ItemDef& d) {
+        float avg = d.dmg.n * (d.dmg.s + 1) * 0.5f + d.toDam;
+        return avg / std::max(0.2f, d.cooldown) + d.toHit * 0.5f;
+    };
+    auto hasAmmo = [&](const ItemDef& d) {
+        if (!ammoRule_ || d.ammo < 0) return true;
+        const ItemStack& q = me_.equip[EQ_QUIVER];
+        if (!q.empty() && q.d().ammo == d.ammo) return true;
+        for (const ItemStack& it : me_.inv)
+            if (!it.empty() && it.d().kind == ItemKind::Ammo && it.d().ammo == d.ammo) return true;
+        return false;
+    };
+    int best = -1;
+    float bestScore = -1;
+    bool sawRanged = false;
+    for (int i = 0; i < INV_SIZE; i++) {
+        const ItemStack& s = me_.inv[i];
+        if (s.empty() || s.d().kind != ItemKind::Weapon || s.d().ranged != wantRanged) continue;
+        if (wantRanged) sawRanged = true;
+        if (wantRanged && !hasAmmo(s.d())) continue;
+        float sc = score(s.d());
+        if (best < 0 || sc > bestScore) { best = i; bestScore = sc; }
+    }
+    if (best >= 0) {
+        action(A_INV_USE, best, EQ_WEAPON + 1);
+        return;
+    }
+    if (wantRanged && sawRanged) addLog("You have no ammunition for your ranged weapons.", UI_DIM);
+    else if (wantRanged) addLog("You have no ranged weapon in your pack.", UI_DIM);
+    else addLog("You have no melee weapon in your pack.", UI_DIM);
+}
+
 int Client::nearestPlayerId(float maxDist) const {
     int best = 0;
     float bd = maxDist;
@@ -575,6 +613,7 @@ void Client::event(const SDL_Event& e) {
     else if (kb.is(K_TRAVEL, sc)) openTravelMenu();
     else if (kb.is(K_AUTOWALK, sc)) { autoWalk_ = !autoWalk_; stopAuto(""); addLog(autoWalk_ ? "Auto-walk on." : "Auto-walk off.", UI_DIM); }
     else if (kb.is(K_FACE, sc)) faceT_ = 1.5f;
+    else if (kb.is(K_SWAP_WEAPON, sc)) swapWeapon();
     else if (kb.is(K_ATTACK, sc)) attackHeld_ = true;
     else if (kb.is(K_CAST, sc)) castHeld_ = true;
     else if (kb.is(K_POTION, sc)) quickUse(ItemKind::Potion);
@@ -1212,7 +1251,8 @@ void Client::drawHud(Renderer& r) {
         std::pair<std::string, std::string> keys2[] = {{keys_->label(K_AUTOFIGHT), autoFight_ ? "auto-fight:ON" : "auto-fight"},
                                                        {keys_->label(K_EXPLORE), "explore"}, {keys_->label(K_TRAVEL), "travel"},
                                                        {keys_->label(K_AUTOWALK), "auto-walk"}, {keys_->label(K_FACE), "face enemy"},
-                                                       {keys_->label(K_SPELLBOOK), "spells"}, {keys_->label(K_USE), "use"}};
+                                                       {keys_->label(K_SPELLBOOK), "spells"}, {keys_->label(K_SWAP_WEAPON), "swap weapon"},
+                                                       {keys_->label(K_USE), "use"}};
         auto legendRow = [&](const auto& arr, int ly) {
             int total = 0;
             for (auto& k : arr) total += r.textW(k.first) + r.textW(k.second) + 6 + 10;

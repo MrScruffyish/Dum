@@ -65,6 +65,7 @@ hasn't been tested.
 | C / J | character sheet / quest journal |
 | Tab / M | dungeon map |
 | H / X | quaff a healing potion / eat something (X picks the food that fits your hunger best; to eat a particular food, select it in the inventory and press Enter) |
+| Y | **switch weapon**: ready the best ranged weapon in your pack (one you have ammunition for), or switch back to the best melee weapon. Your old weapon stays in the pack, so you can go sword → bow → sword without opening the inventory |
 | T / Enter | chat |
 | F1 / F2 | help / hide the key legend |
 | Esc | menu (single player pauses) |

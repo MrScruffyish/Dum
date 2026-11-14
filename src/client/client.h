@@ -183,6 +183,7 @@ private:
     void openUi(Ui u);
     void invAction(SDL_Keycode k);
     void quickUse(ItemKind kind);
+    void swapWeapon();
     void sendHello();
     // The picture for a creature: attack pose, a walk frame (when animating) or the normal one.
     const Texture* creatureFrame(const CEnt& e, const Texture& still, const std::vector<Texture>& walk, AnimStyle style) const;

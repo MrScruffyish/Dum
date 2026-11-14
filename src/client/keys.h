@@ -10,7 +10,7 @@ enum KeyAction {
     K_FORWARD, K_BACK, K_STRAFE_L, K_STRAFE_R, K_TURN_L, K_TURN_R, K_RUN,
     K_ATTACK, K_CAST, K_USE, K_INVENTORY, K_CHARACTER, K_QUESTS, K_MAP,
     K_POTION, K_EAT, K_AUTOPICKUP, K_CHAT, K_HELP, K_LEGEND,
-    K_AUTOFIGHT, K_EXPLORE, K_TRAVEL, K_AUTOWALK, K_FACE, K_SPELLBOOK,
+    K_AUTOFIGHT, K_EXPLORE, K_TRAVEL, K_AUTOWALK, K_FACE, K_SPELLBOOK, K_SWAP_WEAPON,
     K_COUNT
 };
 
@@ -23,14 +23,14 @@ struct KeyBinds {
                                          "Quest journal", "Map", "Quaff healing potion", "Eat", "Auto-pickup on/off", "Chat",
                                          "Help", "Key legend on/off", "Auto-fight on/off", "Auto-explore",
                                          "Travel (stairs, doors, chests)", "Auto-walk forward on/off", "Face nearest monster",
-                                         "Spell book / abilities"};
+                                         "Spell book / abilities", "Switch melee / ranged weapon"};
         return n[a];
     }
     static const char* actionId(int a) {
         static const char* n[K_COUNT] = {"forward", "back", "strafe_left", "strafe_right", "turn_left", "turn_right", "run",
                                          "attack", "cast", "use", "inventory", "character", "quests", "map", "potion", "eat",
                                          "autopickup", "chat", "help", "legend", "autofight", "explore", "travel",
-                                         "autowalk", "face", "spellbook"};
+                                         "autowalk", "face", "spellbook", "swap_weapon"};
         return n[a];
     }
 
@@ -63,6 +63,7 @@ struct KeyBinds {
         set(K_AUTOWALK, SDL_SCANCODE_R);
         set(K_FACE, SDL_SCANCODE_V);
         set(K_SPELLBOOK, SDL_SCANCODE_B);
+        set(K_SWAP_WEAPON, SDL_SCANCODE_Y);
     }
     bool is(int a, SDL_Scancode sc) const { return sc != SDL_SCANCODE_UNKNOWN && (key[a][0] == sc || key[a][1] == sc); }
     bool held(int a, const Uint8* ks) const {
