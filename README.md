@@ -28,6 +28,10 @@ cmake --build build -j
 
 ENet is included in `third_party/enet`, so you don't need to install it.
 
+The `Makefile` wraps the commands above: `make` builds `dum`, `dum_tool` and
+`dum_selftest` in `build/`, `make windows` runs `tools/build-windows.sh`, and
+`make clean` removes `build/`.
+
 ### Windows
 
 Cross-compile on Linux (tested: the Windows server runs under Wine and Linux clients join it):
