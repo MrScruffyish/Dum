@@ -1,7 +1,7 @@
 // Dum - shared state serialization and rule helpers.
 #include "game/state.h"
 
-const char* kEquipNames[EQ_COUNT] = {"Weapon", "Armor", "Light", "Helm", "Ring", "Ring", "Amulet", "Quiver"};
+const char* kEquipNames[EQ_COUNT] = {"Weapon", "Armor", "Light", "Helm", "Ring", "Ring", "Amulet", "Quiver", "Gloves", "Cloak"};
 
 bool fitsSlot(const ItemDef& d, int slot) {
     int s = equipSlotFor(d);
@@ -17,6 +17,8 @@ int equipSlotFor(const ItemDef& d) {
         case ItemKind::Ring: return EQ_RING;
         case ItemKind::Amulet: return EQ_AMULET;
         case ItemKind::Ammo: return EQ_QUIVER;
+        case ItemKind::Gloves: return EQ_GLOVES;
+        case ItemKind::Cloak: return EQ_CLOAK;
         default: return -1;
     }
 }
@@ -54,7 +56,7 @@ std::string itemName(const ItemStack& s) {
     auto sg = [](int v) { return (v >= 0 ? "+" : "") + std::to_string(v); };
     if (d.kind == ItemKind::Weapon) n += " (" + d.dmg.str() + ")";
     if (d.toHit || d.toDam) n += " (" + sg(d.toHit) + "," + sg(d.toDam) + ")";
-    if (d.armor && d.kind != ItemKind::Weapon) n += " [" + (d.kind == ItemKind::Armor || d.kind == ItemKind::Helm ? std::to_string(d.armor) : sg(d.armor)) + "]";
+    if (d.armor && d.kind != ItemKind::Weapon) n += " [" + (d.kind == ItemKind::Armor || d.kind == ItemKind::Helm || d.kind == ItemKind::Gloves || d.kind == ItemKind::Cloak ? std::to_string(d.armor) : sg(d.armor)) + "]";
     if (d.kind == ItemKind::Wand) n += " (" + std::to_string(s.fuel) + (s.fuel == 1 ? " charge)" : " charges)");
     if (d.kind == ItemKind::Rod && s.fuel > 0) n += " (charging)";
     if (d.kind == ItemKind::Light && !d.everburning) n += " (" + std::to_string(s.fuel / 60) + ":" + (s.fuel % 60 < 10 ? "0" : "") + std::to_string(s.fuel % 60) + ")";

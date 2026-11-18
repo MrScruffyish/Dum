@@ -33,7 +33,7 @@ The rest of this file explains **how the numbers are used**, so you can predict 
 | Starting mana | `mana + cast stat mod` (only if `mana` > 0) |
 | Mana per level | `manaperlevel + cast stat mod / 2` (at least 1) |
 | XP for next level | `5 × level × (level + 1)`: 10, 30, 60, 100, 150... |
-| Armor class (AC) | `10 + DEX mod + armor of worn armor` (+2 while blessed) |
+| Armor class (AC) | `10 + DEX mod + armor of worn gear` (+2 while blessed) |
 | HP regeneration | per second: `(1 + 0.25 × CON mod) × (0.05 + maxHP/400)`, only when not starving |
 | Mana regeneration | per second: `0.12 + 0.03 × cast stat mod + maxMana/300` |
 | Spells known | a spell is learned at its `level` (or the class override `spell:level`) |
@@ -128,7 +128,8 @@ Scrolls use the better of your spell power and your device power.
 
 ## Equipment bonuses and artifacts
 
-Six slots: weapon, armor, light, helm, ring, amulet. Bonuses of everything you wear add up:
+Ten slots: weapon, armor, light, helm, two rings, amulet, quiver, gloves, cloak. Bonuses of
+everything you wear add up (the quiver's bonuses count only for shots):
 
 | Key in `items.txt` | Effect |
 |------|--------|
@@ -232,7 +233,7 @@ last few. It is purely a look — no effect on difficulty.
 | Which shop buys what | `buys = ...` in `stores.txt`. Every shop buys quest treasures |
 | Starting gold | 10-40 (plus the class starting gear, including one Word of Recall) |
 | Word of Recall delay | `duration` + 0..`range` seconds (`spells.txt`: 15 + 0-10) |
-| Collapsed levels | deepest level ≥ 10: levels `1..((deepest-5)/5)*5` are skipped |
+| Collapsed levels | deepest level ≥ 5: levels `1..(deepest-4)` are skipped (one more per level reached) |
 
 ## Quests
 

@@ -4,23 +4,24 @@
 # sign:  item whose picture is painted on the shop door.
 # items: what the store sells (it never runs out). Prices are the item 'value' in items.txt.
 # buys:  kinds of items the store buys, for half their value:
-#        weapon armor helm ring amulet light food potion scroll fuel wand rod, and 'staff' (weapons
-#        with spell power).
+#        weapon armor cloak helm gloves ring amulet light food potion scroll fuel wand rod, and
+#        'staff' (weapons with spell power).
 #        Every store buys quest treasures for their full value.
 
 [store general]
 name = General Store
 owner = Brannoc the Grocer
 sign = ration
-items = ration, apple, dried_meat, smoked_fish, torch, flask_oil, lantern, scroll_recall
+items = ration, apple, dried_meat, smoked_fish, torch, flask_oil, lantern, lantern_ever, scroll_recall
 buys = food, light, fuel
 
 [store armoury]
 name = Armoury
 owner = Hilde Ironhide
 sign = armor
-items = robe, leather_armor, studded_leather, chain_mail, scale_mail, plate_armor, leather_cap, iron_helm, steel_helm
-buys = armor, helm
+items = robe, leather_armor, studded_leather, chain_mail, scale_mail, plate_armor, leather_cap, iron_helm, steel_helm,
+        cloak_cloth, cloak_dark, cloak_warding, gloves_leather, gloves_gauntlets, gloves_swift
+buys = armor, cloak, helm, gloves
 
 [store weaponsmith]
 name = Weaponsmith
@@ -43,5 +44,5 @@ owner = Quillon the Strange
 sign = wizard_staff
 items = quarterstaff, wizard_staff, staff_of_fire, wand_magic_missile, wand_sleep_monster, wand_stinking_cloud,
         rod_illumination, scroll_mapping, scroll_detect, ring_protection, ring_accuracy, ring_resist_fire,
-        ring_resist_cold, amulet_slow_digestion
+        ring_resist_cold, ring_arcane, amulet_slow_digestion
 buys = staff, scroll, ring, amulet, wand, rod

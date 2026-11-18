@@ -698,13 +698,13 @@ void Server::populateSpecialRooms() {
                 }
                 for (int i = 0, n = rng_.range(1, 2); i < n; i++)
                     if (takeSpot(sp, p))
-                        dropItem(makeItem(pickKind({ItemKind::Weapon, ItemKind::Armor, ItemKind::Helm, ItemKind::Ring, ItemKind::Amulet}, 1)), p);
+                        dropItem(makeItem(pickKind({ItemKind::Weapon, ItemKind::Armor, ItemKind::Helm, ItemKind::Ring, ItemKind::Amulet, ItemKind::Gloves, ItemKind::Cloak}, 1)), p);
                 if (goldDef >= 0 && takeSpot(sp, p)) dropItem(gold(10, 25), p);
                 break;
             }
             case ROOM_ARMORY:
                 for (int i = 0, n = rng_.range(2, 4); i < n; i++)
-                    if (takeSpot(sp, p)) dropItem(makeItem(pickKind({ItemKind::Weapon, ItemKind::Armor, ItemKind::Helm}, 1)), p);
+                    if (takeSpot(sp, p)) dropItem(makeItem(pickKind({ItemKind::Weapon, ItemKind::Armor, ItemKind::Helm, ItemKind::Gloves, ItemKind::Cloak}, 1)), p);
                 break;
             case ROOM_LIBRARY:
                 for (int i = 0, n = rng_.range(2, 4); i < n; i++)
@@ -2674,17 +2674,19 @@ static int invCategory(const ItemDef& d) {
     switch (d.kind) {
         case ItemKind::Weapon: return 0;
         case ItemKind::Armor: return 1;
-        case ItemKind::Helm: return 2;
-        case ItemKind::Light: return 3;
-        case ItemKind::Ammo: return 4;
+        case ItemKind::Cloak: return 2;
+        case ItemKind::Helm: return 3;
+        case ItemKind::Gloves: return 4;
+        case ItemKind::Light: return 5;
+        case ItemKind::Ammo: return 6;
         case ItemKind::Wand:
-        case ItemKind::Rod: return 5;
-        case ItemKind::Potion: return 6;
-        case ItemKind::Scroll: return 7;
-        case ItemKind::Food: return 8;
-        case ItemKind::Fuel: return 9;
-        case ItemKind::Ring: return 10;
-        case ItemKind::Amulet: return 11;
+        case ItemKind::Rod: return 7;
+        case ItemKind::Potion: return 8;
+        case ItemKind::Scroll: return 9;
+        case ItemKind::Food: return 10;
+        case ItemKind::Fuel: return 11;
+        case ItemKind::Ring: return 12;
+        case ItemKind::Amulet: return 13;
         default: return 12;
     }
 }
@@ -2826,6 +2828,8 @@ bool Server::canUseFromFloor(const ItemDef& d) {
         case ItemKind::Ring:
         case ItemKind::Ammo:
         case ItemKind::Amulet:
+        case ItemKind::Gloves:
+        case ItemKind::Cloak:
             return true;
         default:
             return false;   // wands, rods, keys, gold and quest items are still picked up
@@ -2892,7 +2896,9 @@ void Server::useStack(SPlayer& p, ItemStack& it, int slot, int target) {
         case ItemKind::Helm:
         case ItemKind::Ring:
         case ItemKind::Ammo:
-        case ItemKind::Amulet: {
+        case ItemKind::Amulet:
+        case ItemKind::Gloves:
+        case ItemKind::Cloak: {
             if (d.kind == ItemKind::Ammo) {   // the whole stack goes into the quiver
                 ItemStack& q = s.equip[EQ_QUIVER];
                 if (stacksWith(q, it)) {

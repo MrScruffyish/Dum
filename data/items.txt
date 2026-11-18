@@ -1,6 +1,6 @@
 # Dum item definitions.
 #
-# kind:    weapon, armor, helm, ring, amulet, light, food, potion, scroll, fuel, gold, quest, wand, rod
+# kind:    weapon, armor, cloak, helm, gloves, ring, amulet, light, food, potion, scroll, fuel, gold, quest, wand, rod
 # Bonuses while worn (any wearable item): str dex con int wis (+N), tohit, todam, armor,
 #   light (extra radius), speed (+1 = 10% faster), stealth, search, slowdigest (% less
 #   hunger), regen (% faster healing), spellpower, resist = fire, cold, ...
@@ -18,7 +18,7 @@
 # Chests: kind = chest. 'chest' is placed closed (treasure, empty or trapped - decided when
 #   the level is made), 'chest_open' is what is left after opening one.
 # everburning = yes: a light that never runs out.
-# sprite:  floor picture (dagger sword mace axe staff bow armor robe torch lantern
+# sprite:  floor picture (dagger sword mace axe staff bow armor robe cloak glove torch lantern
 #          ration apple meat potion scroll flask gold amulet tome chalice wand rod)
 # Wands:   spell, charges = MIN-MAX (each use takes one). Rods: spell, recharge = seconds.
 #          Anyone can use them; the class 'device' skill lowers the failure chance
@@ -239,6 +239,82 @@ depth = 6
 rarity = 1
 value = 500
 
+# --- cloak (worn over armor) ------------------------------------------------
+
+[item cloak_cloth]
+name = Traveler's Cloak
+desc = A weathered cloak; it hides much.
+kind = cloak
+sprite = cloak
+color = 605870
+armor = 1
+stealth = 1
+depth = 1
+rarity = 3
+value = 60
+
+[item cloak_dark]
+name = Dark Cloak
+desc = Dark cloth that drinks the light.
+kind = cloak
+sprite = cloak
+color = 303040
+armor = 2
+stealth = 2
+depth = 4
+rarity = 2
+value = 320
+
+[item cloak_warding]
+name = Mantle of Warding
+desc = A heavy mantle whose seams hum with old spells. Sold only in town.
+kind = cloak
+sprite = cloak
+color = 8060c0
+armor = 3
+con = 2
+resist = fire, cold, poison
+depth = 10
+rarity = 0
+value = 3000
+
+# --- gloves -----------------------------------------------------------------
+
+[item gloves_leather]
+name = Leather Gloves
+desc = Supple gloves that turn a blow a little.
+kind = gloves
+sprite = glove
+color = 906030
+armor = 1
+depth = 1
+rarity = 3
+value = 40
+
+[item gloves_gauntlets]
+name = Steel Gauntlets
+desc = Heavy plates for your hands.
+kind = gloves
+sprite = glove
+color = a0a8b8
+armor = 2
+tohit = 1
+depth = 4
+rarity = 2
+value = 220
+
+[item gloves_swift]
+name = Gloves of Swiftness
+desc = Your hands move before you think. Sold only in town.
+kind = gloves
+sprite = glove
+color = a0ffd0
+dex = 2
+speed = 1
+depth = 8
+rarity = 0
+value = 2500
+
 # --- light ------------------------------------------------------------------
 
 [item torch]
@@ -263,6 +339,19 @@ fuel = 1500
 depth = 2
 rarity = 2
 value = 100
+
+[item lantern_ever]
+name = Everburning Lantern
+desc = A lantern whose flame never falters. Sold only in town.
+kind = light
+sprite = lantern
+color = ffffa0
+light = 6
+fuel = 1
+everburning = yes
+depth = 8
+rarity = 0
+value = 2000
 
 [item flask_oil]
 name = Flask of Oil
@@ -659,6 +748,19 @@ speed = 2
 depth = 15
 rarity = 1
 value = 2500
+
+[item ring_arcane]
+name = Ring of the Arcane
+desc = The runes bite into your finger when you cast. Sold only in town.
+kind = ring
+sprite = ring
+color = c060ff
+spellpower = 3
+int = 2
+wis = 1
+depth = 8
+rarity = 0
+value = 2200
 
 [item amulet_slow_digestion]
 name = Amulet of Slow Digestion

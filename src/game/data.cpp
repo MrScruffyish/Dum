@@ -250,7 +250,8 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
             {"food", ItemKind::Food}, {"potion", ItemKind::Potion}, {"scroll", ItemKind::Scroll},
             {"fuel", ItemKind::Fuel}, {"gold", ItemKind::Gold}, {"quest", ItemKind::Quest},
             {"helm", ItemKind::Helm}, {"ring", ItemKind::Ring}, {"amulet", ItemKind::Amulet},
-            {"wand", ItemKind::Wand}, {"rod", ItemKind::Rod}, {"chest", ItemKind::Chest}, {"key", ItemKind::Key}, {"ammo", ItemKind::Ammo}};
+            {"wand", ItemKind::Wand}, {"rod", ItemKind::Rod}, {"chest", ItemKind::Chest}, {"key", ItemKind::Key}, {"ammo", ItemKind::Ammo},
+            {"gloves", ItemKind::Gloves}, {"cloak", ItemKind::Cloak}};
         if (!kinds.count(k)) { err = where(s) + "unknown item kind " + k; return false; }
         d.kind = kinds.at(k);
         d.color = g.color("color", 0xFFC0C0C0);
@@ -441,7 +442,8 @@ bool GameData::load(const std::string& dataDir, std::string& err) {
         {"weapon", ItemKind::Weapon}, {"armor", ItemKind::Armor}, {"light", ItemKind::Light},
         {"food", ItemKind::Food}, {"potion", ItemKind::Potion}, {"scroll", ItemKind::Scroll},
         {"fuel", ItemKind::Fuel}, {"quest", ItemKind::Quest}, {"helm", ItemKind::Helm},
-        {"ring", ItemKind::Ring}, {"amulet", ItemKind::Amulet}, {"wand", ItemKind::Wand}, {"rod", ItemKind::Rod}};
+        {"ring", ItemKind::Ring}, {"amulet", ItemKind::Amulet}, {"wand", ItemKind::Wand}, {"rod", ItemKind::Rod},
+        {"gloves", ItemKind::Gloves}, {"cloak", ItemKind::Cloak}};
     for (auto& s : secs) {
         if (s.type != "store") continue;
         Getter g(s, &err);

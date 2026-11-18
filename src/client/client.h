@@ -201,7 +201,7 @@ private:
     int invRowAt(int mx, int my) const;
     bool invFits(int packSlot, int equipSlot) const;
     int wearSlot(const ItemDef& d) const;
-    static constexpr int EQ_ROWS = 4;   // equipment rows in the inventory panel
+    static constexpr int EQ_ROWS = 5;   // equipment rows in the inventory panel (two columns)
     void invStep(int dir);
     std::string invUseLabel(const ItemStack& s) const;
     std::string floorUseHint(const ItemStack& s) const;

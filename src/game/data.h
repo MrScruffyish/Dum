@@ -11,7 +11,7 @@
 enum StatId { STR, DEX, CON, INT, WIS, NUM_STATS };
 extern const char* kStatNames[NUM_STATS];
 
-enum class ItemKind : uint8_t { Weapon, Armor, Light, Food, Potion, Scroll, Fuel, Gold, Quest, Helm, Ring, Amulet, Wand, Rod, Chest, Key, Ammo };
+enum class ItemKind : uint8_t { Weapon, Armor, Light, Food, Potion, Scroll, Fuel, Gold, Quest, Helm, Ring, Amulet, Wand, Rod, Chest, Key, Ammo, Gloves, Cloak };
 // What a bow, crossbow or sling shoots (when the Ammo option is on they are used up).
 enum AmmoKind : int8_t { AMMO_ARROWS = 0, AMMO_BOLTS, AMMO_PEBBLES, AMMO_COUNT };
 inline const char* ammoName(int a) {   // as in "37 arrows", "out of bolts"
@@ -97,7 +97,9 @@ inline int itemStackLimit(const ItemDef& d) {
         case ItemKind::Armor:
         case ItemKind::Helm:
         case ItemKind::Ring:
-        case ItemKind::Amulet: return std::max(20, d.maxStack);
+        case ItemKind::Amulet:
+        case ItemKind::Gloves:
+        case ItemKind::Cloak: return std::max(20, d.maxStack);
         default: return d.maxStack;
     }
 }

@@ -86,9 +86,10 @@ struct EntSnap {
     void read(Reader& r);
 };
 
-// Two ring fingers and a quiver (the loaded arrows/bolts/pebbles). (Saves before version 10
-// had one ring then the amulet; before 11 no quiver.)
-enum EquipSlot { EQ_WEAPON, EQ_ARMOR, EQ_LIGHT, EQ_HELM, EQ_RING, EQ_RING2, EQ_AMULET, EQ_QUIVER, EQ_COUNT };
+// Two ring fingers, a quiver (the loaded arrows/bolts/pebbles), gloves and a cloak. (Saves
+// before version 10 had one ring then the amulet; before 11 no quiver; before 12 no gloves
+// or cloak. New slots are appended so the old indices never move.)
+enum EquipSlot { EQ_WEAPON, EQ_ARMOR, EQ_LIGHT, EQ_HELM, EQ_RING, EQ_RING2, EQ_AMULET, EQ_QUIVER, EQ_GLOVES, EQ_CLOAK, EQ_COUNT };
 // Which equipment slot an item goes into (-1 = not wearable).
 int equipSlotFor(const ItemDef& d);
 // Can this item be worn in that slot? (a ring fits either ring slot)

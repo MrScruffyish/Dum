@@ -161,8 +161,9 @@ by depth), and see [BALANCING.md](BALANCING.md).
 ## A new item
 
 Add a section to `data/items.txt`. Every item has a `kind`, which decides what it does:
-`weapon`, `armor`, `helm`, `ring`, `amulet`, `light`, `food`, `potion`, `scroll`, `fuel`,
-`wand`, `rod`, `gold` or `quest` (a treasure for side quests and selling).
+`weapon`, `armor`, `cloak`, `helm`, `gloves`, `ring`, `amulet`, `light`, `food`, `potion`,
+`scroll`, `fuel`, `wand`, `rod`, `gold` or `quest` (a treasure for side quests and selling).
+A cloak and gloves are separate layers, so a cloak can be worn over armor.
 
 Settings for every item: `name`, `desc` (shown in the inventory), `sprite` (floor picture,
 see below), `color`, `depth` and `rarity` (like monsters; rarity 0 = only in shops or as a
@@ -191,7 +192,7 @@ Bows, crossbows and slings: `ranged = yes` plus `range` (tiles), and `ammo = arr
 `finesse = yes` (uses DEX instead of STR). Magic weapons: `brand = fire` (or `cold`,
 `holy`, `poison`), and bonuses like `todam = 2`. Staves: `spellpower = 2`.
 
-**Armor, helms, rings, amulets:** `armor = 4` (armor class), plus any bonuses while worn:
+**Armor, cloaks, gloves, helms, rings, amulets:** `armor = 4` (armor class), plus any bonuses while worn:
 `str = 1` (likewise `dex con int wis`), `tohit`, `todam`, `speed` (+1 = 10% faster),
 `stealth`, `search`, `light` (extra light radius), `regen` (% faster healing),
 `slowdigest` (% less hunger), `resist = fire, cold`.
@@ -268,7 +269,7 @@ chests: `chest` (closed) and `chest_open` (opened). The dungeon places them and 
 what is inside, so leave their ids as they are; change their `name`, `color` or pictures
 (`item_chest.png`, `item_chest_open.png`) freely.
 
-**Floor pictures** (`sprite`): dagger sword mace axe staff bow armor robe torch lantern
+**Floor pictures** (`sprite`): dagger sword mace axe staff bow armor robe cloak glove torch lantern
 ration apple meat potion scroll flask gold amulet tome chalice wand rod, drawn in your
 `color`. Or draw your own: `data/gfx/item_war_pick.png`.
 

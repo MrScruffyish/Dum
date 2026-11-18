@@ -65,7 +65,7 @@ hasn't been tested.
 | E / Space | use: pick up items, open/close doors, pick locks, clear rubble, take stairs (a prompt shows what E will do) |
 | Shift+E | use the item at your feet without picking it up: read a scroll, drink a potion, eat, refuel, or wear/wield gear (what you were wearing is left on the floor, a swap). Works with a full pack |
 | P | auto-pickup on/off (on by default: walking over items picks them up when your pack has room) |
-| I | inventory: W/S, arrow keys or mouse to select (Left/Right switch between the two equipment columns; Down from the bottom of either goes to item a), Enter or double-click to use, eat, wear or wield (the bottom line says what Enter will do), D drop, Shift+D drop one, Del destroy (press twice; for junk you don't want), G give to ally. **To swap equipment**, select a worn slot (e.g. Armor) and press Enter: the pack items that fit it are marked green, pick one with W/S and press Enter. U takes the item off. You have two ring fingers: a new ring goes on the free hand, or pick which ring to replace |
+| I | inventory: W/S, arrow keys or mouse to select (Left/Right switch between the two equipment columns; Down from the bottom of either goes to item a), Enter or double-click to use, eat, wear or wield (the bottom line says what Enter will do), D drop, Shift+D drop one, Del destroy (press twice; for junk you don't want), G give to ally. **To swap equipment**, select a worn slot (e.g. Armor) and press Enter: the pack items that fit it are marked green, pick one with W/S and press Enter. U takes the item off. You have two ring fingers: a new ring goes on the free hand, or pick which ring to replace. Gloves and a cloak have their own slots too, so a cloak is worn *over* your armor |
 | C / J | character sheet / quest journal |
 | Tab / M | dungeon map |
 | H / X | quaff a healing potion / eat something (X picks the food that fits your hunger best; to eat a particular food, select it in the inventory and press Enter) |
@@ -151,14 +151,17 @@ A dedicated server runs it with `--campaign abyss`.
 - Every adventure starts in **town** (level 0): an open square with five shops (General Store,
   Armoury, Weaponsmith, Alchemist, Magic Shop) and the stairs down. Walk into a shop door or
   press E to trade. Shops sell for the item's value and buy for half (quest treasures: full
-  value). What each shop sells and buys is in `data/stores.txt`.
+  value). They keep a few expensive, shop-only masterworks as a long-term goal for your gold —
+  an everburning lantern, fine gloves, a warding mantle, a magic ring. What each shop sells and
+  buys is in `data/stores.txt`.
 - **Word of Recall** (every class starts with one; General Store and Alchemist sell more):
   read it in the dungeon and after 15-25 s the party is taken to town. Read it in town to go
   straight back down to the deepest level reached. Read another to cancel.
-- **Collapsed levels:** once you have been deep enough, the top levels collapse in blocks of 5,
-  always keeping at least 5 levels open above your deepest one (deepest 10-14 → the town stairs
-  lead to level 6, 15-19 → level 11, ...). An unkilled quest boss on a collapsed level moves
-  down to the first open level. Stairs up from the first open level lead straight to town.
+- **Collapsed levels:** from level 5 on, the oldest level collapses every time you reach a new
+  depth: at level 5 level 1 collapses, at level 6 level 2 collapses, and so on. The four deepest
+  levels stay open (at level 5 the town stairs lead to level 2, at level 6 to level 3, ...).
+  An unkilled quest boss on a collapsed level moves down to the first open level. Stairs up from
+  the first open level lead straight to town.
 - Levels are generated anew on every visit (like Angband), so items left lying around are lost
   when you leave a level.
 

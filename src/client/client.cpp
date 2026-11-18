@@ -407,7 +407,9 @@ std::string Client::floorUseHint(const ItemStack& s) const {
         case ItemKind::Ring: return "put it on now";
         case ItemKind::Armor:
         case ItemKind::Helm:
-        case ItemKind::Amulet: return "wear it now";
+        case ItemKind::Amulet:
+        case ItemKind::Gloves:
+        case ItemKind::Cloak: return "wear it now";
         default: return "";
     }
 }
@@ -1367,7 +1369,8 @@ void Client::drawInventory(Renderer& r) {
         r.text(x + 34, ry, itemName(s).substr(0, 63), c);
         ry += 10;
     };
-    // Equipment in two columns (weapon, armor, light, helm | ring, ring, amulet), then the pack.
+    // Equipment in two columns (weapon, armor, light, helm, ring | ring, amulet, quiver,
+    // gloves, cloak), then the pack.
     for (int i = 0; i < EQ_COUNT; i++) {
         int col = i / EQ_ROWS, rowi = i % EQ_ROWS;
         int ex = x + 10 + col * 205, ey = y + 20 + rowi * 10;

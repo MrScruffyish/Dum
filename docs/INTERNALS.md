@@ -219,7 +219,8 @@ left.
   fuel left (so fresh torches stack). Using a light or wearable from a stack takes one;
   the item it replaces goes back into the pack.
 - There are two ring slots (`EQ_RING`, `EQ_RING2`; `fitsSlot` says a ring fits either),
-  and a quiver (`EQ_QUIVER`) for the loaded ammo; save version 11 added it.
+  a quiver (`EQ_QUIVER`) for the loaded ammo (save version 11), and separate gloves and
+  cloak slots (`EQ_GLOVES`, `EQ_CLOAK`, save version 12) so a cloak layers over armor.
   `A_INV_USE` carries the target slot (+1, 0 = automatic): the replace mode sends it, and
   otherwise a ring goes on the free hand. Saves before version 10 had six slots and are
   mapped on load.

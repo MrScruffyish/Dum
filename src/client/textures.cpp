@@ -922,6 +922,18 @@ Texture itemSprite(const std::string& s, uint32_t col, int seed) {
         fillRect(t, 3, 8, 8, 16, c);
         fillRect(t, 24, 8, 29, 16, c);
         fillEllipse(t, 16, 8, 4, 2, 0x00000000);
+    } else if (s == "glove") {
+        uint32_t c = col == 0xFFC0C0C0 ? 0xFF9A8A70 : col;
+        fillQuad(t, Vec2(8, 16), Vec2(22, 12), Vec2(26, 26), Vec2(10, 28), c);
+        fillRect(t, 8, 24, 25, 29, colMul(c, 0.75f));
+        for (int i = 0; i < 4; i++) fillRect(t, 9 + i * 4, 11 - i, 12 + i * 4, 19, colMul(c, 1.15f));
+        fillTri(t, Vec2(7, 17), Vec2(3, 22), Vec2(10, 22), c);
+    } else if (s == "cloak") {
+        uint32_t c = col == 0xFFC0C0C0 ? 0xFF504060 : col;
+        fillQuad(t, Vec2(11, 7), Vec2(21, 7), Vec2(29, 28), Vec2(3, 28), c);
+        fillEllipse(t, 16, 7, 6, 3, colMul(c, 0.85f));
+        fillRect(t, 14, 9, 18, 20, colMul(c, 0.7f));
+        line(t, 16, 11, 16, 27, 1, colMul(c, 0.6f));
     } else if (s == "spear") {
         line(t, 3, 30, 24, 9, 2, wood);
         fillTri(t, Vec2(22, 6), Vec2(30, 2), Vec2(26, 12), col == 0xFFC0C0C0 ? steel : col);

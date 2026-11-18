@@ -235,9 +235,10 @@ private:
     float recallT_ = 0;         // seconds until Word of Recall takes the party
     float descentT_ = 0;        // seconds until Deep Descent takes the party down
     int descentTo_ = 0;
-    // Collapsed levels: the top levels are skipped in blocks of 5, always keeping at least
-    // the 5 levels above the deepest one reached open. Town stairs lead below them.
-    int collapsedDepth() const { return campaign_ < 0 && !abyss() && maxDepth_ >= 10 ? ((maxDepth_ - 5) / 5) * 5 : 0; }
+    // Collapsed levels: from depth 5 on, the oldest level collapses every time the party
+    // reaches a new depth (level 1 at depth 5, level 2 at depth 6, ...), keeping the four
+    // deepest levels open. Town stairs lead below them.
+    int collapsedDepth() const { return campaign_ < 0 && !abyss() && maxDepth_ >= 5 ? maxDepth_ - 4 : 0; }
     void collapseQuests();
     std::set<int> artifactsInPlay_;             // item defs of artifacts that exist somewhere
     std::map<int, int> rubbleDig_;                 // tile -> digging progress

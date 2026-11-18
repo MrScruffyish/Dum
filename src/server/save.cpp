@@ -13,7 +13,7 @@
 namespace {
 
 const char kMagic[8] = {'D', 'U', 'M', 'S', 'A', 'V', 'E', '1'};
-constexpr uint16_t kSaveVersion = 11;  // 4: equipment slots, artifacts; 5: difficulty id; 6: campaigns; 7: quick slots, buffs; 8: poison, drain; 9: Abyss deaths; 10: second ring, key ring; 11: quiver slot
+constexpr uint16_t kSaveVersion = 12;  // 4: equipment slots, artifacts; 5: difficulty id; 6: campaigns; 7: quick slots, buffs; 8: poison, drain; 9: Abyss deaths; 10: second ring, key ring; 11: quiver slot; 12: gloves, cloak slots
 int gLoadVersion = kSaveVersion;
 
 void writeItem(Writer& w, const ItemStack& s) {
@@ -79,8 +79,11 @@ SavedChar readChar(Reader& r) {
     s.food = r.f32();
     s.gold = r.i32();
     for (auto& it : s.inv) it = readItem(r);
-    if (gLoadVersion >= 11) {
+    if (gLoadVersion >= 12) {
         for (auto& it : s.equip) it = readItem(r);
+        for (uint8_t& k : s.keys) k = r.u8();
+    } else if (gLoadVersion >= 11) {   // no gloves or cloak yet
+        for (int i = 0; i <= EQ_QUIVER; i++) s.equip[i] = readItem(r);
         for (uint8_t& k : s.keys) k = r.u8();
     } else if (gLoadVersion >= 10) {   // no quiver yet
         for (int i = 0; i < EQ_QUIVER; i++) s.equip[i] = readItem(r);

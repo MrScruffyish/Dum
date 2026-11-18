@@ -306,6 +306,17 @@ int main(int argc, char** argv) {
         bots[0].action(A_SHOP_SELL, 0, slot);
         for (int t = 0; t < 5; t++) { server.tick(); bots[0].poll(); }
         CHECK(bots[0].st.gold == gold + sellPriceEach(gData.items[st.items[ware]], 0), "selling: gold %d -> %d", gold, bots[0].st.gold);
+        // A wealthy player can save up for the shop-only masterworks.
+        PlayerState* ps = server.debugPlayer(bots[0].id);
+        ps->gold = 5000;
+        int luxury = -1;
+        for (size_t i = 0; i < st.items.size(); i++)
+            if (gData.items[st.items[i]].id == "lantern_ever") luxury = (int)i;
+        CHECK(luxury >= 0, "no expensive lantern in the General Store");
+        bots[0].action(A_SHOP_BUY, 0, luxury);
+        for (int t = 0; t < 5; t++) { server.tick(); bots[0].poll(); }
+        int price = buyPrice(gData.items[st.items[luxury]]);
+        CHECK(bots[0].st.gold == 5000 - price, "luxury purchase: gold %d, expected %d", bots[0].st.gold, 5000 - price);
         std::printf("town shops ok\n");
     }
     {   // Auto-pickup: a dropped item must stay on the floor for the one who dropped it.
@@ -514,8 +525,8 @@ int main(int argc, char** argv) {
         b.hello(0);
         for (int t = 0; t < 5; t++) { sl.tick(); b.poll(); }
         bool found = false;
-        for (int attempt = 0; attempt < 30 && !found; attempt++) {
-            sl.debugGoto(2 + attempt % 10);
+        for (int attempt = 0; attempt < 60 && !found; attempt++) {
+            sl.debugGoto(2 + attempt);   // distinct depths: lever vaults are rare, so don't repeat the same ten maps
             for (int t = 0; t < 2; t++) { sl.tick(); b.poll(); }
             if (sl.debugLeverCount() == 0) continue;
             int lx = sl.debugLeverX(0), ly = sl.debugLeverY(0);
@@ -661,6 +672,49 @@ int main(int argc, char** argv) {
         CHECK(bow < armor && dagger < armor, "weapons are not before armor");
         CHECK(armor < potion && potion < scroll && scroll < ring, "pack is not grouped by kind (%d %d %d %d)", armor, potion, scroll, ring);
         std::printf("pack grouping and stacking ok\n");
+    }
+    {   // Gloves and a cloak are separate layers over armor, and survive a save.
+        auto ne = std::make_shared<ServerNet>();
+        Bot b;
+        ne->attachLoopback(b.pipe);
+        Server se(ne, 8181);
+        b.hello(0);
+        for (int t = 0; t < 5; t++) { se.tick(); b.poll(); }
+        PlayerState* ps = se.debugPlayer(b.id);
+        for (auto& it : ps->inv) it = ItemStack();
+        se.debugGive(b.id, "leather_armor,gloves_leather,cloak_cloth");
+        for (int t = 0; t < 3; t++) { se.tick(); b.poll(); }
+        auto wear = [&](const char* id) {
+            for (int i = 0; i < INV_SIZE; i++)
+                if (!ps->inv[i].empty() && ps->inv[i].d().id == id) { b.action(A_INV_USE, i); break; }
+            for (int t = 0; t < 4; t++) { se.tick(); b.poll(); }
+        };
+        wear("leather_armor");
+        CHECK(!ps->equip[EQ_ARMOR].empty() && ps->equip[EQ_ARMOR].d().id == "leather_armor", "body armor not worn");
+        int ac = ps->armorClass();
+        wear("gloves_leather");
+        wear("cloak_cloth");
+        CHECK(!ps->equip[EQ_GLOVES].empty() && ps->equip[EQ_GLOVES].d().id == "gloves_leather", "gloves not worn");
+        CHECK(!ps->equip[EQ_CLOAK].empty() && ps->equip[EQ_CLOAK].d().id == "cloak_cloth", "cloak not worn over armor");
+        CHECK(ps->armorClass() == ac + 2, "gloves and cloak did not add armor (%d -> %d)", ac, ps->armorClass());
+        se.setSavePath("equip_test.sav");
+        CHECK(se.saveGame(), "equipment save failed");
+        auto ne2 = std::make_shared<ServerNet>();
+        Bot b2;
+        ne2->attachLoopback(b2.pipe);
+        Server se2(ne2, 8182);
+        std::string err;
+        CHECK(se2.loadGame("equip_test.sav", err), "equipment load failed: %s", err.c_str());
+        Writer w;
+        w.u8(C_HELLO); w.u16(PROTOCOL_VERSION); w.str("Bot0"); w.u8(0);
+        dataChecksums(w);
+        b2.net.send(w.buf, true);
+        for (int t = 0; t < 10; t++) { se2.tick(); b2.poll(); }
+        CHECK(!b2.st.equip[EQ_GLOVES].empty() && b2.st.equip[EQ_GLOVES].d().id == "gloves_leather", "gloves lost on load");
+        CHECK(!b2.st.equip[EQ_CLOAK].empty() && b2.st.equip[EQ_CLOAK].d().id == "cloak_cloth", "cloak lost on load");
+        se.setSavePath("");   // otherwise the destructor writes the file straight back
+        std::remove("equip_test.sav");
+        std::printf("gloves and cloak ok\n");
     }
     {   // Shift+E uses what lies at your feet: worn gear swaps, and junk can be destroyed.
         auto nu = std::make_shared<ServerNet>();
@@ -1183,28 +1237,38 @@ int main(int argc, char** argv) {
             std::printf("campaign ok\n");
         }
     }
-    {   // Collapsing: with level 12 reached, the town stairs lead to level 6 and the
-        // unkilled boss of level 3 seeps down to level 6.
+    {   // Collapsing: level 1 goes at depth 5, level 2 at depth 6, so the town stairs
+        // lead to level 2 and then level 3. Deeper on, unfinished boss quests seep down.
         auto n3 = std::make_shared<ServerNet>();
         Bot b;
         n3->attachLoopback(b.pipe);
         Server s3(n3, 77);
         b.hello(1);
         for (int t = 0; t < 5; t++) { s3.tick(); b.poll(); }
+        auto townStairs = [&]() {
+            s3.debugGoto(0);
+            s3.debugMovePlayer(b.id, Vec2(s3.map().downX + 0.5f, s3.map().downY + 0.5f));
+            for (int t = 0; t < 3; t++) { s3.tick(); b.poll(); }
+            b.action(A_USE);
+            for (int t = 0; t < 5; t++) { s3.tick(); b.poll(); }
+        };
+        s3.debugSetMaxDepth(5);
+        townStairs();
+        CHECK(s3.map().depth == 2, "town stairs at depth 5 led to %d instead of 2", s3.map().depth);
+        s3.debugSetMaxDepth(6);
+        townStairs();
+        CHECK(s3.map().depth == 3, "town stairs at depth 6 led to %d instead of 3", s3.map().depth);
         s3.debugSetMaxDepth(12);
-        s3.debugMovePlayer(b.id, Vec2(s3.map().downX + 0.5f, s3.map().downY + 0.5f));
-        for (int t = 0; t < 3; t++) { s3.tick(); b.poll(); }
-        b.action(A_USE);
-        for (int t = 0; t < 5; t++) { s3.tick(); b.poll(); }
-        CHECK(s3.map().depth == 6, "town stairs led to %d instead of 6", s3.map().depth);
+        townStairs();
+        CHECK(s3.map().depth == 9, "town stairs at depth 12 led to %d instead of 9", s3.map().depth);
         int bossDepth = -1;
         for (auto& q : s3.quests()) if (q.main && !q.done) bossDepth = q.depth;
-        CHECK(bossDepth == 6, "boss quest depth %d, expected 6", bossDepth);
+        CHECK(bossDepth == 9, "boss quest depth %d, expected 9", bossDepth);
         // Up from the first open level goes straight to town (two presses).
         s3.debugMovePlayer(b.id, Vec2(s3.map().startX + 0.5f, s3.map().startY + 0.5f));
         for (int t = 0; t < 3; t++) { s3.tick(); b.poll(); }
         for (int k = 0; k < 2; k++) { b.action(A_USE); for (int t = 0; t < 10; t++) { s3.tick(); b.poll(); } }
-        CHECK(s3.map().depth == 0, "up from level 6 went to %d", s3.map().depth);
+        CHECK(s3.map().depth == 0, "up from level 9 went to %d", s3.map().depth);
         std::printf("level collapsing ok\n");
     }
     CHECK(bots[0].id != 0, "bot got no welcome");
