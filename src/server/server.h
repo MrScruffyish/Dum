@@ -334,6 +334,7 @@ private:
 
     // actions
     void onAction(SPlayer& p, Reader& r);
+    void onMathAnswer(SPlayer& p, Reader& r);
     void doAttack(SPlayer& p);
     void doCast(SPlayer& p, int classSpell);
     // Cast a spell. power = bonus to damage/healing (spell power, device skill...).

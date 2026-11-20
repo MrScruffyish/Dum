@@ -462,6 +462,23 @@ void Renderer::text(int x, int y, const std::string& s, uint32_t c, int scale, b
     }
 }
 
+void Renderer::drawTextTexture(Texture& t, const std::string& s, int x, int y, int scale, uint32_t c) {
+    int cx = x;
+    for (char ch : s) {
+        int i = (unsigned char)ch - 32;
+        if (i < 0 || i >= 95) i = '?' - 32;
+        for (int col = 0; col < 5; col++) {
+            uint8_t bits = kFont[i][col];
+            for (int row = 0; row < 7; row++)
+                if (bits & (1 << row))
+                    for (int a = 0; a < scale; a++)
+                        for (int b = 0; b < scale; b++)
+                            t.set(cx + col * scale + a, y + row * scale + b, c);
+        }
+        cx += 6 * scale;
+    }
+}
+
 void Renderer::blit(const Texture& t, int x, int y, int w, int h, float light, bool additive) {
     int li = (int)(light * 256);
     markDirty(x, y, x + w, y + h);

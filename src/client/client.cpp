@@ -485,6 +485,26 @@ void Client::event(const SDL_Event& e) {
         if (chat_.size() < 100) chat_ += e.text.text;
         return;
     }
+    if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_F7 && !e.key.repeat && ui_ != Ui::Chat) {
+        mathMode_ = !mathMode_;
+        if (!mathMode_) cancelMath();
+        addLog(mathMode_ ? "Math mode ON: even the monsters are confused." : "Math mode off.", UI_HI);
+        return;
+    }
+    if (mathTarget_) {
+        if (e.type == SDL_TEXTINPUT) {
+            if (mathBuf_.size() < 48) mathBuf_ += e.text.text;
+            return;
+        }
+        if (e.type == SDL_KEYDOWN) {
+            SDL_Keycode k = e.key.keysym.sym;
+            if (k == SDLK_ESCAPE) cancelMath();
+            else if (k == SDLK_RETURN || k == SDLK_KP_ENTER) submitMath();
+            else if (k == SDLK_BACKSPACE && !mathBuf_.empty()) mathBuf_.pop_back();
+            return;
+        }
+        return;   // no walking, swinging or menu while an answer is open
+    }
     if (e.type == SDL_MOUSEMOTION && ui_ == Ui::None) {
         turnAccum_ += e.motion.xrel * mouseSens;
         return;
@@ -677,6 +697,10 @@ void Client::tryAttack() {
     localAttackCd_ = (w ? w->cooldown : 0.6f) * me_.cdMult();
     attackAnim_ = 1.0f;
     sound_->play(w && w->ranged ? SND_SHOOT : SND_SWING, 0.8f, 0);
+    if (mathMode_ && targetId_ && !targetIsSpell_) {
+        openMath(targetId_);   // the hit opens the question instead of doing normal damage
+        return;
+    }
     action(A_ATTACK);
 }
 
@@ -686,6 +710,7 @@ void Client::tryCast() {
 }
 
 void Client::move(float dt) {
+    if (mathTarget_) return;   // answering a question holds you in place; monsters are free to hit
     angle_ = wrapAngle(angle_ + turnAccum_);
     turnAccum_ = 0;
     if (ui_ != Ui::None && ui_ != Ui::Map) return;
@@ -776,6 +801,10 @@ void Client::update(float dt) {
         }
     }
     if (!inGame()) return;
+    if (mathTarget_) {
+        auto it = ents_.find(mathTarget_);
+        if (me_.dead || it == ents_.end() || it->second.s.type != ET_MONSTER) cancelMath();
+    }
 
     localAttackCd_ = std::max(0.0f, localAttackCd_ - dt);
     localCastCd_ = std::max(0.0f, localCastCd_ - dt);
@@ -791,7 +820,7 @@ void Client::update(float dt) {
 
     move(dt);
     computeTarget();
-    if (ui_ == Ui::None) {
+    if (ui_ == Ui::None && !mathTarget_) {
         if (attackHeld_) tryAttack();
         if (castHeld_) tryCast();
         if (autoFight_) autoFightStep();
@@ -861,6 +890,18 @@ void Client::draw(Renderer& r) {
         switch (e.s.type) {
             case ET_MONSTER: {
                 const MonsterDef& d = gData.monsters[e.s.def];
+                if (mathMode_) {
+                    mathmode::Question mq = mathmode::question(e.s.id, e.s.def, map_.depth, d.boss);
+                    const Texture* label = mathLabel(r, mq);
+                    s.tex = label;
+                    float aspect = (float)label->w / label->h;
+                    s.height = clampf(1.15f / aspect, 0.12f, 0.55f);
+                    s.zoff = 0.42f + 0.03f * std::sin((float)time_ * 3.0f + (float)id);
+                    s.fullbright = true;   // equations are easier to read than shadows
+                    if (e.s.flags & EF_HURT) { s.tint = 0xFFFF2020; s.tintAmt = 0.55f; }
+                    else if (e.s.flags & EF_SLOW) { s.tint = 0xFF80C0FF; s.tintAmt = 0.3f; }
+                    break;
+                }
                 bool atk = e.s.flags & EF_ATTACK;
                 s.tex = atk ? &A.monstersAttack[e.s.def] : creatureFrame(e, A.monsters[e.s.def], A.monstersWalk[e.s.def], animStyleFor(d.sprite));
                 s.height = 0.85f * d.size;
@@ -1023,6 +1064,65 @@ const Texture* Client::creatureFrame(const CEnt& e, const Texture& still, const 
         f = (int)(e.anim * 1.4f) % n;
     }
     return &walk[f];
+}
+
+// F7 mode: the monster itself is replaced by a floating equation.
+const Texture* Client::mathLabel(Renderer& r, const mathmode::Question& q) {
+    auto cached = mathLabels_.find(q.text);
+    if (cached != mathLabels_.end()) return &cached->second;
+
+    std::vector<std::string> lines;
+    size_t start = 0;
+    for (;;) {
+        size_t comma = q.text.find(", ", start);
+        lines.push_back(q.text.substr(start, comma == std::string::npos ? comma : comma - start));
+        if (comma == std::string::npos) break;
+        start = comma + 2;
+    }
+    const int scale = 2, lineH = 18, pad = 4;
+    int w = 0;
+    for (const std::string& line : lines) {
+        int tw = r.textW(line, scale);
+        if (tw > w) w = tw;
+    }
+    w += pad * 2;
+    int h = pad * 2 + (int)lines.size() * lineH;
+
+    Texture t(w, h, 0);
+    uint32_t edge = q.boss ? 0xFFFF7050u : 0xFF8A6A40u;
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+            t.set(x, y, (x < 2 || y < 2 || x >= w - 2 || y >= h - 2) ? edge : 0xFF100C08u);
+    for (size_t i = 0; i < lines.size(); i++)
+        r.drawTextTexture(t, lines[i], pad, pad + (int)i * lineH, scale, q.boss ? 0xFFFFC0B0u : UI_HI);
+    t.top = 0;
+    return &mathLabels_.emplace(q.text, std::move(t)).first->second;
+}
+
+void Client::openMath(uint32_t monsterId) {
+    auto it = ents_.find(monsterId);
+    if (it == ents_.end() || it->second.s.type != ET_MONSTER) return;
+    const MonsterDef& d = gData.monsters[it->second.s.def];
+    mathQ_ = mathmode::question(monsterId, it->second.s.def, map_.depth, d.boss);
+    mathTarget_ = monsterId;
+    mathBuf_.clear();
+    attackHeld_ = castHeld_ = false;   // don't fire again the moment the box closes
+    addLog("Solve it: " + mathQ_.text, UI_HI);
+}
+
+void Client::cancelMath() {
+    mathTarget_ = 0;
+    mathBuf_.clear();
+}
+
+void Client::submitMath() {
+    if (!mathTarget_ || mathBuf_.empty()) return;
+    Writer w;
+    w.u8(C_MATH);
+    w.u32(mathTarget_);
+    w.str(mathBuf_);
+    send(w, true);
+    cancelMath();
 }
 
 void Client::drawViewModel(Renderer& r) {
@@ -1233,13 +1333,30 @@ void Client::drawHud(Renderer& r) {
     if (roster_.size() <= 1) r.text(px, by + 34, "F1: help", UI_DIM);
 
     // What E does here
-    if (ui_ == Ui::None) {
+    if (ui_ == Ui::None && !mathTarget_) {
         std::string pr = usePrompt();
         if (!pr.empty()) {
             int tw = r.textW(pr);
             r.fill((W - tw) / 2 - 4, H / 2 + 34, tw + 8, 11, 0xFF000000, 160);
             r.text((W - tw) / 2, H / 2 + 36, pr, UI_HI);
         }
+    }
+
+    // F7: the answer box. The dungeon keeps running while you type.
+    if (mathTarget_) {
+        std::string q = "Solve: " + mathQ_.text;
+        std::string in = mathQ_.prompt + mathBuf_ + ((int)(time_ * 2) % 2 ? "_" : "");
+        std::string hint = "Enter = check, Esc = leave";
+        int bw = r.textW(q);
+        if (r.textW(in) > bw) bw = r.textW(in);
+        if (r.textW(hint) > bw) bw = r.textW(hint);
+        bw += 10;
+        int bx = (W - bw) / 2, by = H / 2 + 30;
+        r.fill(bx, by, bw, 38, 0xFF000000, 235);
+        r.frame(bx, by, bw, 38, mathQ_.boss ? UI_RED : UI_EDGE);
+        r.text(bx + 5, by + 3, q, mathQ_.boss ? 0xFFFFB0A0 : UI_HI);
+        r.text(bx + 5, by + 14, in, UI_TEXT);
+        r.text(bx + 5, by + 26, hint, UI_DIM);
     }
 
     // Key legend (F2 hides it)

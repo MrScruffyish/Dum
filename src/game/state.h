@@ -8,7 +8,7 @@
 #include "common/serialize.h"
 #include "game/data.h"
 
-constexpr uint16_t PROTOCOL_VERSION = 14;  // 8: data file checksums in C_HELLO; 9: second ring, key ring; 10: quiver slot, ammo rule; 11: floor hazard tiles; 12: lever and timed door tiles; 13: trapdoor tile; 14: use items on the floor and destroy items
+constexpr uint16_t PROTOCOL_VERSION = 15;  // 8: data file checksums in C_HELLO; 9: second ring, key ring; 10: quiver slot, ammo rule; 11: floor hazard tiles; 12: lever and timed door tiles; 13: trapdoor tile; 14: use items on the floor and destroy items; 15: math answers
 constexpr uint16_t DEFAULT_PORT = 27666;
 constexpr float TICK_DT = 1.0f / 30.0f;
 constexpr int INV_SIZE = 20;
@@ -24,6 +24,7 @@ enum MsgType : uint8_t {
     C_INPUT,       // f32 x, f32 y, f32 angle, u8 flags
     C_ACTION,      // u8 action, i32 a, i32 b
     C_CHAT,        // str text
+    C_MATH,        // u32 monster id, str answer (F7 mode)
     // server -> client
     S_WELCOME = 20,  // u16 your player id, u8 difficulty, u8 rules (1 = ammo is used up)
     S_REJECT,        // str reason

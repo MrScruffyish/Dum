@@ -3,6 +3,7 @@
 #include "game/scores.h"
 
 #include "game/rules.h"
+#include "game/mathmode.h"
 
 #include <cstdio>
 #include <queue>
@@ -296,6 +297,8 @@ void Server::onData(int peer, const std::vector<uint8_t>& data) {
     } else if (type == C_CHAT) {
         std::string msg = r.str();
         if (!msg.empty()) text(-1, COL_CYAN, p->st.name + ": " + msg);
+    } else if (type == C_MATH) {
+        onMathAnswer(*p, r);
     }
 }
 
@@ -2048,6 +2051,29 @@ void Server::explode(Vec2 pos, float radius, int dmg, Element e, int spell, bool
 }
 
 // ============================================================== actions =====
+
+// F7 mode: the client asks the question; the server checks the answer and does the killing.
+void Server::onMathAnswer(SPlayer& p, Reader& r) {
+    uint32_t id = r.u32();
+    std::string answer = r.str();
+    if (!r.ok || answer.empty() || answer.size() > 80 || p.st.dead) return;
+
+    for (size_t i = 0; i < monsters_.size(); i++) {
+        Monster& m = monsters_[i];
+        if (m.id != id) continue;
+        // You have to have been close enough to hit it; no solving monsters across the level.
+        if (dist(p.pos, m.pos) > 4.0f || !map_.los(p.pos, m.pos)) return;
+        const MonsterDef& d = m.d();
+        mathmode::Question q = mathmode::question(m.id, m.def, map_.depth, d.boss);
+        if (q.matches(answer)) {
+            text(p.st.id, COL_YELLOW, "Correct! " + capitalize(theName(d)) + " is solved.");
+            killMonster(i, &p);
+        } else {
+            text(p.st.id, COL_RED, "Wrong answer. " + capitalize(theName(d)) + " is still out there.");
+        }
+        return;
+    }
+}
 
 void Server::onAction(SPlayer& p, Reader& r) {
     uint8_t a = r.u8();

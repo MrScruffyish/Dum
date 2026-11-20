@@ -14,6 +14,7 @@
 #include "client/renderer.h"
 #include "client/sound.h"
 #include "game/map.h"
+#include "game/mathmode.h"
 #include "game/state.h"
 #include "net/net.h"
 
@@ -149,6 +150,16 @@ private:
     int invDelete_ = -1; // pack slot armed for destruction (Del twice)
     int menuSel_ = 0;
     std::string chat_;
+    // F7: monsters become math problems. Typing an answer never pauses the dungeon.
+    bool mathMode_ = false;
+    uint32_t mathTarget_ = 0;
+    mathmode::Question mathQ_;
+    std::string mathBuf_;
+    std::unordered_map<std::string, Texture> mathLabels_;
+    const Texture* mathLabel(Renderer& r, const mathmode::Question& q);
+    void openMath(uint32_t monsterId);
+    void cancelMath();
+    void submitMath();
     bool attackHeld_ = false, castHeld_ = false;
     uint32_t targetId_ = 0;
     bool targetIsSpell_ = false;

@@ -95,6 +95,8 @@ public:
     void frame(int x, int y, int w, int h, uint32_t c);
     void text(int x, int y, const std::string& s, uint32_t c, int scale = 1, bool shadow = true);
     int textW(const std::string& s, int scale = 1) const { return (int)s.size() * 6 * scale; }
+    // Draw bitmap-font text into a texture (used for the math labels floating in the world).
+    void drawTextTexture(Texture& t, const std::string& s, int x, int y, int scale, uint32_t c);
     void blit(const Texture& t, int x, int y, int w, int h, float light = 1.0f, bool additive = false);
     void darken(float f);  // whole screen
     void tintScreen(uint32_t c, int alpha);
